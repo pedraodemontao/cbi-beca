@@ -1,26 +1,154 @@
 @import "tailwindcss";
 
+/* ═══ Camada 1 — Primitivos (direção "Amiga Professora") ═══ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --beca-cream: #faf7f2;
+  --beca-white: #ffffff;
+  --beca-ink: #28322b;
+  --beca-ink-soft: #5a645d;
+  --beca-green: #1b7a4e;
+  --beca-green-deep: #14603c;
+  --beca-green-tint: #dff0e6;
+  --beca-green-wash: #edf6f0;
+  --beca-butter: #fcf0ce;
+  --beca-butter-ink: #6e4f14;
+  --beca-butter-text: #4a3e1c;
+  --beca-coral: #be3a2b;
+  --beca-coral-tint: #fbe5de;
+  --beca-coral-deep: #a22f1e;
+  --beca-line: #e8e2d8;
+
+  /* ═══ Camada 2 — Semânticos ═══ */
+  --background: var(--beca-cream);
+  --surface: var(--beca-white);
+  --foreground: var(--beca-ink);
+  --muted-fg: var(--beca-ink-soft);
+  --border-subtle: var(--beca-line);
+  --primary: var(--beca-green);
+  --primary-deep: var(--beca-green-deep);
+  --primary-tint: var(--beca-green-tint);
+  --primary-wash: var(--beca-green-wash);
+  --accent: var(--beca-butter);
+  --accent-fg: var(--beca-butter-ink);
+  --accent-text: var(--beca-butter-text);
+  --positive: var(--beca-green-deep);
+  --negative: var(--beca-coral);
+  --negative-tint: var(--beca-coral-tint);
+  --negative-deep: var(--beca-coral-deep);
 }
 
+/* ═══ Camada 3 — Utilities Tailwind ═══ */
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted-foreground: var(--muted-fg);
+  --color-border: var(--border-subtle);
+  --color-input: var(--border-subtle);
+  --color-primary: var(--primary);
+  --color-primary-deep: var(--primary-deep);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-wash: var(--primary-wash);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-negative-tint: var(--negative-tint);
+  --color-negative-deep: var(--negative-deep);
+  --color-ring: var(--primary);
+  --font-sans: var(--font-jakarta);
+  --radius-card: 24px;
+  --radius-panel: 18px;
+  --shadow-soft: 0 10px 30px rgb(43 74 58 / 0.08), 0 2px 8px rgb(43 74 58 / 0.05);
+  --shadow-lift: 0 16px 40px rgb(43 74 58 / 0.12), 0 3px 10px rgb(43 74 58 / 0.06);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  position: relative;
+}
+
+/* Respiro quente ao fundo — assinatura da direção */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(560px 320px at 85% -40px, rgb(252 240 206 / 0.75), transparent 70%),
+    radial-gradient(640px 380px at -10% 160px, rgb(223 240 230 / 0.65), transparent 70%);
+}
+
+:focus-visible {
+  outline: 3px solid rgb(27 122 78 / 0.5);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+::selection {
+  background: var(--primary-tint);
+  color: var(--primary-deep);
+}
+
+@layer components {
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card {
+    @apply rounded-panel bg-surface p-5 shadow-soft;
+  }
+
+  .card-lg {
+    @apply rounded-card bg-surface p-6 shadow-soft;
+  }
+
+  .field {
+    @apply w-full rounded-panel border border-border bg-surface px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary;
+  }
+
+  .btn-primary {
+    @apply rounded-full bg-primary px-6 py-3 font-bold text-white shadow-soft transition-colors hover:bg-primary-deep disabled:opacity-60;
+  }
+
+  .btn-ghost {
+    @apply rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold;
+  }
+
+  .chip-up {
+    @apply bg-primary-tint text-primary-deep;
+  }
+
+  .chip-down {
+    @apply bg-negative-tint text-negative-deep;
+  }
+
+  .chip-neutral {
+    @apply bg-background text-muted-foreground;
+  }
+
+  /* Rótulo didático acima de cada número */
+  .micro-label {
+    @apply text-xs font-extrabold uppercase tracking-[0.1em] text-primary;
+  }
+
+  /* Explicação em voz de amiga abaixo do rótulo */
+  .micro-hint {
+    @apply text-sm font-medium text-muted-foreground;
+  }
 }
