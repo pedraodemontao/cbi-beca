@@ -22,6 +22,8 @@ const THOUSANDS = 1000;
 const REVALIDATE_SECONDS = {
   /** O balanço só muda quando sai ITR/DFP novo — 6h é folgado. */
   fundamentals: 21600,
+  /** FII anuncia rendimento uma vez por mês; 6h também sobra. */
+  fiis: 21600,
 } as const;
 
 /** Por que a chamada não deu certo. O cron usa isso pra avisar em português. */
@@ -130,6 +132,115 @@ async function bolsaiFetch<T>(
     console.error(`bolsai ${path} falhou`, error);
     return { ok: false, reason: 'unavailable' };
   }
+}
+
+/**
+ * Fundamentos de FII, já normalizados.
+ *
+ * FII não tem LPA: o preço teto dele sai do rendimento distribuído nos últimos
+ * 12 meses dividido pelo yield desejado — a mesma conta do Bazin.
+ */
+export interface FiiFundamentals {
+  ticker: string;
+  /** Razão 0-1. */
+  dividendYield12m: number | null;
+  /** R$ por cota distribuídos em 12 meses. */
+  dividends12m: number | null;
+  priceToBook: number | null;
+  /** Valor patrimonial por cota. */
+  bookValuePerShare: number | null;
+  price: number | null;
+  name: string | null;
+}
+
+/** A bolsai não documenta o nome exato dos campos de FII; aceitamos os apelidos. */
+function pickNumber(source: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = toNumber(source[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function pickString(source: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return null;
+}
+
+/**
+ * Yield vem ora como 8.5 (por cento), ora como 0.085 (razão). Acima de 1 só pode
+ * ser percentual: FII com 100% de yield ao ano não existe.
+ */
+function toYieldRatio(value: number | null): number | null {
+  if (value === null) return null;
+  return value > 1 ? value / 100 : value;
+}
+
+function normalizeFii(raw: Record<string, unknown>, fallbackTicker: string): FiiFundamentals {
+  const price = pickNumber(raw, ['close_price', 'price', 'last_price', 'quote']);
+  const dividendYield12m = toYieldRatio(
+    pickNumber(raw, ['dy', 'dividend_yield', 'dividend_yield_12m', 'dy_12m', 'yield_12m'])
+  );
+  const dividends12m = pickNumber(raw, [
+    'dividends_12m',
+    'distributions_12m',
+    'total_distributions_12m',
+    'rendimento_12m',
+  ]);
+
+  return {
+    ticker: pickString(raw, ['ticker', 'symbol']) ?? fallbackTicker,
+    dividendYield12m,
+    // Sem a série de distribuições (que é Pro), o R$/cota sai do yield x preço.
+    dividends12m:
+      dividends12m ??
+      (dividendYield12m !== null && price !== null ? dividendYield12m * price : null),
+    priceToBook: pickNumber(raw, ['pvp', 'p_vp', 'price_to_book', 'pv']),
+    bookValuePerShare: pickNumber(raw, [
+      'vpa',
+      'nav_per_share',
+      'book_value_per_share',
+      'equity_per_share',
+    ]),
+    price,
+    name: pickString(raw, ['name', 'corporate_name', 'fund_name']),
+  };
+}
+
+/** Todos os FIIs de uma vez: o endpoint aceita `limit` até 5.000. */
+export async function getFiiList(limit = 500): Promise<BolsaiResult<FiiFundamentals[]>> {
+  const result = await bolsaiFetch<unknown>(
+    `/fiis/?limit=${limit}`,
+    REVALIDATE_SECONDS.fiis
+  );
+  if (!result.ok) return result;
+
+  const payload = result.data;
+  const rows = Array.isArray(payload)
+    ? payload
+    : ((payload as { results?: unknown[]; data?: unknown[]; fiis?: unknown[] })?.results ??
+      (payload as { data?: unknown[] })?.data ??
+      (payload as { fiis?: unknown[] })?.fiis ??
+      []);
+
+  return {
+    ok: true,
+    data: (rows as Record<string, unknown>[])
+      .filter((row) => row && typeof row === 'object')
+      .map((row) => normalizeFii(row, '')),
+  };
+}
+
+export async function getFii(ticker: string): Promise<BolsaiResult<FiiFundamentals>> {
+  const result = await bolsaiFetch<Record<string, unknown>>(
+    `/fiis/${encodeURIComponent(ticker)}`,
+    REVALIDATE_SECONDS.fiis
+  );
+  if (!result.ok) return result;
+  return { ok: true, data: normalizeFii(result.data, ticker) };
 }
 
 export async function getFundamentals(

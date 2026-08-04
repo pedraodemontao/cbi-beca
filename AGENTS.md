@@ -122,29 +122,122 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
   de não-recorrente. Precisa de flag de outlier antes de a tabela ir pro ar.
 - **`ceiling_overrides` usa `unique nulls not distinct (user_id, ticker)`** —
   `user_id` nulo é override global da Beca, visível pra todo mundo.
+- **Fracionário (`PETR4F`) não entra no catálogo** (`FRACTIONAL_TICKER` em
+  `lib/market-sync.ts`): é a mesma empresa do papel cheio e a bolsai devolve 422
+  em todos. Medido em 2026-08-04: eles torraram 76 das 150 requisições diárias
+  antes do filtro existir.
+- **A sincronização pula quem tem fundamento gravado há menos de 7 dias.** O
+  balanço só muda quando sai ITR novo — sem isso, todo dia a cota ia embora
+  reconsultando as mesmas líderes de valor de mercado e a cauda nunca entrava.
+- **A tabela usa a cotação gravada em `companies`, não preço ao vivo.** O free da
+  brapi serve 1 ticker por requisição: ranquear centenas ao vivo é impossível.
+  Preço ao vivo continua exclusivo de `/carteira`, `/resumo` e `/ativo`.
+- **Piso de liquidez de R$ 1 milhão negociado no dia** (`volume × preço`,
+  migration 0004). Sem ele o ranking por margem é lixo: EQPA7 e BNBR3 trocaram
+  200 ações num pregão em que PETR4 trocou 25 milhões, e o preço parado deles
+  inventava margem de +1.487%. O toggle vem ligado, mas desligar devolve tudo
+  com selo "pouco negociada" — a tabela protege, não esconde.
+- **Flag de lucro atípico é P/L < 6, não D/Y alto.** O D/Y projetado depende do
+  payout, e o selo não pode piscar a cada arrasto do slider. PETR4 fica em 5,1 e
+  é pega; JHSF3, CYRE4 e SUZB3 também.
+- **Não existe ordenar por dividendo projetado:** como o teto é o DPA dividido
+  pelo yield, margem e D/Y produzem exatamente a mesma lista. As ordenações são
+  margem, valor de mercado e alfabética.
+- **O ajuste manual é digitado em lucro POR AÇÃO, não lucro total.** Ninguém
+  digita "107583000000" pra falar da Petrobras. A action multiplica pelas ações
+  do banco antes de gravar `manual_profit` — a quantidade nunca vem do
+  formulário, senão dava pra forjar o teto de qualquer empresa.
+- **Ajuste salvo congela o payout daquela linha.** O slider global deixa de
+  valer pra ela (é o que o selo "teu ajuste" comunica); "Voltar ao padrão"
+  apaga o override e devolve a linha ao slider.
+- **`clearCeilingOverride` filtra por `user_id` explícito** — a RLS deixa a
+  usuária LER os ajustes globais da Beca, e sem o filtro um delete tentaria
+  levá-los junto.
+- **As abas trocam as colunas, não a tabela.** Cada método devolve uma lista de
+  colunas (`buildColumns`) e a coluna marcada `strong` vira o teto que manda na
+  margem, na ordenação e no número grande do card no mobile. Adicionar método
+  novo é escrever um `case`, não outra tabela.
+- **O slider de payout só aparece em Projetado e Gordon.** Graham parte de LPA e
+  VPA — deixar o controle na tela sugeriria que mexer nele muda o resultado.
+- **Gordon com crescimento ≥ retorno exigido não mostra teto:** a fórmula
+  explodiria pro infinito. A tela avisa e as linhas viram "sem teto".
+- **FII usa `/fiis/` da bolsai — UMA requisição pra lista inteira** (o endpoint
+  aceita `limit` até 5.000). Por isso `syncFiis` roda ANTES de `syncFundamentals`
+  no cron: se a cota acabar, o que fica pela metade é a cauda das ações.
+- **O rendimento do FII é gravado em `company_fundamentals.dividends_12m`** —
+  não precisou de tabela nova. Quando a bolsai só devolve o yield, o R$/cota sai
+  de `yield × preço`; yield acima de 1 é tratado como percentual (FII com 100%
+  ao ano não existe).
+- **Os campos de `/fiis/` não são documentados** — `lib/bolsai.ts` aceita
+  apelidos (`dy`, `dividend_yield`, `dy_12m`…) via `pickNumber`. Assim que a
+  cota renovar, conferir o payload real e enxugar a lista.
+- **Nunca escrever "a ação está X% abaixo do teto".** Margem é (teto − preço) ÷
+  preço: com margem de +96%, o TETO é 96% maior que a cotação — a ação não está
+  96% abaixo dele. O chat já errou isso uma vez; o `CONTEXTO_PRECO_TETO` e o
+  card do ativo agora usam a frase "o teto é X% maior/menor que a cotação".
 
 ### Etapas do Preço Teto
 
 1. ✅ Migrations 0003, `lib/bolsai.ts`, `lib/ceiling-price.ts`, `lib/market-sync.ts`, crons
-2. `/preco-teto` — tabela do print (Projetado)
-3. Payout e lucro manual salvando por usuária
-4. Abas Bazin · Graham · Gordon
-5. FII (sem LPA: dividendo 12m ÷ yield) + JCP no payout + flag de outlier
-6. Sparkline 30 dias + ranking de dividendos
-7. Preço Teto vira a home
+2. ✅ `/preco-teto` — tabela do print (Projetado), payout em slider recalculando
+   no client, busca, ordenação, flag de lucro atípico e data do balanço à vista
+3. ✅ Payout e lucro manual salvando por usuária (`ceiling_overrides`)
+4. 🟡 Abas: Graham e Gordon ✅ — **Bazin bloqueado por assinatura** (precisa de
+   dividendos pagos; a aba existe e explica a ausência em vez de inventar número)
+5. 🟡 FII — código pronto (`syncFiis`, aba própria na tabela, `/api/cron/fiis`),
+   **falta rodar a sincronização** (cota da bolsai zerou; renova à meia-noite UTC)
+6. Sparkline 30 dias + ranking de dividendos (ranking depende de dividendos = Pro)
+7. ✅ Preço Teto vira a home
+
+### Feito além do roadmap (para a demo)
+
+- **Preço teto na página do ativo** (`components/ativo/ceiling-card.tsx`): os
+  quatro números do ticker aberto, com preço ao vivo da brapi.
+- **Carteira ↔ preço teto**: cada posição mostra se a cotação está abaixo do
+  teto, com link pra página do ativo.
+- **Filtros da tabela**: setor, "só abaixo do teto" e "só o que eu tenho"
+  (marca as posições da usuária com selo).
+- **Chat sabe do preço teto** (`CONTEXTO_PRECO_TETO` em `/api/chat`): a Beca
+  responde "a PETR4 está abaixo do teto?" com o número já calculado.
 
 ## Pendências conhecidas
 
-- **Migration 0003 (preço teto) precisa ser aplicada no Supabase.**
-- **bolsai ainda no plano free (200 req/dia)** — cobre ~150 ações por execução.
-  Com o Pro (R$ 49/mês) o `?limit=` da sincronização pode subir pra 400+.
+### O que a bolsai serve em cada plano (sondado em 2026-08-04)
+
+Free (200 req/dia) — `/companies/`, `/fiis/`, **`/fiis/{ticker}`**, `/fundamentals/{ticker}`.
+Pro (10.000 req/dia, ~R$ 29/mês) — `/dividends/{ticker}`, `/fiis/{ticker}/distributions`,
+`/fiis/screener`, `/financials/{ticker}`, `/fundamentals/{ticker}/history`, `/macro/`.
+
+- **`/fiis/{ticker}` é FREE e devolve DY, P/VP, NAV e cotistas** — ou seja, o
+  preço teto de FII (etapa 5) NÃO depende de assinatura: dividendo 12m sai de
+  `preço × DY`. Só a série mensal de distribuições é que é Pro.
+- **Bazin de ação continua preso ao Pro**: `/dividends/{ticker}` é a única fonte
+  de dividendo pago de ação que sobrou (a brapi restringiu ao sandbox).
+- A checagem de tier acontece ANTES do rate limit — dá pra descobrir o que é Pro
+  mesmo com a cota do dia estourada.
+
+- **bolsai ainda no plano free (200 req/dia)** — o teto bate exatamente em 200
+  e o cron para sozinho com `halted: 'rate_limited'`. Em 2026-08-04 o banco
+  ficou com **111 empresas** (105 com teto calculável); a cauda entra nos dias
+  seguintes, ~200/dia, ou de uma vez com o Pro (R$ 49/mês).
+- **5 ações não-fracionárias também deram 422 na bolsai** — provavelmente sem
+  demonstração na CVM. Investigar se virar padrão.
 - **`/dividends`, `/financials` e `/screener` da bolsai não foram testados** —
   dão 403 no free. Validar quando a chave virar Pro (bloqueia a etapa do Bazin).
+- **DIVIDENDOS SÓ EXISTEM NO SANDBOX DA BRAPI (medido em 2026-08-04).**
+  `/v2/stocks/dividends?symbols=PETR4` responde; o mesmo endpoint com ITSA4 dá
+  `FEATURE_NOT_AVAILABLE`, e o módulo `dividends` do `/quote` foi removido do
+  free até pros tickers de sandbox. `defaultKeyStatistics` idem: só sandbox.
+  Consequência: `/proventos` e "próximos proventos" do `/resumo` só mostram algo
+  pra quem tem PETR4, VALE3, ITUB4 ou MGLU3 na carteira — o resto degrada com a
+  mensagem em pt-BR. **Destravar dividendos exige assinatura** (bolsai Pro
+  R$ 49/mês ou brapi paga), e é o mesmo bloqueio da aba Bazin e do preço teto
+  de FII.
 - **Confirmação de e-mail está LIGADA no Supabase** — signup não devolve sessão até o usuário confirmar. Desligar em Authentication → Sign In/Up → Email para agilizar o desenvolvimento.
 - **Usuário de teste criado em 2026-08-03:** `qa.carteira.teste@gmail.com` (não confirmado). Apagar em Authentication → Users quando quiser.
 - Chat não persiste histórico entre recarregamentos (não estava no escopo).
-- Nada commitado além do scaffold inicial.
-- **Migration 0002 (snapshots) precisa ser aplicada no Supabase** antes do gráfico de evolução funcionar.
+- **A cotação de `companies` é do fechamento do dia da sincronização.** Papel
+  ilíquido fica com preço de dias atrás mesmo assim — daí o piso de liquidez.
 - **Gráfico de evolução só ganha forma depois de 2+ dias de cron** — e o cron da Vercel só roda em produção.
 
 ## Fora do alcance da brapi (verificado em 2026-08-03)
@@ -161,4 +254,8 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
 
 - `npm run dev` / `npm run build` / `npm run lint`
 - Migrations: aplicar os `supabase/migrations/*.sql` em ordem no SQL Editor do projeto Supabase (ou `supabase db push` se CLI vinculada).
-- Popular o preço teto localmente: `curl "localhost:3000/api/cron/catalog"` e depois `curl "localhost:3000/api/cron/fundamentals?limit=150"` (o `limit` respeita a cota diária do plano free da bolsai).
+- **Ligar os FIIs (pendente):** `curl "localhost:3000/api/cron/fiis?limit=500"` —
+  custa 1 requisição. Rodar depois da meia-noite UTC (21h de Brasília), quando a
+  cota da bolsai renova, e conferir se `saved` > 0; se vier `withoutYield` alto,
+  os apelidos de campo em `lib/bolsai.ts` precisam de ajuste.
+- Popular o preço teto localmente: `curl "localhost:3000/api/cron/catalog"` e depois `curl "localhost:3000/api/cron/fundamentals?limit=200"` (o `limit` respeita a cota diária do plano free da bolsai; quem já tem fundamento fresco é pulado, então rodar de novo no dia seguinte avança a fila em vez de repetir).

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getQuote, type BrapiQuote } from '@/lib/brapi';
 import { buildPortfolioSummary, groupByTicker } from '@/lib/portfolio';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
+import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
+import { buildCeilingProjection, DEFAULT_PAYOUT } from '@/lib/ceiling-price';
 import { AppHeader } from '@/components/layout/app-header';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { AddPositionForm } from '@/components/carteira/add-position-form';
@@ -28,10 +30,30 @@ export default async function CarteiraPage() {
   const positions = (rows ?? []) as PositionRow[];
 
   const tickers = [...new Set(positions.map((p) => p.ticker))];
-  const [quotes, incomeReport] = await Promise.all([
+  const [quotes, incomeReport, ceilingAssets, overrides] = await Promise.all([
     tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
     buildDividendIncomeReport(positions),
+    fetchCeilingAssets(supabase, { tickers }),
+    fetchAppliedOverrides(supabase),
   ]);
+
+  // Teto de 6% por ticker — é o que cada card compara com o preço de hoje.
+  const ceilings = new Map<string, number>();
+  for (const asset of ceilingAssets) {
+    const override = overrides.get(asset.ticker);
+    const { ceilings: byYield } = buildCeilingProjection({
+      price: asset.price,
+      reportedProfit: asset.netIncome,
+      manualProfit: override?.manualProfit ?? null,
+      sharesOutstanding: asset.sharesOutstanding,
+      bookValuePerShare: asset.vpa,
+      payout: override?.payout ?? DEFAULT_PAYOUT,
+    });
+    const ceiling = byYield[0]?.ceiling;
+    if (ceiling !== null && ceiling !== undefined) {
+      ceilings.set(asset.ticker, ceiling);
+    }
+  }
   const quoteMap = new Map<string, BrapiQuote>(
     (quotes ?? []).map((quote) => [quote.symbol, quote])
   );
@@ -72,6 +94,7 @@ export default async function CarteiraPage() {
           holdings={groupByTicker(summary.positions)}
           positions={positions}
           quoteMap={quoteMap}
+          ceilings={ceilings}
         />
       </main>
       <BottomNav />

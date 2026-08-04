@@ -11,12 +11,15 @@ interface PositionCardProps {
   holding: TickerHolding;
   purchaseDates: Map<string, string | null>;
   dayChangePercent: number | null;
+  /** Teto pra render 6% ao ano; nulo quando ainda não tenho o lucro da empresa. */
+  ceiling: number | null;
 }
 
 export function PositionCard({
   holding,
   purchaseDates,
   dayChangePercent,
+  ceiling,
 }: PositionCardProps) {
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const [showLots, setShowLots] = useState(false);
@@ -119,6 +122,26 @@ export function PositionCard({
             ` (${formatPercent(holding.profitPercent)})`}{' '}
           <span className="font-medium text-muted-foreground">desde a compra</span>
         </p>
+      )}
+
+      {ceiling !== null && holding.currentPrice !== null && (
+        <Link
+          href={`/ativo/${holding.ticker}`}
+          className="flex items-center justify-between gap-2 rounded-panel bg-background px-3.5 py-2.5 text-sm transition-colors hover:bg-primary-wash"
+        >
+          <span className="font-medium text-muted-foreground">
+            {holding.currentPrice <= ceiling
+              ? 'Ainda dá pra comprar abaixo do teto'
+              : 'Hoje está acima do teto'}
+          </span>
+          <span
+            className={`num font-extrabold ${
+              holding.currentPrice <= ceiling ? 'text-positive' : 'text-negative'
+            }`}
+          >
+            {formatBRL(ceiling)}
+          </span>
+        </Link>
       )}
 
       {isDown && (

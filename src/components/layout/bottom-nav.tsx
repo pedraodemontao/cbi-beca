@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const ITEMS = [
+  { href: '/preco-teto', label: 'Teto', icon: TagIcon },
   { href: '/carteira', label: 'Carteira', icon: WalletIcon },
   { href: '/proventos', label: 'Proventos', icon: CoinsIcon },
   { href: '/resumo', label: 'Resumo', icon: ChartIcon },
@@ -27,7 +28,7 @@ export function BottomNav() {
               <Link
                 href={href}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex flex-col items-center gap-0.5 rounded-2xl px-3 py-2 text-[0.7rem] font-bold transition-colors sm:flex-row sm:gap-2 sm:rounded-full sm:px-5 sm:text-sm ${
+                className={`flex flex-col items-center gap-0.5 rounded-2xl px-1.5 py-2 text-[0.65rem] font-bold transition-colors sm:flex-row sm:gap-2 sm:rounded-full sm:px-4 sm:text-sm ${
                   isActive
                     ? 'bg-primary-wash text-primary-deep'
                     : 'text-muted-foreground hover:text-primary'
@@ -54,6 +55,15 @@ const iconProps = {
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
 } as const;
+
+function TagIcon() {
+  return (
+    <svg {...iconProps} aria-hidden>
+      <path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" />
+      <path d="M7.5 7.5h.01" />
+    </svg>
+  );
+}
 
 function WalletIcon() {
   return (

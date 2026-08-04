@@ -7,5 +7,7 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  redirect(user ? "/carteira" : "/login");
+  // O preço teto é a porta de entrada do produto: a carteira é o segundo passo,
+  // depois que a usuária já achou o que quer comprar.
+  redirect(user ? "/preco-teto" : "/login");
 }

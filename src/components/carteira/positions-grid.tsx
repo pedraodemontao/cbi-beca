@@ -6,12 +6,15 @@ interface PositionsGridProps {
   holdings: TickerHolding[];
   positions: PositionRow[];
   quoteMap: Map<string, BrapiQuote>;
+  /** Teto de 6% por ticker, calculado no servidor. */
+  ceilings: Map<string, number>;
 }
 
 export function PositionsGrid({
   holdings,
   positions,
   quoteMap,
+  ceilings,
 }: PositionsGridProps) {
   if (holdings.length === 0) {
     return (
@@ -45,6 +48,7 @@ export function PositionsGrid({
             dayChangePercent={
               quoteMap.get(holding.ticker)?.regularMarketChangePercent ?? null
             }
+            ceiling={ceilings.get(holding.ticker) ?? null}
           />
         ))}
       </div>

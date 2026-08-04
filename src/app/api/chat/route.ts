@@ -18,6 +18,14 @@ import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
 import { buildPortfolioSummary } from '@/lib/portfolio';
 import { createClient } from '@/lib/supabase/server';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
+import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
+import {
+  bazinCeiling,
+  buildCeilingProjection,
+  ceilingMargin,
+  DEFAULT_PAYOUT,
+} from '@/lib/ceiling-price';
+import type { AppliedOverride, CeilingAsset } from '@/types/ceiling';
 import type {
   AssetType,
   DividendIncomeReport,
@@ -167,6 +175,82 @@ function buildPortfolioContext(
   return lines.join('\n');
 }
 
+/**
+ * Preço teto dos ativos que a usuária tem.
+ *
+ * Vai num bloco separado porque responde outra pergunta: o CONTEXTO_CARTEIRA
+ * diz quanto ela tem, este diz se o preço de hoje ainda faz sentido. A regra de
+ * nunca recomendar compra ou venda continua valendo — o teto é referência de
+ * estudo, e a IA só pode repetir o número que já veio pronto.
+ */
+function buildCeilingContext(
+  assets: CeilingAsset[],
+  overrides: Map<string, AppliedOverride>,
+  quoteMap: Map<string, BrapiQuote>
+): string {
+  if (assets.length === 0) return '';
+
+  const lines: string[] = [
+    '<CONTEXTO_PRECO_TETO>',
+    'Preço teto é até quanto vale a pena pagar num ativo pra que o dividendo dele renda o percentual desejado ao ano. Os números abaixo já estão calculados.',
+    '',
+  ];
+
+  for (const asset of assets) {
+    const override = overrides.get(asset.ticker);
+    const price = quoteMap.get(asset.ticker)?.regularMarketPrice ?? asset.price;
+
+    if (asset.assetType === 'fii') {
+      const ceiling = bazinCeiling(asset.dividends12m, 0.06);
+      if (ceiling === null) continue;
+      lines.push(
+        `- ${asset.ticker} (FII): rendeu ${formatBRL(asset.dividends12m!)} por cota em 12 meses; teto pra render 6% ao ano = ${formatBRL(ceiling)}${
+          price === null ? '' : `; cotação atual ${formatBRL(price)}`
+        }`
+      );
+      continue;
+    }
+
+    const projection = buildCeilingProjection({
+      price,
+      reportedProfit: asset.netIncome,
+      manualProfit: override?.manualProfit ?? null,
+      sharesOutstanding: asset.sharesOutstanding,
+      bookValuePerShare: asset.vpa,
+      payout: override?.payout ?? DEFAULT_PAYOUT,
+    });
+
+    const ceiling = projection.ceilings[0]?.ceiling;
+    if (ceiling === null || ceiling === undefined) continue;
+
+    const margin = ceilingMargin(ceiling, price);
+    lines.push(
+      `- ${asset.ticker}: lucro por ação ${formatBRL(projection.eps!)}, dividendo previsto ${formatBRL(
+        projection.dps!
+      )} (payout de ${Math.round(projection.payout * 100)}%); teto pra render 6% ao ano = ${formatBRL(ceiling)}${
+        projection.graham === null ? '' : `; valor justo de Graham = ${formatBRL(projection.graham)}`
+      }${
+        margin === null
+          ? ''
+          : margin >= 0
+            ? `; a cotação de hoje está ABAIXO do teto — o teto é ${formatPercent(margin * 100)} maior que a cotação (NÃO diga que a ação está esse tanto "abaixo do teto", a conta é essa mesma: teto sobre cotação)`
+            : `; a cotação de hoje está ACIMA do teto — o teto é ${formatPercent(Math.abs(margin) * 100)} menor que a cotação`
+      }${
+        override ? ' — a usuária ajustou o payout ou o lucro dessa empresa' : ''
+      }`
+    );
+  }
+
+  if (lines.length === 3) return '';
+
+  lines.push(
+    '',
+    'O lucro vem do último balanço publicado na CVM e pode não se repetir. Preço teto é referência de estudo, NUNCA recomendação: não diga pra comprar, vender ou esperar.',
+    '</CONTEXTO_PRECO_TETO>'
+  );
+  return lines.join('\n');
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -214,11 +298,14 @@ export async function POST(request: Request) {
   const positions = (rows ?? []) as PositionRow[];
 
   const tickers = [...new Set(positions.map((position) => position.ticker))];
-  const [quotes, upcomingDividends, income] = await Promise.all([
-    tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
-    getUpcomingDividends(positions),
-    buildDividendIncomeReport(positions),
-  ]);
+  const [quotes, upcomingDividends, income, ceilingAssets, ceilingOverrides] =
+    await Promise.all([
+      tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
+      getUpcomingDividends(positions),
+      buildDividendIncomeReport(positions),
+      fetchCeilingAssets(supabase, { tickers }),
+      fetchAppliedOverrides(supabase),
+    ]);
   const quoteMap = new Map<string, BrapiQuote>((quotes ?? []).map((quote) => [quote.symbol, quote]));
   const areQuotesUnavailable = tickers.length > 0 && quotes === null;
 
@@ -230,9 +317,11 @@ export async function POST(request: Request) {
     income
   );
 
+  const ceilingBlock = buildCeilingContext(ceilingAssets, ceilingOverrides, quoteMap);
+
   const result = streamText({
     model: anthropic(CHAT_MODEL),
-    system: `${systemPrompt}\n\n${contextBlock}`,
+    system: [systemPrompt, contextBlock, ceilingBlock].filter(Boolean).join('\n\n'),
     messages: await convertToModelMessages(messages),
   });
 

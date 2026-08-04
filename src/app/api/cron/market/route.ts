@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isAuthorizedCron } from '@/lib/cron-auth';
 import {
   syncCatalog,
+  syncFiis,
   syncFundamentals,
   DEFAULT_FUNDAMENTALS_LIMIT,
 } from '@/lib/market-sync';
@@ -32,11 +33,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: catalog.error }, { status: catalog.status });
   }
 
+  // Os FIIs vêm antes das ações porque custam UMA requisição pra lista inteira:
+  // se a cota acabar no meio, o que cai é a cauda das ações, não a aba de FII.
+  const fiis = await syncFiis();
+
   const fundamentals = await syncFundamentals(limit);
   if (!fundamentals.ok) {
     // O catálogo já entrou; devolvemos o que deu certo junto com o que falhou.
     return NextResponse.json(
-      { error: fundamentals.error, catalog: catalog.data },
+      {
+        error: fundamentals.error,
+        catalog: catalog.data,
+        fiis: fiis.ok ? fiis.data : { error: fiis.error },
+      },
       { status: fundamentals.status }
     );
   }
@@ -44,6 +53,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     catalog: catalog.data,
+    fiis: fiis.ok ? fiis.data : { error: fiis.error },
     fundamentals: fundamentals.data,
   });
 }

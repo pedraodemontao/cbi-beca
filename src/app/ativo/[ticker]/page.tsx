@@ -11,7 +11,9 @@ import {
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { BecaTip } from '@/components/shared/beca-tip';
+import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
 import { PriceChart } from '@/components/ativo/price-chart';
+import { CeilingCard } from '@/components/ativo/ceiling-card';
 import { Fundamentals } from '@/components/ativo/fundamentals';
 import { DividendsHistory } from '@/components/ativo/dividends-history';
 import type { AssetType, PositionRow } from '@/types/portfolio';
@@ -46,12 +48,17 @@ export default async function AtivoPage({
   const positions = (rows ?? []) as PositionRow[];
   const assetType: AssetType = positions[0]?.asset_type ?? 'stock';
 
-  const [quotes, statistics, history, dividends] = await Promise.all([
-    getQuote([ticker]),
-    getStatistics(ticker),
-    getHistorical(ticker, RANGE),
-    getDividends(ticker, assetType),
-  ]);
+  const [quotes, statistics, history, dividends, ceilingAssets, overrides] =
+    await Promise.all([
+      getQuote([ticker]),
+      getStatistics(ticker),
+      getHistorical(ticker, RANGE),
+      getDividends(ticker, assetType),
+      fetchCeilingAssets(supabase, { tickers: [ticker] }),
+      fetchAppliedOverrides(supabase),
+    ]);
+
+  const ceilingAsset = ceilingAssets[0] ?? null;
 
   const quote = quotes?.[0] ?? null;
   const dayChange = quote?.regularMarketChangePercent ?? null;
@@ -110,6 +117,14 @@ export default async function AtivoPage({
             </p>
           )}
         </header>
+
+        {ceilingAsset && (
+          <CeilingCard
+            asset={ceilingAsset}
+            override={overrides.get(ticker)}
+            livePrice={quote?.regularMarketPrice ?? null}
+          />
+        )}
 
         {history && history.length > 1 && (
           <section className="card-lg">
