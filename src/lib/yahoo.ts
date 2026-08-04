@@ -25,6 +25,17 @@ const BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
 /** Dividendo anunciado hoje só muda o total daqui a semanas; 6h é folgado. */
 const REVALIDATE_SECONDS = 21600;
 
+export interface DividendPayment {
+  /**
+   * Data-com/ex-date em ISO. É a data que decide QUEM recebe: quem tinha o ativo
+   * antes dela leva o dividendo, mesmo que o dinheiro caia semanas depois. Pra
+   * saber o que a usuária tem direito a receber, é o critério certo.
+   */
+  date: string;
+  /** R$ por ação/cota. */
+  rate: number;
+}
+
 export interface TrailingDividends {
   ticker: string;
   /** Soma em R$ por ação/cota nos últimos 12 meses. */
@@ -44,19 +55,27 @@ interface YahooChartResponse {
   };
 }
 
+/** Períodos que o Yahoo aceita e que o app usa. */
+export type DividendRange = '1y' | '5y' | '10y';
+
+interface RawDividends {
+  payments: DividendPayment[];
+  price: number | null;
+}
+
 /**
- * Soma o que o ativo pagou por ação nos últimos 12 meses.
- *
- * O ticker vai com sufixo `.SA`, que é como o Yahoo identifica a B3.
+ * Histórico cru de pagamentos. O ticker vai com sufixo `.SA`, que é como o
+ * Yahoo identifica a B3.
  */
-export async function getTrailingDividends(
-  ticker: string
-): Promise<TrailingDividends | null> {
+async function fetchDividends(
+  ticker: string,
+  range: DividendRange
+): Promise<RawDividends | null> {
   const symbol = `${ticker.toUpperCase()}.SA`;
 
   try {
     const res = await fetch(
-      `${BASE_URL}/${encodeURIComponent(symbol)}?interval=1d&range=1y&events=div`,
+      `${BASE_URL}/${encodeURIComponent(symbol)}?interval=1d&range=${range}&events=div`,
       { next: { revalidate: REVALIDATE_SECONDS } }
     );
 
@@ -71,21 +90,57 @@ export async function getTrailingDividends(
     const result = data.chart?.result?.[0];
     if (!result) return null;
 
-    const dividends = Object.values(result.events?.dividends ?? {});
-    const amounts = dividends
-      .map((entry) => entry.amount)
-      .filter((amount): amount is number => typeof amount === 'number' && amount > 0);
+    const payments: DividendPayment[] = Object.values(result.events?.dividends ?? {})
+      .filter(
+        (entry): entry is { amount: number; date: number } =>
+          typeof entry.amount === 'number' &&
+          entry.amount > 0 &&
+          typeof entry.date === 'number'
+      )
+      // O Yahoo devolve o timestamp em segundos.
+      .map((entry) => ({
+        date: new Date(entry.date * 1000).toISOString(),
+        rate: entry.amount,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const price = result.meta?.regularMarketPrice;
 
     return {
-      ticker: ticker.toUpperCase(),
-      total12m: amounts.reduce((sum, amount) => sum + amount, 0),
-      payments: amounts.length,
+      payments,
       price: typeof price === 'number' && price > 0 ? price : null,
     };
   } catch (error) {
     console.error(`Yahoo ${symbol} falhou`, error);
     return null;
   }
+}
+
+/** Soma o que o ativo pagou por ação/cota nos últimos 12 meses. */
+export async function getTrailingDividends(
+  ticker: string
+): Promise<TrailingDividends | null> {
+  const raw = await fetchDividends(ticker, '1y');
+  if (!raw) return null;
+
+  return {
+    ticker: ticker.toUpperCase(),
+    total12m: raw.payments.reduce((sum, payment) => sum + payment.rate, 0),
+    payments: raw.payments.length,
+    price: raw.price,
+  };
+}
+
+/**
+ * Todos os pagamentos do período, com data.
+ *
+ * É o que substitui a brapi no cálculo de "quanto já pingou": lá o histórico só
+ * responde pros quatro tickers de sandbox do plano gratuito.
+ */
+export async function getDividendHistory(
+  ticker: string,
+  range: DividendRange = '5y'
+): Promise<DividendPayment[] | null> {
+  const raw = await fetchDividends(ticker, range);
+  return raw?.payments ?? null;
 }

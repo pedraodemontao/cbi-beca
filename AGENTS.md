@@ -171,6 +171,17 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
 - **Os campos de `/fiis/` não são documentados** — `lib/bolsai.ts` aceita
   apelidos (`dy`, `dividend_yield`, `dy_12m`…) via `pickNumber`. Assim que a
   cota renovar, conferir o payload real e enxugar a lista.
+- **Dividendo pago vem do Yahoo** (`lib/yahoo.ts`), não da bolsai nem da brapi —
+  as duas fecharam esse dado no plano gratuito. **Não mandar User-Agent de
+  navegador:** fingir Chrome a partir do servidor faz o Yahoo devolver 429 em
+  toda chamada; com os headers padrão do runtime volta 200. Rajada também leva
+  429, daí duas conexões e pausa de 250ms em `syncDividends`.
+- **A data que o Yahoo devolve é a data-com, não a do depósito.** Pro cálculo de
+  "quanto já pingou desde a compra" isso é mais correto, porque é ela que decide
+  quem tem direito ao pagamento.
+- **O ranking de dividendos exclui quem pagou mais de 15% do preço em 12 meses**
+  e diz quantos tirou. Sem isso o topo inteiro vira venda de ativo e devolução
+  de capital — chegava a 63% ao ano, que ninguém recebe duas vezes.
 - **Nunca escrever "a ação está X% abaixo do teto".** Margem é (teto − preço) ÷
   preço: com margem de +96%, o TETO é 96% maior que a cotação — a ação não está
   96% abaixo dele. O chat já errou isso uma vez; o `CONTEXTO_PRECO_TETO` e o
@@ -186,7 +197,7 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
    dividendos pagos; a aba existe e explica a ausência em vez de inventar número)
 5. 🟡 FII — código pronto (`syncFiis`, aba própria na tabela, `/api/cron/fiis`),
    **falta rodar a sincronização** (cota da bolsai zerou; renova à meia-noite UTC)
-6. Sparkline 30 dias + ranking de dividendos (ranking depende de dividendos = Pro)
+6. 🟡 Ranking de dividendos ✅ (em `/proventos`) — falta a sparkline de 30 dias
 7. ✅ Preço Teto vira a home
 
 ### Feito além do roadmap (para a demo)

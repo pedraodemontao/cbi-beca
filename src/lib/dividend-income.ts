@@ -1,5 +1,6 @@
 import 'server-only';
-import { getDividends, type BrapiDividend } from '@/lib/brapi';
+import { getDividends } from '@/lib/brapi';
+import { getDividendHistory, type DividendPayment } from '@/lib/yahoo';
 import type {
   DividendIncomeReport,
   MonthlyIncome,
@@ -19,10 +20,32 @@ function monthKey(date: Date): string {
   }).slice(0, 7);
 }
 
-function parsePaymentDate(dividend: BrapiDividend): Date | null {
-  if (!dividend.paymentDate) return null;
-  const date = new Date(dividend.paymentDate);
+function parsePaymentDate(dividend: DividendPayment): Date | null {
+  const date = new Date(dividend.date);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Histórico de pagamentos de um ticker.
+ *
+ * O Yahoo vem primeiro porque responde pra qualquer papel da B3; a brapi entra
+ * só se ele falhar, e no plano gratuito ela só conhece os quatro tickers de
+ * sandbox. As duas fontes usam datas diferentes — o Yahoo dá a data-com (quem
+ * tinha o ativo nela recebe) e a brapi dá a data do depósito — mas pro cálculo
+ * de "quanto já pingou desde a compra" a data-com é o critério mais correto.
+ */
+async function loadHistory(
+  ticker: string,
+  assetType: 'stock' | 'fii'
+): Promise<DividendPayment[]> {
+  const fromYahoo = await getDividendHistory(ticker);
+  if (fromYahoo && fromYahoo.length > 0) return fromYahoo;
+
+  const fromBrapi = await getDividends(ticker, assetType);
+  return (fromBrapi ?? []).flatMap((dividend) => {
+    if (!dividend.paymentDate || typeof dividend.rate !== 'number') return [];
+    return [{ date: dividend.paymentDate, rate: dividend.rate }];
+  });
 }
 
 /**
@@ -55,11 +78,11 @@ export async function buildDividendIncomeReport(
 
   const histories = await Promise.all(
     uniqueTickers.map(async (ticker) => {
-      const dividends = await getDividends(
+      const dividends = await loadHistory(
         ticker,
         assetTypeByTicker.get(ticker) ?? 'stock'
       );
-      return [ticker, dividends ?? []] as const;
+      return [ticker, dividends] as const;
     })
   );
   const historyByTicker = new Map(histories);
@@ -123,7 +146,7 @@ export async function buildDividendIncomeReport(
  */
 function estimateMonthlyIncome(
   positions: PositionRow[],
-  historyByTicker: Map<string, BrapiDividend[]>,
+  historyByTicker: Map<string, DividendPayment[]>,
   now: Date
 ): number {
   const oneYearAgo = new Date(now);

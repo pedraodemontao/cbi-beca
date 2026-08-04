@@ -99,6 +99,89 @@ export async function fetchCeilingAssets(
   });
 }
 
+export interface TopPayer {
+  ticker: string;
+  name: string;
+  assetType: 'stock' | 'fii';
+  price: number;
+  /** R$ por ação/cota nos últimos 12 meses. */
+  dividends12m: number;
+  /** Razão 0-1. */
+  dividendYield: number;
+  /** Rendimento acima do normal denuncia evento que não se repete. */
+  isOutlier: boolean;
+}
+
+/** Acima disso quase nunca é lucro recorrente — é venda de ativo ou devolução
+ *  de capital. Mesmo critério da tabela de preço teto. */
+const OUTLIER_YIELD = 0.15;
+
+/** Sem liquidez o preço fica velho e o yield vira ficção. */
+const MIN_DAILY_TRADED = 1_000_000;
+
+/**
+ * Quem mais pagou dividendo em 12 meses, proporcionalmente ao próprio preço.
+ *
+ * O filtro de liquidez e a marcação de outlier acontecem aqui pra que a lista
+ * nunca prometa um rendimento que a usuária não conseguiria capturar.
+ */
+export async function fetchTopPayers(
+  supabase: SupabaseClient,
+  limitPerType = 8
+): Promise<{ stocks: TopPayer[]; fiis: TopPayer[]; excluded: number }> {
+  const [{ data: companyRows }, { data: fundamentalRows }] = await Promise.all([
+    supabase
+      .from('companies')
+      .select('ticker,name,asset_type,price,volume')
+      .in('asset_type', ['stock', 'fii']),
+    supabase
+      .from('company_fundamentals')
+      .select('ticker,dividends_12m')
+      .gt('dividends_12m', 0),
+  ]);
+
+  const dividends = new Map(
+    ((fundamentalRows ?? []) as { ticker: string; dividends_12m: number }[]).map(
+      (row) => [row.ticker, row.dividends_12m]
+    )
+  );
+
+  const all = ((companyRows ?? []) as (CompanyFields & { asset_type: 'stock' | 'fii' })[])
+    .flatMap((company) => {
+      const dividends12m = dividends.get(company.ticker);
+      const price = company.price;
+      if (!dividends12m || !price || price <= 0) return [];
+      if ((company.volume ?? 0) * price < MIN_DAILY_TRADED) return [];
+
+      const dividendYield = dividends12m / price;
+      return [
+        {
+          ticker: company.ticker,
+          name: company.name,
+          assetType: company.asset_type,
+          price,
+          dividends12m,
+          dividendYield,
+          isOutlier: dividendYield > OUTLIER_YIELD,
+        },
+      ];
+    })
+    .sort((a, b) => b.dividendYield - a.dividendYield);
+
+  // Sem tirar os extraordinários o ranking inteiro vira venda de ativo e
+  // devolução de capital: o topo chegava a 63% ao ano, que ninguém recebe duas
+  // vezes. A lista promete renda que tende a se repetir.
+  const sustainable = all.filter((row) => !row.isOutlier);
+
+  return {
+    stocks: sustainable
+      .filter((row) => row.assetType === 'stock')
+      .slice(0, limitPerType),
+    fiis: sustainable.filter((row) => row.assetType === 'fii').slice(0, limitPerType),
+    excluded: all.length - sustainable.length,
+  };
+}
+
 /**
  * Ajustes visíveis pra usuária logada. A RLS já entrega só os dela e os globais
  * da Beca; aqui o dela vence, porque a Beca dá o palpite e ela decide.

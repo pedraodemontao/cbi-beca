@@ -9,6 +9,8 @@ import { DividendsCard } from '@/components/resumo/dividends-card';
 import { IncomeSummary } from '@/components/proventos/income-summary';
 import { MonthlyIncomeChart } from '@/components/proventos/monthly-income-chart';
 import { IncomeByTicker } from '@/components/proventos/income-by-ticker';
+import { DividendRanking } from '@/components/proventos/dividend-ranking';
+import { fetchTopPayers } from '@/lib/ceiling-data';
 import type { PositionRow } from '@/types/portfolio';
 
 export default async function ProventosPage() {
@@ -27,9 +29,10 @@ export default async function ProventosPage() {
     .order('created_at', { ascending: true });
   const positions = (rows ?? []) as PositionRow[];
 
-  const [report, upcoming] = await Promise.all([
+  const [report, upcoming, topPayers] = await Promise.all([
     buildDividendIncomeReport(positions),
     getUpcomingDividends(positions),
+    fetchTopPayers(supabase),
   ]);
 
   return (
@@ -71,6 +74,14 @@ export default async function ProventosPage() {
             </BecaTip>
           </>
         )}
+
+        {/* Fica fora do bloco acima de propósito: quem ainda não cadastrou nada
+            precisa de um motivo pra explorar, e o ranking é esse motivo. */}
+        <DividendRanking
+          stocks={topPayers.stocks}
+          fiis={topPayers.fiis}
+          excluded={topPayers.excluded}
+        />
       </main>
       <BottomNav />
     </>
