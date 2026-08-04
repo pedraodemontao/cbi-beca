@@ -14,7 +14,7 @@ import {
 import { formatBRL, formatRatio, formatRatioSigned } from '@/lib/format';
 import { BecaTip } from '@/components/shared/beca-tip';
 import { OverrideForm } from '@/components/preco-teto/override-form';
-import type { AppliedOverride, CeilingAsset } from '@/types/ceiling';
+import type { AppliedOverride, CeilingAsset, MarketAssetType } from '@/types/ceiling';
 
 /**
  * A tabela do preço teto, nos quatro métodos.
@@ -42,6 +42,14 @@ const OUTLIER_PRICE_EARNINGS = 6;
  * que PETR4 trocou 25 milhões, e o preço velho deles inventa margem de +1.400%.
  */
 const MIN_DAILY_TRADED = 1_000_000;
+
+/**
+ * Quem pagou mais de 15% do próprio preço em 12 meses quase nunca estava
+ * distribuindo lucro recorrente: costuma ser devolução de capital, venda de
+ * imóvel ou dividendo extraordinário. Vale pros dois lados — RBRI11 aparece com
+ * 240% de amortização contada como rendimento, e ALLD3 com 64% no Bazin.
+ */
+const OUTLIER_DIVIDEND_YIELD = 0.15;
 
 /** Padrões de Gordon: o que se costuma exigir de retorno e supor de crescimento. */
 const DEFAULT_REQUIRED_RETURN = 10;
@@ -138,6 +146,12 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
 
   const owned = useMemo(() => new Set(ownedTickers), [ownedTickers]);
 
+  /** Sem dividendo gravado não existe Bazin — a aba avisa em vez de mentir. */
+  const hasDividendData = useMemo(
+    () => assets.some((asset) => (asset.dividends12m ?? 0) > 0),
+    [assets]
+  );
+
   const sectors = useMemo(
     () =>
       [...new Set(assets.map((asset) => asset.sector).filter(Boolean))].sort() as string[],
@@ -175,10 +189,23 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
           ? asset.price / projection.eps
           : null;
 
+      const paidYield =
+        asset.price !== null && asset.price > 0 && asset.dividends12m !== null
+          ? asset.dividends12m / asset.price
+          : null;
+
+      // Dividendo alto demais denuncia evento extraordinário em qualquer ativo;
+      // o P/L baixo só faz sentido pros métodos que partem do lucro.
+      const isOutlier =
+        (paidYield !== null && paidYield > OUTLIER_DIVIDEND_YIELD) ||
+        (asset.assetType === 'stock' &&
+          priceEarnings !== null &&
+          priceEarnings < OUTLIER_PRICE_EARNINGS);
+
       return {
         asset,
         projection,
-        isOutlier: priceEarnings !== null && priceEarnings < OUTLIER_PRICE_EARNINGS,
+        isOutlier,
         isLiquid: tradedValue >= MIN_DAILY_TRADED,
         override,
         columns,
@@ -210,6 +237,9 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
     if (onlyBelowCeiling) {
       universe = universe.filter((row) => row.margin !== null && row.margin >= 0);
     }
+    // Sem teto no método escolhido não há linha pra mostrar: a empresa pode
+    // estar no prejuízo, ou eu só tenho o dividendo dela e não o balanço.
+    universe = universe.filter((row) => row.ceiling !== null);
     const matching = term
       ? universe.filter(
           ({ asset }) =>
@@ -229,6 +259,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
   }, [rows, search, sortKey, onlyLiquid, sector, onlyOwned, owned, onlyBelowCeiling]);
 
   const shown = filtered.slice(0, visible);
+  const withoutCeiling = rows.filter((row) => row.ceiling === null).length;
   const latestBalance = useMemo(() => latestReferenceDate(assets), [assets]);
   const activeMethod = METHODS.find((item) => item.key === method)!;
   const headers = shown[0]?.columns.map((column) => column.label) ?? [];
@@ -292,7 +323,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
 
       {kind === 'stock' && <p className="micro-hint">{activeMethod.hint}</p>}
 
-      {method === 'bazin' && kind === 'stock' ? (
+      {method === 'bazin' && kind === 'stock' && !hasDividendData ? (
         <BazinUnavailable />
       ) : rows.length === 0 ? null : (
         <>
@@ -489,6 +520,14 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
               ? `fundo${filtered.length === 1 ? '' : 's'}`
               : `empresa${filtered.length === 1 ? '' : 's'}`}{' '}
             na conta.
+            {withoutCeiling > 0 && (
+              <>
+                {' '}
+                Outr{withoutCeiling === 1 ? 'a' : 'as'} {withoutCeiling} fic
+                {withoutCeiling === 1 ? 'ou' : 'aram'} de fora porque ainda não
+                tenho o número que esse método pede.
+              </>
+            )}
           </p>
 
           <div className="hidden overflow-x-auto rounded-card bg-surface shadow-soft sm:block">
@@ -535,12 +574,12 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                             {asset.ticker}
                           </Link>
                           <span className="block max-w-[13rem] truncate text-xs font-medium text-muted-foreground">
-                            {friendlyName(asset.name)}
+                            {friendlyName(asset.name, asset.ticker)}
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {owned.has(asset.ticker) && <OwnedBadge />}
                             {!isLiquid && <IlliquidBadge />}
-                            {isOutlier && <OutlierBadge />}
+                            {isOutlier && <OutlierBadge kind={asset.assetType} />}
                             {override && <OverrideBadge isGlobal={override.isGlobal} />}
                           </span>
                         </td>
@@ -612,7 +651,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                         {asset.ticker}
                       </Link>
                       <p className="truncate text-xs font-medium text-muted-foreground">
-                        {friendlyName(asset.name)}
+                        {friendlyName(asset.name, asset.ticker)}
                       </p>
                     </div>
                     <MarginChip margin={margin} />
@@ -647,7 +686,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     <span className="flex flex-wrap gap-1.5">
                       {owned.has(asset.ticker) && <OwnedBadge />}
                       {!isLiquid && <IlliquidBadge />}
-                      {isOutlier && <OutlierBadge />}
+                      {isOutlier && <OutlierBadge kind={asset.assetType} />}
                       {override && <OverrideBadge isGlobal={override.isGlobal} />}
                     </span>
                     <button
@@ -750,6 +789,19 @@ function buildColumns(
     ];
   }
 
+  if (method === 'bazin') {
+    // Bazin não projeta nada: usa o que já foi depositado na conta de quem tinha
+    // a ação nos últimos 12 meses.
+    return [
+      { label: 'Pagou em 12m', value: asset.dividends12m },
+      ...TARGET_YIELDS.map((targetYield) => ({
+        label: `Teto ${formatRatio(targetYield)}`,
+        value: bazinCeiling(asset.dividends12m, targetYield),
+        strong: true,
+      })),
+    ];
+  }
+
   if (method === 'gordon') {
     // D₁ é o dividendo do ANO QUE VEM: o de hoje já corrigido pelo crescimento.
     const nextDividend =
@@ -777,6 +829,17 @@ function buildColumns(
 }
 
 function MethodLegend({ method }: { method: MethodKey }) {
+  if (method === 'bazin') {
+    return (
+      <>
+        <strong className="font-bold text-foreground">Pagou em 12m</strong> é o
+        que a empresa realmente depositou por ação no último ano; o{' '}
+        <strong className="font-bold text-foreground">teto</strong> é esse valor
+        dividido pelo retorno que você quer receber.
+      </>
+    );
+  }
+
   if (method === 'graham') {
     return (
       <>
@@ -829,6 +892,17 @@ function MethodExplainer({
   requiredReturnPercent,
   growthPercent,
 }: MethodExplainerProps) {
+  if (method === 'bazin') {
+    return (
+      <BecaTip title="Como eu chego nesse número">
+        Aqui eu não chuto nada: somo tudo que a empresa depositou por ação nos
+        últimos 12 meses. Se você quer receber 6% ao ano, o teto é esse total
+        dividido por 6%. Era assim que o Décio Bazin fazia — ele não confiava em
+        projeção de lucro, só no dinheiro que já tinha caído na conta.
+      </BecaTip>
+    );
+  }
+
   if (method === 'graham') {
     return (
       <BecaTip title="Como eu chego nesse número">
@@ -993,7 +1067,17 @@ function IlliquidBadge() {
   );
 }
 
-function OutlierBadge() {
+function OutlierBadge({ kind }: { kind: MarketAssetType }) {
+  if (kind === 'fii') {
+    return (
+      <span
+        className="inline-block rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-accent-foreground"
+        title="Esse fundo pagou muito acima do normal. Costuma ser devolução de capital — ele te devolve teu próprio dinheiro e encolhe — ou venda de imóvel, que não se repete."
+      >
+        rendimento atípico
+      </span>
+    );
+  }
   return (
     <span
       className="inline-block rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-accent-foreground"
@@ -1017,8 +1101,12 @@ function Cell({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-/** A CVM guarda a razão social gritada ("VALE S.A."); vira Title Case aqui. */
-function friendlyName(name: string): string {
+/**
+ * A CVM guarda a razão social gritada ("VALE S.A."); vira Title Case aqui.
+ * FII costuma vir com o nome igual ao ticker — nesse caso não há o que exibir.
+ */
+function friendlyName(name: string, ticker?: string): string {
+  if (ticker && name.toUpperCase() === ticker.toUpperCase()) return '';
   return name
     .toLowerCase()
     .replace(/(^|[\s(])([a-zà-ú])/g, (_, prefix: string, letter: string) => prefix + letter.toUpperCase())

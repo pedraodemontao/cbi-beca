@@ -6,9 +6,12 @@ import { BecaTip } from '@/components/shared/beca-tip';
 import { CeilingTable } from '@/components/preco-teto/ceiling-table';
 import type { PositionRow } from '@/types/portfolio';
 
-/** Quantas ações entram na tabela. O catálogo tem ~750, mas a cauda longa não
- *  tem fundamento na CVM nem liquidez pra alguém comprar. */
-const UNIVERSE_SIZE = 400;
+/**
+ * Ações e FIIs dividem esse teto, e o catálogo elegível inteiro cabe nele (~690).
+ * Com um número menor a ordenação por valor de mercado gastava as vagas todas
+ * em ação e a aba de FII chegava quase vazia.
+ */
+const UNIVERSE_SIZE = 900;
 
 export default async function PrecoTetoPage() {
   const supabase = await createClient();

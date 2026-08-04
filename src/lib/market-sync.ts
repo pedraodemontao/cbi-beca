@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getMarketList, type BrapiListItem } from '@/lib/brapi';
 import { getFundamentals, getFiiList, type BolsaiFailure } from '@/lib/bolsai';
+import { getTrailingDividends } from '@/lib/yahoo';
 import type { MarketAssetType } from '@/types/ceiling';
 
 /**
@@ -23,6 +24,14 @@ const UPSERT_CHUNK = 500;
 export const DEFAULT_FUNDAMENTALS_LIMIT = 400;
 
 const CONCURRENCY = 6;
+
+/** O Yahoo não tem chave nem cota publicada, mas corta rajada com 429. */
+const YAHOO_CONCURRENCY = 2;
+const YAHOO_PAUSE_MS = 250;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** Fundamento gravado há menos de 7 dias não vale outra requisição. */
 const FRESH_FUNDAMENTALS_DAYS = 7;
@@ -119,6 +128,105 @@ export async function syncCatalog(): Promise<SyncResult<CatalogSyncSummary>> {
   }, {});
 
   return { ok: true, data: { total: rows.length, byType } };
+}
+
+export interface DividendsSyncSummary {
+  requested: number;
+  saved: number;
+  /** Ativos que não pagaram nada em 12 meses (ou que o Yahoo não conhece). */
+  withoutDividends: number;
+}
+
+/**
+ * Dividendos pagos nos últimos 12 meses, do Yahoo, pra ações E FIIs.
+ *
+ * É o que destrava o Bazin e o preço teto de FII sem assinatura: as duas fontes
+ * pagas do projeto fecharam dividendos no plano gratuito. Grava em
+ * `company_fundamentals.dividends_12m`, então a tela lê do banco e nunca depende
+ * do Yahoo estar de pé.
+ */
+export async function syncDividends(
+  limit = 500
+): Promise<SyncResult<DividendsSyncSummary>> {
+  const supabase = createAdminClient();
+
+  // FII primeiro: sem dividendo ele simplesmente não tem preço teto, enquanto a
+  // ação ainda aparece pelo lucro nos outros métodos.
+  const { data, error } = await supabase
+    .from('companies')
+    .select('ticker,asset_type')
+    .in('asset_type', ['fii', 'stock'])
+    .order('asset_type', { ascending: true })
+    .order('market_cap', { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Falha ao ler catálogo', error);
+    return { ok: false, status: 500, error: 'Falha ao ler o catálogo.' };
+  }
+
+  const tickers = ((data ?? []) as { ticker: string }[]).map((row) => row.ticker);
+  if (tickers.length === 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Catálogo vazio — rode a sincronização de catálogo primeiro.',
+    };
+  }
+
+  const rows: { ticker: string; dividends_12m: number }[] = [];
+  const retryQueue: string[] = [];
+  let withoutDividends = 0;
+  const queue = [...tickers].reverse();
+
+  async function drain(source: string[], pauseMs: number, onFail: (t: string) => void) {
+    async function worker() {
+      for (;;) {
+        const ticker = source.pop();
+        if (!ticker) return;
+
+        const result = await getTrailingDividends(ticker);
+        if (!result || result.total12m <= 0) {
+          onFail(ticker);
+        } else {
+          rows.push({ ticker, dividends_12m: result.total12m });
+        }
+        // O Yahoo derruba rajada com 429: duas conexões e um respiro entre
+        // chamadas passam batido, seis não passam.
+        await sleep(pauseMs);
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(YAHOO_CONCURRENCY, source.length) }, () => worker())
+    );
+  }
+
+  await drain(queue, YAHOO_PAUSE_MS, (ticker) => retryQueue.push(ticker));
+
+  // Segunda passada, mais devagar: quem falhou pode ter pegado um 429 de rajada
+  // em vez de realmente não pagar dividendo.
+  if (retryQueue.length > 0) {
+    await drain(retryQueue, YAHOO_PAUSE_MS * 3, () => {
+      withoutDividends += 1;
+    });
+  }
+
+  for (let index = 0; index < rows.length; index += UPSERT_CHUNK) {
+    const chunk = rows.slice(index, index + UPSERT_CHUNK);
+    const { error: upsertError } = await supabase
+      .from('company_fundamentals')
+      .upsert(chunk, { onConflict: 'ticker' });
+    if (upsertError) {
+      console.error('Falha ao gravar dividendos', upsertError);
+      return { ok: false, status: 500, error: 'Falha ao gravar os dividendos.' };
+    }
+  }
+
+  return {
+    ok: true,
+    data: { requested: tickers.length, saved: rows.length, withoutDividends },
+  };
 }
 
 export interface FiiSyncSummary {
