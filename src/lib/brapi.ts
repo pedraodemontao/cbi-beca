@@ -2,12 +2,20 @@ import 'server-only';
 
 const BASE_URL = 'https://brapi.dev/api/v2';
 
+/**
+ * Único endpoint que ficou na v1: não existe equivalente na v2, e é o único que
+ * o plano free serve em lote — devolve a bolsa inteira (~2.000 ativos, com
+ * cotação, setor e logo) numa requisição só.
+ */
+const LIST_BASE_URL = 'https://brapi.dev/api';
+
 const REVALIDATE_SECONDS = {
   quote: 120,
   statistics: 3600,
   dividends: 21600,
   historical: 3600,
   tickers: 86400,
+  list: 900,
 } as const;
 
 export type AssetType = 'stock' | 'fii';
@@ -80,12 +88,33 @@ export interface BrapiTickerMatch {
   type?: string;
 }
 
+/**
+ * Item do catálogo (`/quote/list`). Nomes em snake_case porque é o shape cru da
+ * v1 — só esse endpoint foge do padrão camelCase da v2.
+ */
+export interface BrapiListItem {
+  stock: string;
+  name?: string;
+  close?: number;
+  change?: number;
+  volume?: number;
+  market_cap?: number;
+  logo?: string;
+  sector?: string;
+  subsector?: string;
+  /** 'stock' | 'fund' | 'bdr' */
+  type?: string;
+  /** 'fii' quando type é 'fund'. */
+  subType?: string;
+}
+
 type QueryParams = Record<string, string | undefined>;
 
 async function brapiFetch<T>(
   path: string,
   params: QueryParams,
-  revalidate: number
+  revalidate: number,
+  baseUrl: string = BASE_URL
 ): Promise<T | null> {
   const token = process.env.BRAPI_TOKEN;
   if (!token) {
@@ -97,7 +126,7 @@ async function brapiFetch<T>(
     if (value) search.set(key, value);
   }
   try {
-    const res = await fetch(`${BASE_URL}${path}?${search}`, {
+    const res = await fetch(`${baseUrl}${path}?${search}`, {
       headers: { Authorization: `Bearer ${token}` },
       next: { revalidate },
     });
@@ -208,6 +237,20 @@ export async function getHistorical(
   );
   const entry = data?.results?.[0];
   return entry?.data?.historicalDataPrice ?? entry?.historicalDataPrice ?? null;
+}
+
+/**
+ * Catálogo completo da B3 numa requisição só. É o que alimenta a tabela de
+ * preço teto — buscar 400 cotações uma a uma seria inviável no plano free.
+ */
+export async function getMarketList(): Promise<BrapiListItem[] | null> {
+  const data = await brapiFetch<{ stocks?: BrapiListItem[] }>(
+    '/quote/list',
+    {},
+    REVALIDATE_SECONDS.list,
+    LIST_BASE_URL
+  );
+  return data?.stocks ?? null;
 }
 
 export async function searchTickers(query: string): Promise<BrapiTickerMatch[] | null> {

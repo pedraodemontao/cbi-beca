@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { isAuthorizedCron } from '@/lib/cron-auth';
 import { getQuote, type BrapiQuote } from '@/lib/brapi';
 import { buildPortfolioSummary } from '@/lib/portfolio';
 import type { PositionRow } from '@/types/portfolio';
@@ -10,15 +11,8 @@ import type { PositionRow } from '@/types/portfolio';
 
 export const maxDuration = 300;
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  // Sem segredo configurado, só a própria Vercel consegue invocar o cron
-  if (!secret) return true;
-  return request.headers.get('authorization') === `Bearer ${secret}`;
-}
-
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
   }
 
