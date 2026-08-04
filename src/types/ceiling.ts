@@ -13,6 +13,8 @@ export interface CompanyRow {
   market_cap: number | null;
   /** Ações negociadas no dia. É o que separa empresa viva de papel parado. */
   volume: number | null;
+  /** Fechamentos dos últimos 30 dias, pra sparkline. */
+  price_history: number[] | null;
   price_updated_at: string | null;
   updated_at: string;
 }
@@ -53,6 +55,8 @@ export interface CeilingAsset {
   priceUpdatedAt: string | null;
   /** Ações negociadas no dia; vira volume financeiro junto com o preço. */
   volume: number | null;
+  /** Fechamentos dos últimos 30 dias; nulo para quem não entrou na cota do cron. */
+  priceHistory: number[] | null;
   /** Lucro líquido TTM em reais. */
   netIncome: number | null;
   sharesOutstanding: number | null;
@@ -60,8 +64,10 @@ export interface CeilingAsset {
   referenceDate: string | null;
   /** 'fii' muda a conta inteira: sem LPA, o teto sai do rendimento de 12 meses. */
   assetType: MarketAssetType;
-  /** R$ por cota distribuídos em 12 meses. Só FII tem, por enquanto. */
+  /** R$ por ação/cota distribuídos nos últimos 12 meses. */
   dividends12m: number | null;
+  /** Média anual dos últimos 5 anos — a base do Bazin clássico. */
+  dividends5yAvg: number | null;
 }
 
 /** Override já resolvido: o da usuária vence o global da Beca. */

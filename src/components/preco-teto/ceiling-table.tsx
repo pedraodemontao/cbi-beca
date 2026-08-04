@@ -14,6 +14,7 @@ import {
 import { formatBRL, formatRatio, formatRatioSigned } from '@/lib/format';
 import { BecaTip } from '@/components/shared/beca-tip';
 import { OverrideForm } from '@/components/preco-teto/override-form';
+import { Sparkline } from '@/components/preco-teto/sparkline';
 import type { AppliedOverride, CeilingAsset, MarketAssetType } from '@/types/ceiling';
 
 /**
@@ -132,6 +133,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
     DEFAULT_REQUIRED_RETURN
   );
   const [growthPercent, setGrowthPercent] = useState(DEFAULT_GROWTH);
+  const [bazinBase, setBazinBase] = useState<BazinBase>('12m');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('margin');
   const [onlyLiquid, setOnlyLiquid] = useState(true);
@@ -180,7 +182,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
       const columns =
         asset.assetType === 'fii'
           ? buildFiiColumns(asset)
-          : buildColumns(method, projection, asset, requiredReturn, growth);
+          : buildColumns(method, projection, asset, requiredReturn, growth, bazinBase);
       const ceiling = columns.find((column) => column.strong)?.value ?? null;
 
       const tradedValue = (asset.volume ?? 0) * (asset.price ?? 0);
@@ -220,6 +222,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
     requiredReturnPercent,
     growthPercent,
     method,
+    bazinBase,
     overrideByTicker,
   ]);
 
@@ -351,6 +354,36 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                   <span className="num w-20 flex-none rounded-panel bg-primary-wash py-2 text-center text-lg font-extrabold text-primary-deep">
                     {payoutPercent}%
                   </span>
+                </div>
+              </div>
+            )}
+
+            {kind === 'stock' && method === 'bazin' && (
+              <div>
+                <span className="micro-label">Qual dividendo eu uso de base</span>
+                <p className="micro-hint">
+                  O Bazin original trabalhava com a média de vários anos, porque
+                  um ano bom sozinho engana.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {([
+                    { key: '12m', label: 'Últimos 12 meses' },
+                    { key: '5y', label: 'Média dos 5 anos' },
+                  ] as const).map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setBazinBase(key)}
+                      aria-pressed={bazinBase === key}
+                      className={`rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                        bazinBase === key
+                          ? 'bg-primary-wash text-primary-deep'
+                          : 'border border-border text-muted-foreground hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -540,6 +573,9 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                   <th className="px-4 py-3 text-right text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
                     Cotação
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
+                    30 dias
+                  </th>
                   {headers.map((label, index) => (
                     <th
                       key={label}
@@ -586,6 +622,11 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                         <td className="num px-4 py-3 text-right font-semibold">
                           {asset.price === null ? '—' : formatBRL(asset.price)}
                         </td>
+                        <td className="px-4 py-3">
+                          <span className="flex justify-center">
+                            <Sparkline values={asset.priceHistory ?? []} />
+                          </span>
+                        </td>
                         {columns.map((column) => (
                           <td
                             key={column.label}
@@ -617,7 +658,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                       </tr>
                       {editingTicker === asset.ticker && (
                         <tr className="border-b border-border/70">
-                          <td colSpan={4 + columns.length} className="px-4 pb-4">
+                          <td colSpan={5 + columns.length} className="px-4 pb-4">
                             <OverrideForm
                               asset={asset}
                               override={override}
@@ -669,6 +710,11 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                       <p className="num text-lg font-bold">
                         {asset.price === null ? '—' : formatBRL(asset.price)}
                       </p>
+                      {asset.priceHistory && asset.priceHistory.length > 1 && (
+                        <span className="mt-1 flex justify-end">
+                          <Sparkline values={asset.priceHistory} width={64} height={20} />
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -774,12 +820,15 @@ function buildFiiColumns(asset: CeilingAsset): MethodColumn[] {
 }
 
 /** Monta as colunas numéricas do método escolhido, na ordem em que aparecem. */
+type BazinBase = '12m' | '5y';
+
 function buildColumns(
   method: MethodKey,
   projection: CeilingProjection,
   asset: CeilingAsset,
   requiredReturn: number,
-  growth: number
+  growth: number,
+  bazinBase: BazinBase
 ): MethodColumn[] {
   if (method === 'graham') {
     return [
@@ -791,12 +840,17 @@ function buildColumns(
 
   if (method === 'bazin') {
     // Bazin não projeta nada: usa o que já foi depositado na conta de quem tinha
-    // a ação nos últimos 12 meses.
+    // a ação. A base de 5 anos é a do método original — ele desconfiava de um
+    // ano bom isolado.
+    const base = bazinBase === '5y' ? asset.dividends5yAvg : asset.dividends12m;
     return [
-      { label: 'Pagou em 12m', value: asset.dividends12m },
+      {
+        label: bazinBase === '5y' ? 'Média por ano (5a)' : 'Pagou em 12m',
+        value: base,
+      },
       ...TARGET_YIELDS.map((targetYield) => ({
         label: `Teto ${formatRatio(targetYield)}`,
-        value: bazinCeiling(asset.dividends12m, targetYield),
+        value: bazinCeiling(base, targetYield),
         strong: true,
       })),
     ];

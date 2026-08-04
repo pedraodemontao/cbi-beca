@@ -179,6 +179,20 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
 - **A data que o Yahoo devolve é a data-com, não a do depósito.** Pro cálculo de
   "quanto já pingou desde a compra" isso é mais correto, porque é ela que decide
   quem tem direito ao pagamento.
+- **Uma requisição ao Yahoo devolve 12 meses E 5 anos de dividendo**
+  (`range=5y&interval=1mo` — o intervalo mensal corta o payload sem perder
+  nenhum evento de dividendo). A média de 5 anos é a base do Bazin original, e
+  as duas divergem bastante: BBAS3 pagou R$ 0,55 no último ano contra média de
+  R$ 1,63, e PETR4 o oposto (R$ 2,99 contra R$ 7,99 da bonança de 2022-23).
+- **Sparkline de 30 dias vem de `companies.price_history`** (migration 0005,
+  `numeric[]`): 30 números sempre lidos juntos e sempre substituídos por
+  inteiro — tabela de série temporal só traria join sem ganho. O Postgres
+  devolve `numeric[]` como string, daí o `Number()` na leitura.
+- **`syncPriceHistory` reenvia `name` e `asset_type` no upsert** porque o
+  PostgREST monta um INSERT antes de cair no ON CONFLICT, e as duas são NOT NULL.
+- **O cron combinado limita dividendos a 250 e histórico a 100** — o catálogo
+  inteiro leva ~7 minutos no ritmo que o Yahoo tolera, e a função morre em 300s.
+  Cobertura total é pelas rotas dedicadas.
 - **O ranking de dividendos exclui quem pagou mais de 15% do preço em 12 meses**
   e diz quantos tirou. Sem isso o topo inteiro vira venda de ativo e devolução
   de capital — chegava a 63% ao ano, que ninguém recebe duas vezes.
@@ -197,7 +211,7 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
    dividendos pagos; a aba existe e explica a ausência em vez de inventar número)
 5. 🟡 FII — código pronto (`syncFiis`, aba própria na tabela, `/api/cron/fiis`),
    **falta rodar a sincronização** (cota da bolsai zerou; renova à meia-noite UTC)
-6. 🟡 Ranking de dividendos ✅ (em `/proventos`) — falta a sparkline de 30 dias
+6. ✅ Sparkline de 30 dias (migration 0005) + ranking de dividendos (`/proventos`)
 7. ✅ Preço Teto vira a home
 
 ### Feito além do roadmap (para a demo)

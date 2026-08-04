@@ -40,7 +40,13 @@ export interface TrailingDividends {
   ticker: string;
   /** Soma em R$ por ação/cota nos últimos 12 meses. */
   total12m: number;
-  /** Quantos pagamentos entraram na soma — FII paga ~12, ação paga ~4. */
+  /**
+   * Média ANUAL dos últimos 5 anos. É a base do Bazin clássico: ele desconfiava
+   * de um ano bom isolado e trabalhava com o que a empresa sustenta ao longo do
+   * tempo.
+   */
+  average5y: number;
+  /** Quantos pagamentos entraram na soma de 12 meses — FII paga ~12, ação ~4. */
   payments: number;
   price: number | null;
 }
@@ -50,6 +56,7 @@ interface YahooChartResponse {
     result?: Array<{
       meta?: { regularMarketPrice?: number };
       events?: { dividends?: Record<string, { amount?: number; date?: number }> };
+      indicators?: { quote?: Array<{ close?: Array<number | null> }> };
     }>;
     error?: unknown;
   };
@@ -61,6 +68,16 @@ export type DividendRange = '1y' | '5y' | '10y';
 interface RawDividends {
   payments: DividendPayment[];
   price: number | null;
+  closes: number[];
+}
+
+/**
+ * O granular só importa pro gráfico de preço. Puxar 5 anos de dividendo com
+ * fechamento diário traz 1.200 pontos que ninguém usa, então o intervalo mensal
+ * é o padrão — os eventos de dividendo vêm completos do mesmo jeito.
+ */
+function intervalFor(range: DividendRange): string {
+  return range === '1y' ? '1d' : '1mo';
 }
 
 /**
@@ -69,13 +86,14 @@ interface RawDividends {
  */
 async function fetchDividends(
   ticker: string,
-  range: DividendRange
+  range: DividendRange,
+  interval = intervalFor(range)
 ): Promise<RawDividends | null> {
   const symbol = `${ticker.toUpperCase()}.SA`;
 
   try {
     const res = await fetch(
-      `${BASE_URL}/${encodeURIComponent(symbol)}?interval=1d&range=${range}&events=div`,
+      `${BASE_URL}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&events=div`,
       { next: { revalidate: REVALIDATE_SECONDS } }
     );
 
@@ -109,6 +127,9 @@ async function fetchDividends(
     return {
       payments,
       price: typeof price === 'number' && price > 0 ? price : null,
+      closes: (result.indicators?.quote?.[0]?.close ?? []).filter(
+        (value): value is number => typeof value === 'number'
+      ),
     };
   } catch (error) {
     console.error(`Yahoo ${symbol} falhou`, error);
@@ -116,19 +137,39 @@ async function fetchDividends(
   }
 }
 
-/** Soma o que o ativo pagou por ação/cota nos últimos 12 meses. */
+/**
+ * O que o ativo pagou por ação/cota: total dos últimos 12 meses e média anual
+ * dos últimos 5 anos, numa requisição só.
+ */
 export async function getTrailingDividends(
   ticker: string
 ): Promise<TrailingDividends | null> {
-  const raw = await fetchDividends(ticker, '1y');
+  const raw = await fetchDividends(ticker, '5y');
   if (!raw) return null;
+
+  const now = Date.now();
+  const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000;
+
+  const recent = raw.payments.filter(
+    (payment) => Date.parse(payment.date) >= oneYearAgo
+  );
+  const total5y = raw.payments.reduce((sum, payment) => sum + payment.rate, 0);
 
   return {
     ticker: ticker.toUpperCase(),
-    total12m: raw.payments.reduce((sum, payment) => sum + payment.rate, 0),
-    payments: raw.payments.length,
+    total12m: recent.reduce((sum, payment) => sum + payment.rate, 0),
+    average5y: total5y / 5,
+    payments: recent.length,
     price: raw.price,
   };
+}
+
+/** Fechamentos dos últimos 30 dias, pra sparkline. */
+export async function getPriceHistory(ticker: string): Promise<number[] | null> {
+  const raw = await fetchDividends(ticker, '1y', '1d');
+  if (!raw || raw.closes.length === 0) return null;
+  // O range mínimo com granularidade diária é 1 ano; o gráfico quer o último mês.
+  return raw.closes.slice(-30);
 }
 
 /**

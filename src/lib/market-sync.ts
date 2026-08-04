@@ -2,7 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getMarketList, type BrapiListItem } from '@/lib/brapi';
 import { getFundamentals, getFiiList, type BolsaiFailure } from '@/lib/bolsai';
-import { getTrailingDividends } from '@/lib/yahoo';
+import { getTrailingDividends, getPriceHistory } from '@/lib/yahoo';
 import type { MarketAssetType } from '@/types/ceiling';
 
 /**
@@ -174,7 +174,11 @@ export async function syncDividends(
     };
   }
 
-  const rows: { ticker: string; dividends_12m: number }[] = [];
+  const rows: {
+    ticker: string;
+    dividends_12m: number;
+    dividends_5y_avg: number;
+  }[] = [];
   const retryQueue: string[] = [];
   let withoutDividends = 0;
   const queue = [...tickers].reverse();
@@ -189,7 +193,11 @@ export async function syncDividends(
         if (!result || result.total12m <= 0) {
           onFail(ticker);
         } else {
-          rows.push({ ticker, dividends_12m: result.total12m });
+          rows.push({
+            ticker,
+            dividends_12m: result.total12m,
+            dividends_5y_avg: result.average5y,
+          });
         }
         // O Yahoo derruba rajada com 429: duas conexões e um respiro entre
         // chamadas passam batido, seis não passam.
@@ -227,6 +235,90 @@ export async function syncDividends(
     ok: true,
     data: { requested: tickers.length, saved: rows.length, withoutDividends },
   };
+}
+
+export interface PriceHistorySyncSummary {
+  requested: number;
+  saved: number;
+}
+
+/**
+ * Fechamentos dos últimos 30 dias, pra sparkline.
+ *
+ * Só cobre quem tem liquidez: papel que não negocia desenha uma linha reta que
+ * não diz nada, e cada ativo custa uma requisição.
+ */
+export async function syncPriceHistory(
+  limit = 200
+): Promise<SyncResult<PriceHistorySyncSummary>> {
+  const supabase = createAdminClient();
+
+  // `name` e `asset_type` vêm junto porque o upsert do PostgREST monta um INSERT
+  // antes de cair no ON CONFLICT, e os dois são NOT NULL.
+  const { data, error } = await supabase
+    .from('companies')
+    .select('ticker,name,asset_type')
+    .in('asset_type', ['stock', 'fii'])
+    .not('volume', 'is', null)
+    .order('volume', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Falha ao ler catálogo', error);
+    return { ok: false, status: 500, error: 'Falha ao ler o catálogo.' };
+  }
+
+  const catalog = (data ?? []) as {
+    ticker: string;
+    name: string;
+    asset_type: string;
+  }[];
+  if (catalog.length === 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Catálogo vazio — rode a sincronização de catálogo primeiro.',
+    };
+  }
+
+  const tickers = catalog.map((row) => row.ticker);
+  const rows: {
+    ticker: string;
+    name: string;
+    asset_type: string;
+    price_history: number[];
+  }[] = [];
+  const queue = [...catalog].reverse();
+
+  async function worker() {
+    for (;;) {
+      const company = queue.pop();
+      if (!company) return;
+
+      const history = await getPriceHistory(company.ticker);
+      if (history && history.length > 1) {
+        rows.push({ ...company, price_history: history });
+      }
+      await sleep(YAHOO_PAUSE_MS);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(YAHOO_CONCURRENCY, tickers.length) }, () => worker())
+  );
+
+  for (let index = 0; index < rows.length; index += UPSERT_CHUNK) {
+    const chunk = rows.slice(index, index + UPSERT_CHUNK);
+    const { error: upsertError } = await supabase
+      .from('companies')
+      .upsert(chunk, { onConflict: 'ticker' });
+    if (upsertError) {
+      console.error('Falha ao gravar histórico de preço', upsertError);
+      return { ok: false, status: 500, error: 'Falha ao gravar o histórico de preço.' };
+    }
+  }
+
+  return { ok: true, data: { requested: tickers.length, saved: rows.length } };
 }
 
 export interface FiiSyncSummary {

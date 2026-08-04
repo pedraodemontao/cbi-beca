@@ -25,17 +25,18 @@ type CompanyFields = Pick<
   | 'price_updated_at'
   | 'volume'
   | 'asset_type'
+  | 'price_history'
 >;
 
 type FundamentalFields = Pick<
   CompanyFundamentalsRow,
-  'ticker' | 'net_income' | 'shares_outstanding' | 'vpa' | 'reference_date' | 'dividends_12m'
+  'ticker' | 'net_income' | 'shares_outstanding' | 'vpa' | 'reference_date' | 'dividends_12m' | 'dividends_5y_avg'
 >;
 
 const COMPANY_COLUMNS =
-  'ticker,name,sector,logo_url,price,price_updated_at,volume,asset_type';
+  'ticker,name,sector,logo_url,price,price_updated_at,volume,asset_type,price_history';
 const FUNDAMENTAL_COLUMNS =
-  'ticker,net_income,shares_outstanding,vpa,reference_date,dividends_12m';
+  'ticker,net_income,shares_outstanding,vpa,reference_date,dividends_12m,dividends_5y_avg';
 
 interface FetchOptions {
   /** Quando informado, traz só esses tickers (página de ativo e carteira). */
@@ -88,12 +89,17 @@ export async function fetchCeilingAssets(
         price: company.price,
         priceUpdatedAt: company.price_updated_at,
         volume: company.volume,
+        // O Postgres devolve numeric[] como string[]; a sparkline quer número.
+        priceHistory:
+          company.price_history?.map((value) => Number(value)).filter(Number.isFinite) ??
+          null,
         netIncome: fundamental.net_income,
         sharesOutstanding: fundamental.shares_outstanding,
         vpa: fundamental.vpa,
         referenceDate: fundamental.reference_date,
         assetType: company.asset_type,
         dividends12m: fundamental.dividends_12m,
+        dividends5yAvg: fundamental.dividends_5y_avg,
       },
     ];
   });
