@@ -301,8 +301,8 @@ export async function POST(request: Request) {
   const [quotes, upcomingDividends, income, ceilingAssets, ceilingOverrides] =
     await Promise.all([
       tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
-      getUpcomingDividends(positions),
-      buildDividendIncomeReport(positions),
+      getUpcomingDividends(supabase, positions),
+      buildDividendIncomeReport(supabase, positions),
       fetchCeilingAssets(supabase, { tickers }),
       fetchAppliedOverrides(supabase),
     ]);

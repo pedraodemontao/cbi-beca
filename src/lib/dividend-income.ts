@@ -1,12 +1,19 @@
 import 'server-only';
-import { getDividends } from '@/lib/brapi';
-import { getDividendHistory, type DividendPayment } from '@/lib/yahoo';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getDividendHistory } from '@/lib/yahoo';
+import { fetchDividendPayments } from '@/lib/dividends';
 import type {
   DividendIncomeReport,
   MonthlyIncome,
   PositionRow,
   TickerIncome,
 } from '@/types/portfolio';
+
+/** Data e valor por cota — o mínimo que o cálculo de renda precisa. */
+interface DividendPayment {
+  date: string;
+  rate: number;
+}
 
 // Quanto a carteira JÁ pingou: para cada pagamento anunciado depois da compra,
 // valor recebido = taxa por cota × quantidade. Nada é digitado pela usuária.
@@ -26,26 +33,41 @@ function parsePaymentDate(dividend: DividendPayment): Date | null {
 }
 
 /**
- * Histórico de pagamentos de um ticker.
+ * Histórico de pagamentos dos tickers da carteira.
  *
- * O Yahoo vem primeiro porque responde pra qualquer papel da B3; a brapi entra
- * só se ele falhar, e no plano gratuito ela só conhece os quatro tickers de
- * sandbox. As duas fontes usam datas diferentes — o Yahoo dá a data-com (quem
- * tinha o ativo nela recebe) e a brapi dá a data do depósito — mas pro cálculo
- * de "quanto já pingou desde a compra" a data-com é o critério mais correto.
+ * Vem do banco, gravado pelo cron a partir da bolsai: é dado oficial e não custa
+ * nenhuma chamada externa na renderização. O Yahoo entra só pra ticker que ainda
+ * não passou pela sincronização — ativo recém-listado, por exemplo.
+ *
+ * A data usada é a data-com, não a do depósito: é ela que decide quem tem
+ * direito ao pagamento, então é o critério certo pra "quanto já pingou desde a
+ * compra".
  */
-async function loadHistory(
-  ticker: string,
-  assetType: 'stock' | 'fii'
-): Promise<DividendPayment[]> {
-  const fromYahoo = await getDividendHistory(ticker);
-  if (fromYahoo && fromYahoo.length > 0) return fromYahoo;
+async function loadHistories(
+  supabase: SupabaseClient,
+  tickers: string[]
+): Promise<Map<string, DividendPayment[]>> {
+  const stored = await fetchDividendPayments(supabase, tickers);
 
-  const fromBrapi = await getDividends(ticker, assetType);
-  return (fromBrapi ?? []).flatMap((dividend) => {
-    if (!dividend.paymentDate || typeof dividend.rate !== 'number') return [];
-    return [{ date: dividend.paymentDate, rate: dividend.rate }];
-  });
+  const histories = await Promise.all(
+    tickers.map(async (ticker) => {
+      const fromDatabase = stored.get(ticker);
+      if (fromDatabase && fromDatabase.length > 0) {
+        return [
+          ticker,
+          fromDatabase.map((payment) => ({
+            date: payment.exDate,
+            rate: payment.valuePerShare,
+          })),
+        ] as const;
+      }
+
+      const fromYahoo = await getDividendHistory(ticker);
+      return [ticker, fromYahoo ?? []] as const;
+    })
+  );
+
+  return new Map(histories);
 }
 
 /**
@@ -57,6 +79,7 @@ function incomeStartDate(position: PositionRow): Date {
 }
 
 export async function buildDividendIncomeReport(
+  supabase: SupabaseClient,
   positions: PositionRow[]
 ): Promise<DividendIncomeReport> {
   const empty: DividendIncomeReport = {
@@ -72,20 +95,7 @@ export async function buildDividendIncomeReport(
   if (positions.length === 0) return empty;
 
   const uniqueTickers = [...new Set(positions.map((position) => position.ticker))];
-  const assetTypeByTicker = new Map(
-    positions.map((position) => [position.ticker, position.asset_type])
-  );
-
-  const histories = await Promise.all(
-    uniqueTickers.map(async (ticker) => {
-      const dividends = await loadHistory(
-        ticker,
-        assetTypeByTicker.get(ticker) ?? 'stock'
-      );
-      return [ticker, dividends] as const;
-    })
-  );
-  const historyByTicker = new Map(histories);
+  const historyByTicker = await loadHistories(supabase, uniqueTickers);
 
   const now = new Date();
   const monthTotals = new Map<string, number>();

@@ -7,9 +7,11 @@ import {
   bazinCeiling,
   ceilingMargin,
   gordonCeiling,
+  profitDeviation,
   DEFAULT_PAYOUT,
   TARGET_YIELDS,
   type CeilingProjection,
+  type ProfitDeviation,
 } from '@/lib/ceiling-price';
 import { formatBRL, formatRatio, formatRatioSigned } from '@/lib/format';
 import { BecaTip } from '@/components/shared/beca-tip';
@@ -28,12 +30,14 @@ import type { AppliedOverride, CeilingAsset, MarketAssetType } from '@/types/cei
 const PAGE_SIZE = 30;
 
 /**
- * Preço abaixo de 6 anos de lucro é barato demais pra ser só otimismo: quase
- * sempre tem venda de ativo ou crédito tributário inflando o balanço (PETR4
- * fica em 5,1). A linha continua na tabela, mas avisada.
+ * Rede pra quando não existe mediana histórica (empresa nova, ou balanço que a
+ * bolsai não tem): preço abaixo de 6 anos de lucro costuma esconder venda de
+ * ativo ou crédito tributário no resultado.
  *
- * O critério é o P/L, e não o dividendo projetado, porque o payout é a alavanca
- * que a usuária mexe — o selo não pode aparecer e sumir a cada arrasto do slider.
+ * É proxy, e proxy erra — PETR4 fica em 5,1 de P/L com lucro perfeitamente
+ * normal pra ela. Quando há mediana, quem manda é a comparação com o próprio
+ * histórico. O critério nunca é o dividendo projetado, porque o payout é a
+ * alavanca que a usuária mexe e o selo não pode piscar a cada arrasto do slider.
  */
 const OUTLIER_PRICE_EARNINGS = 6;
 
@@ -93,7 +97,8 @@ const METHODS_WITH_PAYOUT: MethodKey[] = ['projected', 'gordon'];
 type SortKey = 'margin' | 'size' | 'ticker';
 
 const SORT_LABELS: Record<SortKey, string> = {
-  margin: 'Maior margem',
+  // "recorrente" avisa que quem tem selo de atípico sai da frente da fila.
+  margin: 'Maior margem recorrente',
   size: 'Maiores empresas',
   ticker: 'Ordem alfabética',
 };
@@ -109,6 +114,8 @@ interface CeilingRow {
   asset: CeilingAsset;
   projection: CeilingProjection;
   isOutlier: boolean;
+  /** Pra que lado o lucro fugiu do normal. Nulo quando não há mediana. */
+  profitDeviation: ProfitDeviation;
   isLiquid: boolean;
   override: AppliedOverride | undefined;
   columns: MethodColumn[];
@@ -196,18 +203,29 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
           ? asset.dividends12m / asset.price
           : null;
 
-      // Dividendo alto demais denuncia evento extraordinário em qualquer ativo;
-      // o P/L baixo só faz sentido pros métodos que partem do lucro.
+      // Quando existe mediana histórica, ela decide: comparar o lucro de agora
+      // com o que a própria empresa costuma dar é bem mais honesto que o P/L.
+      // Sem mediana, cai no proxy antigo.
+      const deviation = profitDeviation(
+        projection.profitUsed,
+        asset.netIncomeMedian,
+        asset.netIncomeMedianQuarters
+      );
+      const hasAtypicalProfit =
+        asset.assetType === 'stock' &&
+        (asset.netIncomeMedian !== null
+          ? deviation !== null
+          : priceEarnings !== null && priceEarnings < OUTLIER_PRICE_EARNINGS);
+
+      // Dividendo alto demais denuncia evento extraordinário em qualquer ativo.
       const isOutlier =
-        (paidYield !== null && paidYield > OUTLIER_DIVIDEND_YIELD) ||
-        (asset.assetType === 'stock' &&
-          priceEarnings !== null &&
-          priceEarnings < OUTLIER_PRICE_EARNINGS);
+        (paidYield !== null && paidYield > OUTLIER_DIVIDEND_YIELD) || hasAtypicalProfit;
 
       return {
         asset,
         projection,
         isOutlier,
+        profitDeviation: deviation,
         isLiquid: tradedValue >= MIN_DAILY_TRADED,
         override,
         columns,
@@ -257,6 +275,12 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
       // Empresa sem teto (prejuízo ou dado faltando) desce pro fim da lista.
       if (a.margin === null) return b.margin === null ? 0 : 1;
       if (b.margin === null) return -1;
+      // Quem está marcado como atípico vai depois de quem não está, mesmo com
+      // margem maior. Sem isso o topo do ranking é só distorção: o VCJR11
+      // amortizou R$ 165 por cota em dois meses (cota de R$ 69) e a conta
+      // devolvia margem de +4.080% — número real, evento que não se repete.
+      // A linha continua na tabela, achável pela busca; ela só não lidera.
+      if (a.isOutlier !== b.isOutlier) return a.isOutlier ? 1 : -1;
       return b.margin - a.margin;
     });
   }, [rows, search, sortKey, onlyLiquid, sector, onlyOwned, owned, onlyBelowCeiling]);
@@ -598,7 +622,8 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
               </thead>
               <tbody>
                 {shown.map((row) => {
-                  const { asset, isOutlier, isLiquid, override, columns, margin } = row;
+                  const { asset, isOutlier, profitDeviation: deviation, isLiquid, override, columns, margin } =
+    row;
                   return (
                     <Fragment key={asset.ticker}>
                       <tr className="border-b border-border/70 hover:bg-primary-wash/50">
@@ -615,7 +640,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                           <span className="flex flex-wrap gap-1">
                             {owned.has(asset.ticker) && <OwnedBadge />}
                             {!isLiquid && <IlliquidBadge />}
-                            {isOutlier && <OutlierBadge kind={asset.assetType} />}
+                            {isOutlier && <OutlierBadge kind={asset.assetType} deviation={deviation} />}
                             {override && <OverrideBadge isGlobal={override.isGlobal} />}
                           </span>
                         </td>
@@ -678,7 +703,8 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
 
           <ul className="flex flex-col gap-3 sm:hidden">
             {shown.map((row) => {
-              const { asset, isOutlier, isLiquid, override, columns, margin } = row;
+              const { asset, isOutlier, profitDeviation: deviation, isLiquid, override, columns, margin } =
+    row;
               const headline = columns.find((column) => column.strong);
               const cells = columns.filter((column) => column !== headline);
               return (
@@ -732,7 +758,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     <span className="flex flex-wrap gap-1.5">
                       {owned.has(asset.ticker) && <OwnedBadge />}
                       {!isLiquid && <IlliquidBadge />}
-                      {isOutlier && <OutlierBadge kind={asset.assetType} />}
+                      {isOutlier && <OutlierBadge kind={asset.assetType} deviation={deviation} />}
                       {override && <OverrideBadge isGlobal={override.isGlobal} />}
                     </span>
                     <button
@@ -1121,21 +1147,49 @@ function IlliquidBadge() {
   );
 }
 
-function OutlierBadge({ kind }: { kind: MarketAssetType }) {
+const BADGE_CLASS =
+  'inline-block rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-accent-foreground';
+
+function OutlierBadge({
+  kind,
+  deviation,
+}: {
+  kind: MarketAssetType;
+  deviation: ProfitDeviation;
+}) {
   if (kind === 'fii') {
     return (
       <span
-        className="inline-block rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-accent-foreground"
+        className={BADGE_CLASS}
         title="Esse fundo pagou muito acima do normal. Costuma ser devolução de capital — ele te devolve teu próprio dinheiro e encolhe — ou venda de imóvel, que não se repete."
       >
         rendimento atípico
       </span>
     );
   }
+
+  // Lucro deprimido também distorce, só que pro outro lado: o teto sai baixo
+  // demais e a empresa parece cara quando não está. Dizer qual dos dois é o
+  // caso poupa a usuária de adivinhar.
+  if (deviation === 'low') {
+    return (
+      <span
+        className={BADGE_CLASS}
+        title="O lucro dos últimos 12 meses está abaixo da metade do que essa empresa costuma dar. O teto sai baixo por causa disso — não porque a ação esteja cara."
+      >
+        lucro abaixo do normal
+      </span>
+    );
+  }
+
   return (
     <span
-      className="inline-block rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-accent-foreground"
-      title="O lucro do balanço parece fora do normal — pode ter entrado alguma venda de ativo ou crédito de imposto que não se repete."
+      className={BADGE_CLASS}
+      title={
+        deviation === 'high'
+          ? 'O lucro dos últimos 12 meses passa do dobro do que essa empresa costuma dar. Projetar dividendo em cima desse número infla o teto.'
+          : 'O lucro do balanço parece fora do normal — pode ter entrado alguma venda de ativo ou crédito de imposto que não se repete.'
+      }
     >
       lucro atípico
     </span>

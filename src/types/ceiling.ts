@@ -7,6 +7,8 @@ export interface CompanyRow {
   asset_type: MarketAssetType;
   sector: string | null;
   subsector: string | null;
+  /** Segmento do FII, da bolsai. É o que separa tijolo de papel. */
+  segment: string | null;
   logo_url: string | null;
   price: number | null;
   change_percent: number | null;
@@ -38,6 +40,13 @@ export interface CompanyFundamentalsRow {
   net_debt_ebitda: number | null;
   dividends_12m: number | null;
   dividends_5y_avg: number | null;
+  /** Quantos anos fechados entraram na média — pode ser menos que 5. */
+  dividends_years: number | null;
+  dividend_yield_ttm: number | null;
+  /** Mediana do lucro TTM histórico, em reais. Base da flag de lucro atípico. */
+  net_income_median: number | null;
+  net_income_median_quarters: number | null;
+  dividends_source: string | null;
   updated_at: string;
 }
 
@@ -49,6 +58,8 @@ export interface CeilingAsset {
   ticker: string;
   name: string;
   sector: string | null;
+  /** Só FII tem: 'Logística', 'Papel', 'Lajes Corporativas'… */
+  segment: string | null;
   logoUrl: string | null;
   /** Cotação do catálogo (cache com carimbo), não preço ao vivo. */
   price: number | null;
@@ -66,8 +77,17 @@ export interface CeilingAsset {
   assetType: MarketAssetType;
   /** R$ por ação/cota distribuídos nos últimos 12 meses. */
   dividends12m: number | null;
-  /** Média anual dos últimos 5 anos — a base do Bazin clássico. */
+  /** Média anual dos últimos anos fechados — a base do Bazin clássico. */
   dividends5yAvg: number | null;
+  /** Quantos anos entraram nessa média. A tela não pode dizer 5 quando são 3. */
+  dividendsYears: number | null;
+  /**
+   * Mediana do lucro TTM ao longo dos trimestres, em reais. Quando o lucro de
+   * hoje descola muito dela, a linha ganha selo de lucro atípico.
+   */
+  netIncomeMedian: number | null;
+  /** Quantos trimestres formaram a mediana — poucos não sustentam o selo. */
+  netIncomeMedianQuarters: number | null;
 }
 
 /** Override já resolvido: o da usuária vence o global da Beca. */

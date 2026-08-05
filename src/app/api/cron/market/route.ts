@@ -19,9 +19,16 @@ import {
 
 export const maxDuration = 300;
 
-/** Quanto cabe nos 300s junto com as outras etapas. */
-const CRON_DIVIDENDS_LIMIT = 250;
-const CRON_PRICE_HISTORY_LIMIT = 100;
+/**
+ * Quanto cabe nos 300s junto com as outras etapas.
+ *
+ * O provento cobre o catálogo inteiro desde que a fonte virou a bolsai: 700
+ * ativos levaram 22s, contra os ~7 minutos que o Yahoo pedia pelo mesmo volume.
+ * O histórico de preço continua curto porque ele SIM ainda vem do Yahoo, que
+ * exige duas conexões e pausa entre chamadas.
+ */
+const CRON_DIVIDENDS_LIMIT = 700;
+const CRON_PRICE_HISTORY_LIMIT = 200;
 
 export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) {
@@ -39,17 +46,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: catalog.error }, { status: catalog.status });
   }
 
-  // Os FIIs vêm antes das ações porque custam UMA requisição pra lista inteira:
-  // se a cota acabar no meio, o que cai é a cauda das ações, não a aba de FII.
+  // Os FIIs vêm antes das ações porque custam DUAS requisições pra lista
+  // inteira: se algo estourar no meio, o que cai é a cauda das ações, não a aba
+  // de FII.
   const fiis = await syncFiis();
 
-  // Dividendo e histórico de preço vêm do Yahoo, que não divide cota com a
-  // bolsai — rodam sempre, mesmo que os fundamentos falhem depois.
-  //
-  // Os limites existem por causa do teto de 300s da função: o Yahoo pede duas
-  // conexões e pausa entre chamadas, então o catálogo inteiro leva uns 7
-  // minutos. Aqui entram os mais relevantes; pra cobrir tudo de uma vez existem
-  // `/api/cron/dividends` e `/api/cron/price-history`, sem limite apertado.
+  // Os limites existem por causa do teto de 300s da função, não mais por cota:
+  // a chave Pro da bolsai dá 10.000 requisições por dia, mas o catálogo inteiro
+  // não cabe em cinco minutos. Aqui entram os mais relevantes; pra cobrir tudo
+  // existem `/api/cron/dividends` e `/api/cron/price-history`, sem aperto.
   const dividends = await syncDividends(CRON_DIVIDENDS_LIMIT);
   const priceHistory = await syncPriceHistory(CRON_PRICE_HISTORY_LIMIT);
 

@@ -171,11 +171,12 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
 - **Os campos de `/fiis/` não são documentados** — `lib/bolsai.ts` aceita
   apelidos (`dy`, `dividend_yield`, `dy_12m`…) via `pickNumber`. Assim que a
   cota renovar, conferir o payload real e enxugar a lista.
-- **Dividendo pago vem do Yahoo** (`lib/yahoo.ts`), não da bolsai nem da brapi —
-  as duas fecharam esse dado no plano gratuito. **Não mandar User-Agent de
-  navegador:** fingir Chrome a partir do servidor faz o Yahoo devolver 429 em
-  toda chamada; com os headers padrão do runtime volta 200. Rajada também leva
-  429, daí duas conexões e pausa de 250ms em `syncDividends`.
+- **O Yahoo (`lib/yahoo.ts`) virou rede de segurança**, não fonte primária: desde
+  a assinatura Pro o dividendo vem da bolsai. Ele ainda serve o histórico de
+  preço da sparkline e o provento de ativo que a bolsai não conhece. **Não mandar
+  User-Agent de navegador:** fingir Chrome a partir do servidor faz o Yahoo
+  devolver 429 em toda chamada; com os headers padrão do runtime volta 200.
+  Rajada também leva 429, daí duas conexões e pausa de 250ms.
 - **A data que o Yahoo devolve é a data-com, não a do depósito.** Pro cálculo de
   "quanto já pingou desde a compra" isso é mais correto, porque é ela que decide
   quem tem direito ao pagamento.
@@ -207,12 +208,71 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
 2. ✅ `/preco-teto` — tabela do print (Projetado), payout em slider recalculando
    no client, busca, ordenação, flag de lucro atípico e data do balanço à vista
 3. ✅ Payout e lucro manual salvando por usuária (`ceiling_overrides`)
-4. 🟡 Abas: Graham e Gordon ✅ — **Bazin bloqueado por assinatura** (precisa de
-   dividendos pagos; a aba existe e explica a ausência em vez de inventar número)
-5. 🟡 FII — código pronto (`syncFiis`, aba própria na tabela, `/api/cron/fiis`),
-   **falta rodar a sincronização** (cota da bolsai zerou; renova à meia-noite UTC)
+4. ✅ Abas: Graham, Gordon e Bazin — destravado pela chave Pro em 2026-08-05
+5. ✅ FII — 280 dos 310 fundos do catálogo com rendimento de 12 meses gravado
 6. ✅ Sparkline de 30 dias (migration 0005) + ranking de dividendos (`/proventos`)
 7. ✅ Preço Teto vira a home
+
+### bolsai Pro (assinada em 2026-08-05) — o que mudou
+
+A chave passou pro tier Pro: **10.000 requisições/dia** contra 200 (o header
+`x-ratelimit-tier` confirma). Isso destravou de uma vez o Bazin, o preço teto de
+FII e os proventos de qualquer ticker.
+
+- **`/dividends/{ticker}` é a fonte primária de provento agora**, no lugar do
+  Yahoo. Traz data-com, **data de pagamento** e tipo (JCP × Dividendo, que têm
+  tributação diferente). A data futura é o que o Yahoo nunca teve: 251 pagamentos
+  já anunciados em 99 ativos. O Yahoo continua como rede pra quem a bolsai não
+  conhece, marcado em `company_fundamentals.dividends_source`.
+- **`dividend_payments` (migration 0006) guarda pagamento a pagamento.** É por
+  isso que "próximos proventos" e "quanto já pingou" pararam de chamar API na
+  renderização — e passaram a funcionar fora dos quatro tickers de sandbox da
+  brapi. 15.841 linhas cobrindo 484 ativos.
+- **A média do Bazin usa os ANOS FECHADOS, com buraco valendo zero.** Ano sem
+  pagamento some do `annual_summary`, e sem preencher com zero quem parou de
+  pagar em 2023 apareceria com a média de quem nunca parou. Empresa que abriu
+  capital depois não carrega zeros de antes de existir, e abaixo de 3 anos a
+  média não é exibida — `dividends_years` diz quantos anos entraram.
+- **`/fiis/` (o endpoint free) foi abandonado**: devolve nome, segmento e número
+  de cotistas, zero dado financeiro. Quem vale é `/fiis/screener` (2 requisições
+  pros 551 fundos, com VPA, P/VP, NAV e segmento).
+- **O `dividend_yield_ttm` do screener vem CORROMPIDO** — RURA11 devolveu
+  3,4e15 e `dy_month_pct` chega a 254% ao mês. O rendimento tem que sair de
+  `/fiis/{ticker}/distributions`, que é confiável (HGLG11: R$ 11,96/cota, 8,1%).
+- **Flag de lucro atípico agora compara com a mediana histórica**, via
+  `/fundamentals/{ticker}/history` (até 40 trimestres). O critério antigo era
+  P/L < 6, um proxy — e o dado desmentiu ele: PETR4 tem P/L 5,09 mas lucro TTM
+  de 0,98× a mediana de 5 anos (é o normal dela, não pode levar selo), enquanto
+  TEND3 tem P/L 8,12 e está com 9,5× o lucro de sempre. Corte em 2× pra cima ou
+  pra baixo, mínimo de 8 trimestres. O selo tem texto diferente pros dois lados:
+  lucro deprimido afunda o teto e faz a ação parecer cara sem estar.
+- **A unidade da bolsai NÃO é consistente por ticker** (`profitScale` em
+  `lib/bolsai.ts`). A convenção é milhares, mas em VIVA3, MTSA4, RVEE3, HAGA3/4 e
+  ESTR4 o valor vem em reais — e a bolsai calcula o `lpa` dela como se fosse
+  milhares, então os campos derivados vêm corrompidos na origem: a Vivara
+  aparecia com LPA de R$ 2.477,84 (o certo é R$ 2,48) e liderava a tabela com
+  margem de +111.114%. Como o artefato é sempre fator 1.000, dá pra escolher a
+  leitura plausível: lucro anual acima de 5× o valor de mercado da empresa não
+  existe. Por isso `lpa`, `vpa`, `pl` e `pvp` são **recalculados aqui**, nunca
+  copiados da resposta.
+- **`fundamentals_updated_at` (migration 0007) existe porque três sincronizações
+  escrevem em `company_fundamentals`** e todas bumpavam o `updated_at`. A regra
+  "não reconsultar quem está fresco" passou a olhar o carimbo errado: bastava a
+  sincronização de proventos tocar a linha pro balanço parecer recém-buscado. 270
+  das 382 ações estavam nesse estado.
+- **Fracionário é detectado por dois sinais** (`isFractional`): o formato pega o
+  caso comum, mas erra `MRSA6BF` (fracionário de `MRSA6B`); a presença do papel
+  cheio no catálogo pega esse, mas erra quando a brapi lista SÓ o fracionário
+  (`AHEB5F`). O regex antigo de quatro letras deixava passar `B3SA3F`.
+- **`BOLSAI_TICKER` filtra classe especial da B3** (`MRSA5B`, `EQMA3B`): o
+  endpoint só aceita `^[A-Za-z][A-Za-z0-9]{3}\d{0,2}$` e devolve 422 no resto.
+- **A ordenação por margem joga o atípico pro fim.** VCJR11 amortizou R$ 165 por
+  cota em dois meses (cota de R$ 69) e a conta devolvia margem de +4.080% —
+  número real, evento que não se repete. A linha continua na tabela e achável
+  pela busca; ela só não lidera. O rótulo virou "Maior margem recorrente".
+
+Cobertura depois da primeira carga completa (2026-08-05): 380 ações e 296 FIIs no
+catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
 
 ### Feito além do roadmap (para a demo)
 
@@ -227,37 +287,24 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
 
 ## Pendências conhecidas
 
-### O que a bolsai serve em cada plano (sondado em 2026-08-04)
-
-Free (200 req/dia) — `/companies/`, `/fiis/`, **`/fiis/{ticker}`**, `/fundamentals/{ticker}`.
-Pro (10.000 req/dia, ~R$ 29/mês) — `/dividends/{ticker}`, `/fiis/{ticker}/distributions`,
-`/fiis/screener`, `/financials/{ticker}`, `/fundamentals/{ticker}/history`, `/macro/`.
-
-- **`/fiis/{ticker}` é FREE e devolve DY, P/VP, NAV e cotistas** — ou seja, o
-  preço teto de FII (etapa 5) NÃO depende de assinatura: dividendo 12m sai de
-  `preço × DY`. Só a série mensal de distribuições é que é Pro.
-- **Bazin de ação continua preso ao Pro**: `/dividends/{ticker}` é a única fonte
-  de dividendo pago de ação que sobrou (a brapi restringiu ao sandbox).
-- A checagem de tier acontece ANTES do rate limit — dá pra descobrir o que é Pro
-  mesmo com a cota do dia estourada.
-
-- **bolsai ainda no plano free (200 req/dia)** — o teto bate exatamente em 200
-  e o cron para sozinho com `halted: 'rate_limited'`. Em 2026-08-04 o banco
-  ficou com **111 empresas** (105 com teto calculável); a cauda entra nos dias
-  seguintes, ~200/dia, ou de uma vez com o Pro (R$ 49/mês).
-- **5 ações não-fracionárias também deram 422 na bolsai** — provavelmente sem
-  demonstração na CVM. Investigar se virar padrão.
-- **`/dividends`, `/financials` e `/screener` da bolsai não foram testados** —
-  dão 403 no free. Validar quando a chave virar Pro (bloqueia a etapa do Bazin).
+- **3 ações não têm fundamento na bolsai**: SMTO3, RAIZ4 e JALL3 devolvem 404
+  com `"Insufficient data for calculation"`. As três são sucroenergéticas com
+  exercício social fechando em março — provável causa. São 3 em 380.
 - **DIVIDENDOS SÓ EXISTEM NO SANDBOX DA BRAPI (medido em 2026-08-04).**
   `/v2/stocks/dividends?symbols=PETR4` responde; o mesmo endpoint com ITSA4 dá
   `FEATURE_NOT_AVAILABLE`, e o módulo `dividends` do `/quote` foi removido do
   free até pros tickers de sandbox. `defaultKeyStatistics` idem: só sandbox.
-  Consequência: `/proventos` e "próximos proventos" do `/resumo` só mostram algo
-  pra quem tem PETR4, VALE3, ITUB4 ou MGLU3 na carteira — o resto degrada com a
-  mensagem em pt-BR. **Destravar dividendos exige assinatura** (bolsai Pro
-  R$ 49/mês ou brapi paga), e é o mesmo bloqueio da aba Bazin e do preço teto
-  de FII.
+  **Resolvido pela bolsai Pro** — a brapi hoje serve só catálogo e cotação.
+- **Fiagro e FI-Infra ficaram de fora do catálogo.** A brapi separa `subType`
+  em `fii` (294), `fi-agro` (35) e `fi-infra` (14), e só o primeiro entra. Os
+  outros 49 pagam renda mensal e a bolsai cobre todos (o screener devolve 551
+  fundos contra os 310 do nosso catálogo), mas entrariam rotulados "FII", que é
+  nome errado. Decidir se vale uma etiqueta própria antes de incluir.
+- **`syncCatalog` só faz upsert, nunca remove.** `companies` tem 1.418 linhas
+  contra as 1.337 da última sincronização: são tickers que a brapi listou um dia
+  e parou de listar. Ficam com preço velho, e o piso de liquidez não pega porque
+  o volume antigo também ficou gravado. Limpar exige marcar "visto nesta rodada"
+  — e cuidado, `ceiling_overrides` tem FK pra `companies`.
 - **Confirmação de e-mail está LIGADA no Supabase** — signup não devolve sessão até o usuário confirmar. Desligar em Authentication → Sign In/Up → Email para agilizar o desenvolvimento.
 - **Usuário de teste criado em 2026-08-03:** `qa.carteira.teste@gmail.com` (não confirmado). Apagar em Authentication → Users quando quiser.
 - Chat não persiste histórico entre recarregamentos (não estava no escopo).
@@ -279,8 +326,20 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
 
 - `npm run dev` / `npm run build` / `npm run lint`
 - Migrations: aplicar os `supabase/migrations/*.sql` em ordem no SQL Editor do projeto Supabase (ou `supabase db push` se CLI vinculada).
-- **Ligar os FIIs (pendente):** `curl "localhost:3000/api/cron/fiis?limit=500"` —
-  custa 1 requisição. Rodar depois da meia-noite UTC (21h de Brasília), quando a
-  cota da bolsai renova, e conferir se `saved` > 0; se vier `withoutYield` alto,
-  os apelidos de campo em `lib/bolsai.ts` precisam de ajuste.
-- Popular o preço teto localmente: `curl "localhost:3000/api/cron/catalog"` e depois `curl "localhost:3000/api/cron/fundamentals?limit=200"` (o `limit` respeita a cota diária do plano free da bolsai; quem já tem fundamento fresco é pulado, então rodar de novo no dia seguinte avança a fila em vez de repetir).
+- **Carga completa do zero, nesta ordem** (leva uns 2 minutos com a chave Pro):
+
+  ```
+  curl "localhost:3000/api/cron/catalog"                  # 1 req à brapi
+  curl "localhost:3000/api/cron/fiis"                     # 2 reqs (screener)
+  curl "localhost:3000/api/cron/fundamentals?limit=500"   # 2 reqs por ação
+  curl "localhost:3000/api/cron/dividends?limit=700"      # 1 req por ativo
+  curl "localhost:3000/api/cron/price-history?limit=300"  # Yahoo, mais lento
+  ```
+
+  O catálogo vem primeiro porque as outras leem os tickers que ele grava, e
+  `fundamentals` antes de `dividends` porque a segunda também escreve em
+  `company_fundamentals`. Rodar de novo é barato: quem tem balanço com menos de
+  7 dias é pulado (`fundamentals_updated_at`).
+- **Pra forçar re-sincronização de um ticker:** `update company_fundamentals set
+  fundamentals_updated_at = null where ticker = 'XXXX'`. É o que tira ele do
+  filtro de frescor.

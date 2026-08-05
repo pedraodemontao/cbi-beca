@@ -20,6 +20,7 @@ type CompanyFields = Pick<
   | 'ticker'
   | 'name'
   | 'sector'
+  | 'segment'
   | 'logo_url'
   | 'price'
   | 'price_updated_at'
@@ -30,13 +31,22 @@ type CompanyFields = Pick<
 
 type FundamentalFields = Pick<
   CompanyFundamentalsRow,
-  'ticker' | 'net_income' | 'shares_outstanding' | 'vpa' | 'reference_date' | 'dividends_12m' | 'dividends_5y_avg'
+  | 'ticker'
+  | 'net_income'
+  | 'shares_outstanding'
+  | 'vpa'
+  | 'reference_date'
+  | 'dividends_12m'
+  | 'dividends_5y_avg'
+  | 'dividends_years'
+  | 'net_income_median'
+  | 'net_income_median_quarters'
 >;
 
 const COMPANY_COLUMNS =
-  'ticker,name,sector,logo_url,price,price_updated_at,volume,asset_type,price_history';
+  'ticker,name,sector,segment,logo_url,price,price_updated_at,volume,asset_type,price_history';
 const FUNDAMENTAL_COLUMNS =
-  'ticker,net_income,shares_outstanding,vpa,reference_date,dividends_12m,dividends_5y_avg';
+  'ticker,net_income,shares_outstanding,vpa,reference_date,dividends_12m,dividends_5y_avg,dividends_years,net_income_median,net_income_median_quarters';
 
 interface FetchOptions {
   /** Quando informado, traz só esses tickers (página de ativo e carteira). */
@@ -85,6 +95,7 @@ export async function fetchCeilingAssets(
         ticker: company.ticker,
         name: company.name,
         sector: company.sector,
+        segment: company.segment,
         logoUrl: company.logo_url,
         price: company.price,
         priceUpdatedAt: company.price_updated_at,
@@ -100,6 +111,9 @@ export async function fetchCeilingAssets(
         assetType: company.asset_type,
         dividends12m: fundamental.dividends_12m,
         dividends5yAvg: fundamental.dividends_5y_avg,
+        dividendsYears: fundamental.dividends_years,
+        netIncomeMedian: fundamental.net_income_median,
+        netIncomeMedianQuarters: fundamental.net_income_median_quarters,
       },
     ];
   });

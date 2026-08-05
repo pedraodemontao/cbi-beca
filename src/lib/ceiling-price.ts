@@ -87,6 +87,42 @@ export function gordonCeiling(
   return roundToHalf(expectedDividend / spread);
 }
 
+/**
+ * O dobro (ou a metade) do lucro normal já não descreve a empresa.
+ *
+ * Simétrico de propósito: lucro inflado infla o teto e convida a pagar caro,
+ * lucro deprimido afunda o teto e faz parecer que não tem margem nenhuma. Os
+ * dois enganam.
+ */
+const ATYPICAL_PROFIT_FACTOR = 2;
+
+/** Menos de dois anos de balanço não formam mediana em que se possa confiar. */
+const MIN_QUARTERS_FOR_MEDIAN = 8;
+
+export type ProfitDeviation = 'high' | 'low' | null;
+
+/**
+ * O lucro de agora comparado com a mediana histórica da própria empresa.
+ *
+ * Substitui o P/L baixo como sinal de lucro atípico, e o dado de 2026-08-05
+ * mostra por quê: PETR4 tem P/L 5,09 (que o critério antigo condenava) mas o
+ * lucro TTM dela é 0,98× a mediana de cinco anos — é o normal da empresa. Já
+ * TEND3 tem P/L 8,12, passava batido, e está com 9,5× o lucro de sempre.
+ */
+export function profitDeviation(
+  profit: number | null,
+  median: number | null,
+  quarters: number | null
+): ProfitDeviation {
+  if (!isPositive(profit) || !isPositive(median)) return null;
+  if ((quarters ?? 0) < MIN_QUARTERS_FOR_MEDIAN) return null;
+
+  const ratio = profit / median;
+  if (ratio > ATYPICAL_PROFIT_FACTOR) return 'high';
+  if (ratio < 1 / ATYPICAL_PROFIT_FACTOR) return 'low';
+  return null;
+}
+
 /** Quanto o preço teto está acima (positivo) ou abaixo (negativo) da cotação. */
 export function ceilingMargin(ceiling: number | null, price: number | null): number | null {
   if (ceiling === null || !isPositive(price)) return null;

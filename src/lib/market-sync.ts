@@ -1,7 +1,15 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getMarketList, type BrapiListItem } from '@/lib/brapi';
-import { getFundamentals, getFiiList, type BolsaiFailure } from '@/lib/bolsai';
+import {
+  getFundamentals,
+  getFundamentalsHistory,
+  getFiiScreener,
+  getStockDividends,
+  getFiiDistributions,
+  type BolsaiFailure,
+  type DividendHistory,
+} from '@/lib/bolsai';
 import { getTrailingDividends, getPriceHistory } from '@/lib/yahoo';
 import type { MarketAssetType } from '@/types/ceiling';
 
@@ -20,10 +28,36 @@ export type SyncResult<T> =
 /** O Postgrest engasga com payload gigante; 2.000 linhas viram 4 lotes. */
 const UPSERT_CHUNK = 500;
 
-/** Quantas ações enriquecer por execução. O free da bolsai dá 200 req/dia. */
-export const DEFAULT_FUNDAMENTALS_LIMIT = 400;
+/**
+ * Quantas ações enriquecer por execução.
+ *
+ * O free dava 200 requisições por dia e o catálogo tem 748 ações — a cauda
+ * levava semanas pra entrar. Com o Pro (10.000/dia) o teto passa a ser o tempo
+ * de execução da função na Vercel, não a cota.
+ */
+export const DEFAULT_FUNDAMENTALS_LIMIT = 800;
+
+/** Quantos ativos buscar proventos por execução. */
+export const DEFAULT_DIVIDENDS_LIMIT = 600;
 
 const CONCURRENCY = 6;
+
+/**
+ * Trimestres que entram na mediana de lucro.
+ *
+ * Vinte = cinco anos, que cobre um ciclo inteiro de commodity. Menos que isso e
+ * a "normalidade" seria só a bonança recente.
+ */
+const MEDIAN_QUARTERS = 20;
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
+}
 
 /** O Yahoo não tem chave nem cota publicada, mas corta rajada com 429. */
 const YAHOO_CONCURRENCY = 2;
@@ -33,7 +67,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Fundamento gravado há menos de 7 dias não vale outra requisição. */
+/**
+ * Balanço gravado há menos de 7 dias não vale outra requisição.
+ *
+ * A comparação é contra `fundamentals_updated_at`, não `updated_at`: a linha de
+ * `company_fundamentals` também é escrita pelas sincronizações de proventos e de
+ * FII, e olhar pro carimbo genérico fazia ticker sem balanço nenhum parecer
+ * fresco pra sempre.
+ */
 const FRESH_FUNDAMENTALS_DAYS = 7;
 
 function staleThreshold(): string {
@@ -56,9 +97,29 @@ function toNumber(value: unknown): number | null {
 /**
  * Mercado fracionário: mesmo papel com "F" no fim (PETR4F). É a mesma empresa,
  * então duplica o catálogo — e a bolsai devolve 422 pra todos eles, torrando
- * metade da cota diária de fundamentos se entrarem na fila.
+ * cota de fundamentos à toa se entrarem na fila.
+ *
+ * Dois sinais, porque nenhum sozinho fecha. O formato pega o caso comum (letras,
+ * dígito, F) mas erra em `MRSA6BF`, que é o fracionário de `MRSA6B` e não de
+ * `MRSA6`. A presença do papel cheio no catálogo pega esse, mas erra quando a
+ * brapi lista SÓ o fracionário — acontece em papel ilíquido como `AHEB5F`.
+ *
+ * Ticker brasileiro legítimo termina em dígito, nunca em letra, então exigir o
+ * F final antes de qualquer coisa já elimina falso positivo.
  */
-const FRACTIONAL_TICKER = /^[A-Z]{4}\d{1,2}F$/;
+const FRACTIONAL_SHAPE = /^[A-Z][A-Z0-9]{2,}\d{1,2}F$/;
+
+function isFractional(ticker: string, catalog: ReadonlySet<string>): boolean {
+  if (!ticker.endsWith('F')) return false;
+  return FRACTIONAL_SHAPE.test(ticker) || catalog.has(ticker.slice(0, -1));
+}
+
+/**
+ * Formato que a bolsai aceita em `/fundamentals/{ticker}`: quatro caracteres e
+ * até dois dígitos. Classes especiais da B3 como `MRSA5B` e `EQMA3B` ficam de
+ * fora e devolvem 422 — não adianta pedir.
+ */
+const BOLSAI_TICKER = /^[A-Za-z][A-Za-z0-9]{3}\d{0,2}$/;
 
 function toAssetType(item: BrapiListItem): MarketAssetType | null {
   if (item.type === 'stock') return 'stock';
@@ -85,11 +146,12 @@ export async function syncCatalog(): Promise<SyncResult<CatalogSyncSummary>> {
   }
 
   const capturedAt = new Date().toISOString();
+  const allTickers = new Set(list.flatMap((item) => item.stock ?? []));
 
   const rows = list.flatMap((item) => {
     const assetType = toAssetType(item);
     if (!assetType || !item.stock) return [];
-    if (FRACTIONAL_TICKER.test(item.stock)) return [];
+    if (isFractional(item.stock, allTickers)) return [];
     return [
       {
         ticker: item.stock,
@@ -133,24 +195,77 @@ export async function syncCatalog(): Promise<SyncResult<CatalogSyncSummary>> {
 export interface DividendsSyncSummary {
   requested: number;
   saved: number;
-  /** Ativos que não pagaram nada em 12 meses (ou que o Yahoo não conhece). */
+  /** Ativos que não pagaram nada em 12 meses (ou que a fonte não conhece). */
   withoutDividends: number;
+  /** Quantos precisaram do Yahoo porque a bolsai não tinha o ativo. */
+  fromYahoo: number;
+  /** Linhas gravadas em `dividend_payments`. */
+  payments: number;
+}
+
+/** Linha de `dividend_payments` pronta pro banco. */
+interface PaymentRow {
+  ticker: string;
+  ex_date: string;
+  payment_date: string | null;
+  type: string;
+  value_per_share: number;
+}
+
+/** A coluna é NOT NULL: provento sem rótulo entra com o genérico. */
+const DEFAULT_PAYMENT_TYPE = 'Provento';
+
+/** `2026-06-02T00:00:00.000Z` e `2026-06-02` viram a mesma coisa. */
+function toDateOnly(value: string | null): string | null {
+  if (!value) return null;
+  const date = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
 }
 
 /**
- * Dividendos pagos nos últimos 12 meses, do Yahoo, pra ações E FIIs.
+ * Pagamentos individuais, sem duplicata.
  *
- * É o que destrava o Bazin e o preço teto de FII sem assinatura: as duas fontes
- * pagas do projeto fecharam dividendos no plano gratuito. Grava em
- * `company_fundamentals.dividends_12m`, então a tela lê do banco e nunca depende
- * do Yahoo estar de pé.
+ * A chave primária é (ticker, data-com, tipo, valor), então dois lançamentos
+ * idênticos no mesmo dia derrubariam o insert inteiro do lote.
+ */
+function toPaymentRows(ticker: string, history: DividendHistory): PaymentRow[] {
+  const byKey = new Map<string, PaymentRow>();
+
+  for (const payment of history.payments) {
+    const exDate = toDateOnly(payment.exDate);
+    if (!exDate) continue;
+
+    const row: PaymentRow = {
+      ticker,
+      ex_date: exDate,
+      payment_date: toDateOnly(payment.paymentDate),
+      type: payment.type ?? DEFAULT_PAYMENT_TYPE,
+      value_per_share: payment.valuePerShare,
+    };
+    byKey.set(`${row.ex_date}|${row.type}|${row.value_per_share}`, row);
+  }
+
+  return [...byKey.values()];
+}
+
+/**
+ * Proventos pagos, da bolsai, pra ações E FIIs.
+ *
+ * Grava duas coisas: o resumo em `company_fundamentals` (12 meses e média dos
+ * anos fechados, que é o que o Bazin e o preço teto de FII consomem) e cada
+ * pagamento em `dividend_payments`, com data-com e data de depósito — é isso que
+ * faz "próximos proventos" e "quanto já pingou" funcionarem pra qualquer ticker
+ * do catálogo, e não só pros quatro de sandbox da brapi.
+ *
+ * O Yahoo continua como rede: ativo que a bolsai não conhece ainda entra pelo
+ * caminho antigo, marcado na coluna `dividends_source`.
  */
 export async function syncDividends(
-  limit = 500
+  limit = DEFAULT_DIVIDENDS_LIMIT
 ): Promise<SyncResult<DividendsSyncSummary>> {
   const supabase = createAdminClient();
 
-  // FII primeiro: sem dividendo ele simplesmente não tem preço teto, enquanto a
+  // FII primeiro: sem rendimento ele simplesmente não tem preço teto, enquanto a
   // ação ainda aparece pelo lucro nos outros métodos.
   const { data, error } = await supabase
     .from('companies')
@@ -165,8 +280,8 @@ export async function syncDividends(
     return { ok: false, status: 500, error: 'Falha ao ler o catálogo.' };
   }
 
-  const tickers = ((data ?? []) as { ticker: string }[]).map((row) => row.ticker);
-  if (tickers.length === 0) {
+  const catalog = (data ?? []) as { ticker: string; asset_type: string }[];
+  if (catalog.length === 0) {
     return {
       ok: false,
       status: 409,
@@ -174,54 +289,73 @@ export async function syncDividends(
     };
   }
 
-  const rows: {
-    ticker: string;
-    dividends_12m: number;
-    dividends_5y_avg: number;
-  }[] = [];
-  const retryQueue: string[] = [];
+  const summaryRows: Record<string, unknown>[] = [];
+  const paymentRows: PaymentRow[] = [];
+  const touchedTickers: string[] = [];
   let withoutDividends = 0;
-  const queue = [...tickers].reverse();
+  let fromYahoo = 0;
+  let halted: BolsaiFailure | null = null;
 
-  async function drain(source: string[], pauseMs: number, onFail: (t: string) => void) {
-    async function worker() {
-      for (;;) {
-        const ticker = source.pop();
-        if (!ticker) return;
+  const queue = [...catalog].reverse();
 
-        const result = await getTrailingDividends(ticker);
-        if (!result || result.total12m <= 0) {
-          onFail(ticker);
-        } else {
-          rows.push({
-            ticker,
-            dividends_12m: result.total12m,
-            dividends_5y_avg: result.average5y,
-          });
-        }
-        // O Yahoo derruba rajada com 429: duas conexões e um respiro entre
-        // chamadas passam batido, seis não passam.
-        await sleep(pauseMs);
+  async function worker() {
+    for (;;) {
+      if (halted) return;
+      const company = queue.pop();
+      if (!company) return;
+
+      const { ticker, asset_type: assetType } = company;
+      const result =
+        assetType === 'fii'
+          ? await getFiiDistributions(ticker)
+          : await getStockDividends(ticker);
+
+      if (result.ok && (result.data.ttmPerShare ?? 0) > 0) {
+        const history = result.data;
+        summaryRows.push({
+          ticker,
+          dividends_12m: history.ttmPerShare,
+          dividends_5y_avg: history.averagePerYear,
+          dividends_years: history.averageYears,
+          dividend_yield_ttm: history.dividendYieldTtm,
+          dividends_source: 'bolsai',
+        });
+        touchedTickers.push(ticker);
+        paymentRows.push(...toPaymentRows(ticker, history));
+        continue;
       }
+
+      if (!result.ok && HALTING_FAILURES.has(result.reason)) {
+        halted = result.reason;
+        return;
+      }
+
+      // A bolsai não tem o ativo (ou ele não paga nada). O Yahoo ainda pode
+      // conhecer — vale uma tentativa antes de desistir.
+      const fallback = await getTrailingDividends(ticker);
+      await sleep(YAHOO_PAUSE_MS);
+      if (!fallback || fallback.total12m <= 0) {
+        withoutDividends += 1;
+        continue;
+      }
+
+      fromYahoo += 1;
+      summaryRows.push({
+        ticker,
+        dividends_12m: fallback.total12m,
+        dividends_5y_avg: fallback.average5y,
+        dividends_years: 5,
+        dividends_source: 'yahoo',
+      });
     }
-
-    await Promise.all(
-      Array.from({ length: Math.min(YAHOO_CONCURRENCY, source.length) }, () => worker())
-    );
   }
 
-  await drain(queue, YAHOO_PAUSE_MS, (ticker) => retryQueue.push(ticker));
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, catalog.length) }, () => worker())
+  );
 
-  // Segunda passada, mais devagar: quem falhou pode ter pegado um 429 de rajada
-  // em vez de realmente não pagar dividendo.
-  if (retryQueue.length > 0) {
-    await drain(retryQueue, YAHOO_PAUSE_MS * 3, () => {
-      withoutDividends += 1;
-    });
-  }
-
-  for (let index = 0; index < rows.length; index += UPSERT_CHUNK) {
-    const chunk = rows.slice(index, index + UPSERT_CHUNK);
+  for (let index = 0; index < summaryRows.length; index += UPSERT_CHUNK) {
+    const chunk = summaryRows.slice(index, index + UPSERT_CHUNK);
     const { error: upsertError } = await supabase
       .from('company_fundamentals')
       .upsert(chunk, { onConflict: 'ticker' });
@@ -231,9 +365,47 @@ export async function syncDividends(
     }
   }
 
+  // Substituição por ticker, não upsert: o valor faz parte da chave primária,
+  // então um pagamento revisado na fonte viraria linha nova em vez de corrigir a
+  // antiga — e a renda da usuária apareceria contada duas vezes.
+  for (let index = 0; index < touchedTickers.length; index += UPSERT_CHUNK) {
+    const chunk = touchedTickers.slice(index, index + UPSERT_CHUNK);
+    const { error: deleteError } = await supabase
+      .from('dividend_payments')
+      .delete()
+      .in('ticker', chunk);
+    if (deleteError) {
+      console.error('Falha ao limpar pagamentos', deleteError);
+      return { ok: false, status: 500, error: 'Falha ao gravar os proventos.' };
+    }
+  }
+
+  for (let index = 0; index < paymentRows.length; index += UPSERT_CHUNK) {
+    const chunk = paymentRows.slice(index, index + UPSERT_CHUNK);
+    const { error: insertError } = await supabase.from('dividend_payments').insert(chunk);
+    if (insertError) {
+      console.error('Falha ao gravar pagamentos', insertError);
+      return { ok: false, status: 500, error: 'Falha ao gravar os proventos.' };
+    }
+  }
+
+  if (halted) {
+    return {
+      ok: false,
+      status: halted === 'rate_limited' ? 429 : 502,
+      error: `Sincronização de proventos parou (${halted}).`,
+    };
+  }
+
   return {
     ok: true,
-    data: { requested: tickers.length, saved: rows.length, withoutDividends },
+    data: {
+      requested: catalog.length,
+      saved: summaryRows.length,
+      withoutDividends,
+      fromYahoo,
+      payments: paymentRows.length,
+    },
   };
 }
 
@@ -324,19 +496,24 @@ export async function syncPriceHistory(
 export interface FiiSyncSummary {
   received: number;
   saved: number;
-  /** Quantos vieram sem yield — sem ele não existe preço teto de FII. */
-  withoutYield: number;
+  /** Vieram no screener mas não estão no catálogo da brapi. */
+  outsideCatalog: number;
 }
 
 /**
- * Rendimento dos FIIs, via `/fiis/` da bolsai.
+ * Ficha dos FIIs, via `/fiis/screener` da bolsai — duas requisições pros 551.
  *
- * Cabe numa requisição só (o endpoint aceita `limit` até 5.000), o que importa
- * porque o plano free dá 200 por dia. FII não tem lucro por ação: o preço teto
- * dele sai do rendimento de 12 meses, que gravamos em `dividends_12m`.
+ * Traz patrimônio por cota, P/VP e segmento. NÃO traz rendimento: o
+ * `dividend_yield_ttm` do screener volta corrompido (RURA11 devolveu 3,4e15 em
+ * 2026-08-05) e o `dy_month_pct` tem outlier de 254% ao mês. O rendimento — que
+ * é o que dá o preço teto de FII — vem de `syncDividends`, que lê a série mensal
+ * de `/fiis/{ticker}/distributions`.
+ *
+ * O endpoint `/fiis/` (que o plano free servia) não entra mais: devolve só nome,
+ * segmento e número de cotistas, nenhum dado financeiro.
  */
-export async function syncFiis(limit = 500): Promise<SyncResult<FiiSyncSummary>> {
-  const result = await getFiiList(limit);
+export async function syncFiis(): Promise<SyncResult<FiiSyncSummary>> {
+  const result = await getFiiScreener();
   if (!result.ok) {
     return {
       ok: false,
@@ -351,33 +528,60 @@ export async function syncFiis(limit = 500): Promise<SyncResult<FiiSyncSummary>>
   // `companies`, e o catálogo é quem define o que a tela mostra.
   const { data: known } = await supabase
     .from('companies')
-    .select('ticker')
+    .select('ticker,name,asset_type')
     .eq('asset_type', 'fii');
-  const catalog = new Set(((known ?? []) as { ticker: string }[]).map((row) => row.ticker));
+  const catalog = new Map(
+    ((known ?? []) as { ticker: string; name: string; asset_type: string }[]).map((row) => [
+      row.ticker,
+      row,
+    ])
+  );
 
-  let withoutYield = 0;
-  const rows = result.data.flatMap((fii) => {
-    const ticker = fii.ticker.toUpperCase();
-    if (!catalog.has(ticker)) return [];
-    if (fii.dividends12m === null) {
-      withoutYield += 1;
-      return [];
+  const fundamentalRows: Record<string, unknown>[] = [];
+  // `name` e `asset_type` vão junto porque o upsert do PostgREST monta um INSERT
+  // antes de cair no ON CONFLICT, e as duas colunas são NOT NULL.
+  const companyRows: Record<string, unknown>[] = [];
+  let outsideCatalog = 0;
+
+  for (const fii of result.data) {
+    const known = catalog.get(fii.ticker);
+    if (!known) {
+      outsideCatalog += 1;
+      continue;
     }
-    return [
-      {
-        ticker,
-        dividends_12m: fii.dividends12m,
-        vpa: fii.bookValuePerShare,
-        price_to_book: fii.priceToBook,
-      },
-    ];
-  });
 
-  for (let index = 0; index < rows.length; index += UPSERT_CHUNK) {
-    const chunk = rows.slice(index, index + UPSERT_CHUNK);
+    companyRows.push({
+      ticker: fii.ticker,
+      name: known.name,
+      asset_type: known.asset_type,
+      segment: fii.segment,
+    });
+    fundamentalRows.push({
+      ticker: fii.ticker,
+      corporate_name: fii.name,
+      reference_date: fii.referenceDate,
+      shares_outstanding:
+        fii.sharesOutstanding === null ? null : Math.round(fii.sharesOutstanding),
+      equity: fii.netAssetValue,
+      vpa: fii.bookValuePerShare,
+      price_to_book: fii.priceToBook,
+    });
+  }
+
+  for (let index = 0; index < companyRows.length; index += UPSERT_CHUNK) {
+    const { error } = await supabase
+      .from('companies')
+      .upsert(companyRows.slice(index, index + UPSERT_CHUNK), { onConflict: 'ticker' });
+    if (error) {
+      console.error('Falha ao gravar segmento dos FIIs', error);
+      return { ok: false, status: 500, error: 'Falha ao gravar os FIIs.' };
+    }
+  }
+
+  for (let index = 0; index < fundamentalRows.length; index += UPSERT_CHUNK) {
     const { error } = await supabase
       .from('company_fundamentals')
-      .upsert(chunk, { onConflict: 'ticker' });
+      .upsert(fundamentalRows.slice(index, index + UPSERT_CHUNK), { onConflict: 'ticker' });
     if (error) {
       console.error('Falha ao gravar FIIs', error);
       return { ok: false, status: 500, error: 'Falha ao gravar os FIIs.' };
@@ -386,7 +590,11 @@ export async function syncFiis(limit = 500): Promise<SyncResult<FiiSyncSummary>>
 
   return {
     ok: true,
-    data: { received: result.data.length, saved: rows.length, withoutYield },
+    data: {
+      received: result.data.length,
+      saved: fundamentalRows.length,
+      outsideCatalog,
+    },
   };
 }
 
@@ -419,7 +627,7 @@ export async function syncFundamentals(
     supabase
       .from('company_fundamentals')
       .select('ticker')
-      .gt('updated_at', staleThreshold()),
+      .gt('fundamentals_updated_at', staleThreshold()),
   ]);
 
   if (error) {
@@ -435,7 +643,7 @@ export async function syncFundamentals(
 
   const tickers = ((data ?? []) as { ticker: string }[])
     .map((row) => row.ticker)
-    .filter((ticker) => !alreadyFresh.has(ticker))
+    .filter((ticker) => !alreadyFresh.has(ticker) && BOLSAI_TICKER.test(ticker))
     .slice(0, limit);
   if (tickers.length === 0) {
     if (alreadyFresh.size > 0) {
@@ -470,9 +678,23 @@ export async function syncFundamentals(
         continue;
       }
 
+      // A mediana histórica é o que separa lucro normal de pico. Custa uma
+      // requisição a mais por ticker — com 10.000 por dia, cabe. Falhar aqui
+      // não invalida o balanço: a linha entra sem a mediana.
+      const history = await getFundamentalsHistory(ticker);
+      const quarters = history.ok
+        ? history.data
+            .slice(0, MEDIAN_QUARTERS)
+            .map((point) => point.netIncome)
+            .filter((value): value is number => value !== null)
+        : [];
+
       const fundamentals = result.data;
       rows.push({
         ticker,
+        fundamentals_updated_at: new Date().toISOString(),
+        net_income_median: median(quarters),
+        net_income_median_quarters: quarters.length,
         cvm_code: fundamentals.cvmCode,
         corporate_name: fundamentals.corporateName,
         reference_date: fundamentals.referenceDate,

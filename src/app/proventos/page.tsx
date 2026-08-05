@@ -30,8 +30,8 @@ export default async function ProventosPage() {
   const positions = (rows ?? []) as PositionRow[];
 
   const [report, upcoming, topPayers] = await Promise.all([
-    buildDividendIncomeReport(positions),
-    getUpcomingDividends(positions),
+    buildDividendIncomeReport(supabase, positions),
+    getUpcomingDividends(supabase, positions),
     fetchTopPayers(supabase),
   ]);
 

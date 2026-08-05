@@ -32,7 +32,7 @@ export default async function CarteiraPage() {
   const tickers = [...new Set(positions.map((p) => p.ticker))];
   const [quotes, incomeReport, ceilingAssets, overrides] = await Promise.all([
     tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
-    buildDividendIncomeReport(positions),
+    buildDividendIncomeReport(supabase, positions),
     fetchCeilingAssets(supabase, { tickers }),
     fetchAppliedOverrides(supabase),
   ]);

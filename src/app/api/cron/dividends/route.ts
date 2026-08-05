@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { isAuthorizedCron } from '@/lib/cron-auth';
-import { syncDividends } from '@/lib/market-sync';
+import { syncDividends, DEFAULT_DIVIDENDS_LIMIT } from '@/lib/market-sync';
 
 /**
- * Dividendos pagos nos últimos 12 meses (Yahoo), pra ações e FIIs.
+ * Proventos pagos, da bolsai, pra ações e FIIs: resumo de 12 meses e média dos
+ * anos fechados em `company_fundamentals`, mais cada pagamento em
+ * `dividend_payments` com data-com e data de depósito.
  *
- * Roda junto com o `/api/cron/market`; existe em separado pra depurar e pra
- * repopular sem mexer no catálogo.
+ * Roda junto com o `/api/cron/market` num recorte menor; aqui é onde se cobre o
+ * catálogo inteiro sem apertar o limite de 300s da função.
  */
 
 export const maxDuration = 300;
@@ -17,7 +19,10 @@ export async function GET(request: Request) {
   }
 
   const requested = Number(new URL(request.url).searchParams.get('limit'));
-  const limit = Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : 500;
+  const limit =
+    Number.isFinite(requested) && requested > 0
+      ? Math.floor(requested)
+      : DEFAULT_DIVIDENDS_LIMIT;
 
   const result = await syncDividends(limit);
   if (!result.ok) {

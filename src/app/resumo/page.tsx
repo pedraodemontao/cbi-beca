@@ -39,7 +39,7 @@ export default async function ResumoPage() {
   const tickers = [...new Set(positions.map((p) => p.ticker))];
   const [quotes, upcomingDividends] = await Promise.all([
     tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
-    getUpcomingDividends(positions),
+    getUpcomingDividends(supabase, positions),
   ]);
   const quoteMap = new Map<string, BrapiQuote>(
     (quotes ?? []).map((quote) => [quote.symbol, quote])
