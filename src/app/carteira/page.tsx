@@ -67,11 +67,11 @@ export default async function CarteiraPage() {
   const summary = buildPortfolioSummary(positions, quoteMap);
   const dayChangePercent = weightedDayChange(summary.positions, quoteMap);
 
-  const firstName = (
-    (user.user_metadata.display_name as string | undefined) ??
-    user.email ??
-    ''
-  ).split(' ')[0];
+  // Sem nome cadastrado sobra o e-mail, e `split(' ')` não corta e-mail nenhum —
+  // a saudação virava "Oi, fulana.sobrenome@provedor.com!" e estourava a
+  // largura da tela no celular. Antes do @ já é o suficiente pra soar pessoal.
+  const displayName = user.user_metadata.display_name as string | undefined;
+  const firstName = (displayName ?? user.email?.split('@')[0] ?? '').split(' ')[0];
 
   return (
     <>

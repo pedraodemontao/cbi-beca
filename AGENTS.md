@@ -386,6 +386,27 @@ catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
 - **Tesouro Direto e notícias não existem na brapi v2** (404). Tesouro exigiria o CSV do Tesouro Transparente; notícias, outra fonte inteiramente.
 - **Open Finance** exige contrato com agregador certificado (Pluggy/Belvo) + habilitação no Banco Central — semanas de prazo e custo recorrente, não é tarefa de código.
 
+### QA de mobile (feito em 2026-08-06, a 375px)
+
+A janela do Chrome não desce de 500px — pra testar 375 de verdade, carregar a
+rota num `<iframe>` de 375px: media query resolve contra a largura dele.
+
+Três coisas que só apareceram no celular:
+
+- **A saudação estourava a tela na `/carteira`.** Sem nome cadastrado sobra o
+  e-mail, e `split(' ')` não corta e-mail nenhum — "Oi,
+  fulana.sobrenome@provedor.com!" empurrava a página pra 454px de largura. Hoje
+  usa o que vem antes do @, e o `<h1>` tem `break-words` de rede.
+- **O slider de payout tinha 8px de alvo.** A área de arraste de um
+  `input[type=range]` é a caixa do input, não o traço desenhado: `h-2` deixava
+  8px pro dedo na interação principal da tela. `h-6` triplica sem mudar o
+  desenho.
+- **"Editar" e "Remover" tinham 28px.** Pouco pra qualquer botão, ainda mais
+  pra um destrutivo. Foram pra 36px.
+
+O resto dos alvos fica entre 36 e 40px. Abaixo dos 44px que a diretriz pede,
+mas subir tudo incharia a interface — se for mexer, medir antes.
+
 ## QA obrigatório antes de entregar
 
 Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta no bundle (`next build` + conferir) · disclaimer educacional em 3 lugares (rodapé, chat, página de ativo).

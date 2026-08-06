@@ -174,7 +174,7 @@ export function PositionCard({
                 <button
                   type="button"
                   onClick={() => setEditingLotId(lot.positionId)}
-                  className="rounded-full px-2.5 py-1 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
+                  className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
                 >
                   Editar
                 </button>
@@ -183,7 +183,7 @@ export function PositionCard({
                   <button
                     type="submit"
                     aria-label={`Remover esta compra de ${holding.ticker}`}
-                    className="rounded-full px-2.5 py-1 text-xs font-bold text-muted-foreground transition-colors hover:bg-negative-tint hover:text-negative-deep"
+                    className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-negative-tint hover:text-negative-deep"
                   >
                     Remover
                   </button>
@@ -206,7 +206,7 @@ export function PositionCard({
           <button
             type="button"
             onClick={() => setShowLots((open) => !open)}
-            className="rounded-full px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
+            className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
           >
             {showLots ? 'Esconder compras' : 'Ver minhas compras'}
           </button>
@@ -215,7 +215,7 @@ export function PositionCard({
             <button
               type="button"
               onClick={() => setEditingLotId(holding.lots[0].positionId)}
-              className="rounded-full px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
+              className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
             >
               Editar
             </button>
@@ -228,7 +228,7 @@ export function PositionCard({
               <button
                 type="submit"
                 aria-label={`Remover ${holding.ticker} da carteira`}
-                className="rounded-full px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-negative-tint hover:text-negative-deep"
+                className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-negative-tint hover:text-negative-deep"
               >
                 Remover
               </button>

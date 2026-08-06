@@ -379,7 +379,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     step={5}
                     value={payoutPercent}
                     onChange={(event) => setPayoutPercent(Number(event.target.value))}
-                    className="h-2 w-full cursor-pointer accent-primary"
+                    className="h-6 w-full cursor-pointer accent-primary"
                   />
                   <span className="num w-20 flex-none rounded-panel bg-primary-wash py-2 text-center text-lg font-extrabold text-primary-deep">
                     {payoutPercent}%
@@ -406,7 +406,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     step={0.5}
                     value={fiiYieldPercent}
                     onChange={(event) => setFiiYieldPercent(Number(event.target.value))}
-                    className="h-2 w-full cursor-pointer accent-primary"
+                    className="h-6 w-full cursor-pointer accent-primary"
                   />
                   <span className="num w-24 flex-none rounded-panel bg-primary-wash py-2 text-center text-lg font-extrabold text-primary-deep">
                     {fiiYieldPercent.toFixed(1).replace('.', ',')}%
