@@ -302,7 +302,9 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
       <div className="flex w-full gap-1 rounded-full bg-surface p-1 shadow-soft sm:w-auto sm:self-start">
         {([
           { key: 'stock', label: 'Ações' },
-          { key: 'fii', label: 'Fundos imobiliários' },
+          // "Fundos" e não "Fundos imobiliários": a aba abriga Fiagro e FI-Infra
+            // também, e cada linha diz qual é qual no selo.
+            { key: 'fii', label: 'Fundos' },
         ] as const).map(({ key, label }) => (
           <button
             key={key}
@@ -680,6 +682,9 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                             </span>
                           </span>
                           <span className="flex flex-wrap gap-1">
+                            {asset.fundType && asset.fundType !== 'FII' && (
+                              <FundTypeBadge type={asset.fundType} />
+                            )}
                             {owned.has(asset.ticker) && <OwnedBadge />}
                             {!isLiquid && <IlliquidBadge />}
                             {isOutlier && <OutlierBadge kind={asset.assetType} deviation={deviation} />}
@@ -801,7 +806,10 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <span className="flex flex-wrap gap-1.5">
-                      {owned.has(asset.ticker) && <OwnedBadge />}
+{asset.fundType && asset.fundType !== 'FII' && (
+                        <FundTypeBadge type={asset.fundType} />
+                      )}
+                                            {owned.has(asset.ticker) && <OwnedBadge />}
                       {!isLiquid && <IlliquidBadge />}
                       {isOutlier && <OutlierBadge kind={asset.assetType} deviation={deviation} />}
                       {override && <OverrideBadge isGlobal={override.isGlobal} />}
@@ -983,9 +991,11 @@ function FiiMethodNote() {
         Como a galera calcula o preço teto de FII
       </h3>
       <p className="micro-hint mt-2">
-        Fundo imobiliário não tem lucro por ação nem payout — ele é obrigado a
-        distribuir quase tudo que recebe de aluguel. Por isso o teto dele não usa
-        Bazin, Graham nem Gordon: sai direto do rendimento pago.
+        Fundo listado não tem lucro por ação nem payout — ele é obrigado a
+        distribuir quase tudo que arrecada. Por isso o teto dele não usa Bazin,
+        Graham nem Gordon: sai direto do rendimento pago. Vale pros fundos
+        imobiliários e também pros de agronegócio (Fiagro) e de infraestrutura
+        (FI-Infra), que aparecem aqui com o selo do tipo.
       </p>
       <p className="mt-3 rounded-panel bg-primary-wash px-4 py-3 text-sm font-bold text-primary-deep">
         preço teto = (rendimento mensal × 12) ÷ dividend yield desejado
@@ -1134,7 +1144,7 @@ function FiiIntro({ hasData }: { hasData: boolean }) {
   if (hasData) {
     return (
       <p className="micro-hint">
-        Fundo imobiliário não tem lucro por ação: aqui o teto sai do aluguel que
+        Fundo listado não tem lucro por ação: aqui o teto sai do rendimento que
         ele já pagou por cota no último ano.
       </p>
     );
@@ -1213,6 +1223,28 @@ function MarginChip({ margin }: { margin: number | null }) {
       }
     >
       {formatRatioSigned(margin)}
+    </span>
+  );
+}
+
+/**
+ * Diz o que o fundo é quando não é FII.
+ *
+ * Fiagro e FI-Infra dividem a aba e a conta de preço teto com os fundos
+ * imobiliários, mas não são fundos imobiliários — e a plataforma é educativa.
+ * FII não leva selo: seria ruído em 9 de cada 10 linhas.
+ */
+function FundTypeBadge({ type }: { type: string }) {
+  return (
+    <span
+      className="inline-block rounded-full border border-border px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-muted-foreground"
+      title={
+        type === 'Fiagro'
+          ? 'Fundo do agronegócio. Paga renda mensal como um FII, mas os ativos são do campo, não imóveis.'
+          : 'Fundo de infraestrutura. Paga renda mensal e costuma ser isento de imposto de renda.'
+      }
+    >
+      {type}
     </span>
   );
 }

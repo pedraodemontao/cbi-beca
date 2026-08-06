@@ -9,6 +9,8 @@ export interface CompanyRow {
   subsector: string | null;
   /** Segmento do FII, da bolsai. É o que separa tijolo de papel. */
   segment: string | null;
+  /** 'FII', 'Fiagro' ou 'FI-Infra'. `asset_type` agrupa os três. */
+  fund_type: string | null;
   logo_url: string | null;
   price: number | null;
   change_percent: number | null;
@@ -60,6 +62,8 @@ export interface CeilingAsset {
   sector: string | null;
   /** Só FII tem: 'Logística', 'Papel', 'Lajes Corporativas'… */
   segment: string | null;
+  /** O que o fundo é de verdade: 'FII', 'Fiagro' ou 'FI-Infra'. */
+  fundType: string | null;
   logoUrl: string | null;
   /** Cotação do catálogo (cache com carimbo), não preço ao vivo. */
   price: number | null;

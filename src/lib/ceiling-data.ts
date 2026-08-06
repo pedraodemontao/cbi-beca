@@ -9,6 +9,19 @@ import type {
 } from '@/types/ceiling';
 
 /**
+ * Ticker que a brapi não lista há mais que isso saiu de negociação (ou mudou de
+ * código) e some das telas. A janela é folgada porque o cron é diário e uma
+ * falha pontual não pode esvaziar o catálogo.
+ */
+const STALE_LISTING_DAYS = 10;
+
+function listedSince(): string {
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() - STALE_LISTING_DAYS);
+  return threshold.toISOString();
+}
+
+/**
  * Leitura do que o preço teto precisa do banco.
  *
  * Mora aqui porque três telas consomem o mesmo par de tabelas: a tabela do
@@ -21,6 +34,7 @@ type CompanyFields = Pick<
   | 'name'
   | 'sector'
   | 'segment'
+  | 'fund_type'
   | 'logo_url'
   | 'price'
   | 'price_updated_at'
@@ -44,7 +58,7 @@ type FundamentalFields = Pick<
 >;
 
 const COMPANY_COLUMNS =
-  'ticker,name,sector,segment,logo_url,price,price_updated_at,volume,asset_type,price_history';
+  'ticker,name,sector,segment,fund_type,logo_url,price,price_updated_at,volume,asset_type,price_history';
 const FUNDAMENTAL_COLUMNS =
   'ticker,net_income,shares_outstanding,vpa,reference_date,dividends_12m,dividends_5y_avg,dividends_years,net_income_median,net_income_median_quarters';
 
@@ -72,8 +86,11 @@ export async function fetchCeilingAssets(
     fundamentalQuery = fundamentalQuery.in('ticker', tickers);
   } else {
     // BDR fica de fora: não tem balanço na CVM nem rendimento pra calcular teto.
+    // Papel que saiu de listagem também: o preço dele congelou no dia em que
+    // sumiu, e margem calculada em cima disso é ficção.
     companyQuery = companyQuery
       .in('asset_type', ['stock', 'fii'])
+      .gte('last_seen_at', listedSince())
       .order('market_cap', { ascending: false, nullsFirst: false });
     if (limit) companyQuery = companyQuery.limit(limit);
   }
@@ -96,6 +113,7 @@ export async function fetchCeilingAssets(
         name: company.name,
         sector: company.sector,
         segment: company.segment,
+        fundType: company.fund_type,
         logoUrl: company.logo_url,
         price: company.price,
         priceUpdatedAt: company.price_updated_at,
@@ -148,7 +166,8 @@ export async function fetchFiiOptions(supabase: SupabaseClient): Promise<FiiOpti
       .from('companies')
       .select('ticker,name,price')
       .eq('asset_type', 'fii')
-      .gt('price', 0),
+      .gt('price', 0)
+      .gte('last_seen_at', listedSince()),
     supabase
       .from('company_fundamentals')
       .select('ticker,dividends_12m')
@@ -212,7 +231,8 @@ export async function fetchStockOptions(
         .from('companies')
         .select('ticker,name,sector,logo_url,price')
         .eq('asset_type', 'stock')
-        .gt('price', 0),
+        .gt('price', 0)
+        .gte('last_seen_at', listedSince()),
       supabase
         .from('company_fundamentals')
         .select('ticker,dividends_12m')
@@ -302,7 +322,8 @@ export async function fetchTopPayers(
     supabase
       .from('companies')
       .select('ticker,name,asset_type,price,volume')
-      .in('asset_type', ['stock', 'fii']),
+      .in('asset_type', ['stock', 'fii'])
+      .gte('last_seen_at', listedSince()),
     supabase
       .from('company_fundamentals')
       .select('ticker,dividends_12m')

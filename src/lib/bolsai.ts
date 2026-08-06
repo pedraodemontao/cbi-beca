@@ -366,6 +366,26 @@ interface BolsaiDividendsResponse {
   payments?: Record<string, unknown>[];
 }
 
+/**
+ * Teto de sanidade pro rendimento vindo da fonte.
+ *
+ * O `dividend_yield_ttm` da bolsai volta corrompido em alguns fundos — o
+ * screener já devolvia 3,4e15 pra RURA11, e `/distributions` faz o mesmo em
+ * parte dos Fiagro. Sem esse corte o número estoura o `numeric(12,6)` da coluna
+ * e derruba a gravação do lote INTEIRO, levando junto os fundos que estavam
+ * certos. Cinco (500% ao ano) é folgado: cabe até amortização de cota, que já é
+ * evento extremo.
+ */
+const MAX_PLAUSIBLE_YIELD = 5;
+
+/** Mesma ideia pro R$/cota: `numeric(18,6)` não guarda valor astronômico. */
+const MAX_PLAUSIBLE_PER_SHARE = 100_000;
+
+function sane(value: number | null, limit: number): number | null {
+  if (value === null) return null;
+  return Math.abs(value) > limit ? null : value;
+}
+
 /** Janela do Bazin. */
 const AVERAGE_WINDOW_YEARS = 5;
 
@@ -436,10 +456,13 @@ function normalizeDividends(
   return {
     ticker: (raw.ticker ?? fallbackTicker).toUpperCase(),
     name: raw.name ?? null,
-    ttmPerShare: toNumber(raw.ttm_per_share),
-    dividendYieldTtm: percentToRatio(toNumber(raw.dividend_yield_ttm)),
+    ttmPerShare: sane(toNumber(raw.ttm_per_share), MAX_PLAUSIBLE_PER_SHARE),
+    dividendYieldTtm: sane(
+      percentToRatio(toNumber(raw.dividend_yield_ttm)),
+      MAX_PLAUSIBLE_YIELD
+    ),
     price: toNumber(raw.current_price) ?? toNumber(raw.close_price),
-    averagePerYear: average,
+    averagePerYear: sane(average, MAX_PLAUSIBLE_PER_SHARE),
     averageYears: years,
     payments: (raw.payments ?? [])
       .flatMap((payment) => normalizePayment(payment) ?? [])

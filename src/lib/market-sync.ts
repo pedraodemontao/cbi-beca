@@ -121,11 +121,35 @@ function isFractional(ticker: string, catalog: ReadonlySet<string>): boolean {
  */
 const BOLSAI_TICKER = /^[A-Za-z][A-Za-z0-9]{3}\d{0,2}$/;
 
-function toAssetType(item: BrapiListItem): MarketAssetType | null {
-  if (item.type === 'stock') return 'stock';
-  if (item.type === 'bdr') return 'bdr';
-  // 'fund' abriga FII e ETF; só o FII entra no vocabulário do app.
-  if (item.type === 'fund' && item.subType === 'fii') return 'fii';
+/**
+ * Rótulo de cada tipo de fundo listado que entra no catálogo.
+ *
+ * Os três pagam renda mensal e usam a mesma conta de preço teto (rendimento ÷
+ * yield desejado), então dividem o mesmo balde `asset_type = 'fii'`. Mas o selo
+ * na tela precisa dizer o que a coisa é: Fiagro não é fundo imobiliário.
+ *
+ * ETF fica de fora — não distribui rendimento no Brasil, então não tem teto por
+ * esse método.
+ */
+const FUND_LABELS: Record<string, string> = {
+  fii: 'FII',
+  'fi-agro': 'Fiagro',
+  'fi-infra': 'FI-Infra',
+};
+
+interface CatalogClassification {
+  assetType: MarketAssetType;
+  /** Só existe pra fundo listado. */
+  fundType: string | null;
+}
+
+function classify(item: BrapiListItem): CatalogClassification | null {
+  if (item.type === 'stock') return { assetType: 'stock', fundType: null };
+  if (item.type === 'bdr') return { assetType: 'bdr', fundType: null };
+  if (item.type === 'fund') {
+    const fundType = FUND_LABELS[item.subType ?? ''];
+    if (fundType) return { assetType: 'fii', fundType };
+  }
   return null;
 }
 
@@ -149,14 +173,16 @@ export async function syncCatalog(): Promise<SyncResult<CatalogSyncSummary>> {
   const allTickers = new Set(list.flatMap((item) => item.stock ?? []));
 
   const rows = list.flatMap((item) => {
-    const assetType = toAssetType(item);
-    if (!assetType || !item.stock) return [];
+    const classified = classify(item);
+    if (!classified || !item.stock) return [];
+    const { assetType, fundType } = classified;
     if (isFractional(item.stock, allTickers)) return [];
     return [
       {
         ticker: item.stock,
         name: item.name ?? item.stock,
         asset_type: assetType,
+        fund_type: fundType,
         sector: item.sector ?? null,
         subsector: item.subsector ?? null,
         logo_url: item.logo ?? null,
@@ -165,6 +191,9 @@ export async function syncCatalog(): Promise<SyncResult<CatalogSyncSummary>> {
         market_cap: toNumber(item.market_cap),
         volume: toNumber(item.volume),
         price_updated_at: capturedAt,
+        // Carimbo de "a brapi ainda lista esse papel". Quem parar de aparecer
+        // fica com a data velha e some da tela, sem ser apagado do banco.
+        last_seen_at: capturedAt,
       },
     ];
   });
@@ -280,7 +309,11 @@ export async function syncDividends(
     return { ok: false, status: 500, error: 'Falha ao ler o catálogo.' };
   }
 
-  const catalog = (data ?? []) as { ticker: string; asset_type: string }[];
+  // Classe especial da B3 (`MRSA5B`, `EQMA3B`) devolve 422 aqui igual devolve em
+  // `/fundamentals` — pedir só gasta tempo e polui o log.
+  const catalog = ((data ?? []) as { ticker: string; asset_type: string }[]).filter(
+    (row) => BOLSAI_TICKER.test(row.ticker)
+  );
   if (catalog.length === 0) {
     return {
       ok: false,
