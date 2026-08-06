@@ -45,6 +45,22 @@ export function IncomeSummary({ report }: IncomeSummaryProps) {
         </p>
       )}
 
+      {report.jcpReceived > 0 && (
+        <div className="mt-4 rounded-panel border border-border bg-panel px-4 py-3">
+          <p className="text-sm font-bold">Desse total, o imposto já saiu</p>
+          <p className="micro-hint mt-1">
+            {formatBRL(report.jcpReceived)} vieram como JCP (juros sobre capital
+            próprio), que tem 15% de imposto retido na fonte — dividendo comum
+            não tem. Foram{' '}
+            <strong className="font-bold text-foreground">
+              {formatBRL(report.taxWithheld)}
+            </strong>{' '}
+            de IR, já descontados antes de cair na tua conta. Você não precisa
+            recolher nada nem declarar como imposto a pagar.
+          </p>
+        </div>
+      )}
+
       {report.hasMissingPurchaseDates && (
         <p className="mt-4 rounded-panel bg-background px-4 py-3 text-xs font-medium text-muted-foreground">
           Alguns ativos estão sem a data de compra, então eu contei só a partir

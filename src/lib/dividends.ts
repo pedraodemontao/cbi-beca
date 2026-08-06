@@ -86,6 +86,104 @@ export async function fetchDividendPayments(
   return byTicker;
 }
 
+/** Um provento anunciado, já convertido pro que ELA vai receber. */
+export interface CalendarPayment {
+  ticker: string;
+  assetType: AssetType;
+  /** Data-com: quem já tinha o ativo nela tem direito. */
+  exDate: string;
+  paymentDate: string;
+  type: string;
+  valuePerShare: number;
+  /** Cotas com direito a esse pagamento. */
+  quantity: number;
+  amount: number;
+}
+
+export interface CalendarMonth {
+  /** `YYYY-MM`. */
+  month: string;
+  total: number;
+  payments: CalendarPayment[];
+}
+
+/**
+ * O que ainda vai pingar, mês a mês.
+ *
+ * Diferente de `getUpcomingDividends`, que é uma lista corrida: aqui o
+ * pagamento já vem multiplicado pela quantidade que ela tem, e agrupado por mês
+ * de depósito. É a resposta pra "quanto eu recebo em setembro".
+ *
+ * A quantidade sai dos lotes comprados ATÉ a data-com. Provento cuja data-com
+ * já passou só é dela se ela já tinha o ativo — comprar hoje não dá direito.
+ */
+export async function buildDividendCalendar(
+  supabase: SupabaseClient,
+  positions: PositionRow[]
+): Promise<CalendarMonth[]> {
+  if (positions.length === 0) return [];
+
+  const assetTypeByTicker = new Map<string, AssetType>();
+  for (const position of positions) {
+    if (!assetTypeByTicker.has(position.ticker)) {
+      assetTypeByTicker.set(position.ticker, position.asset_type);
+    }
+  }
+
+  const horizon = new Date();
+  horizon.setMonth(horizon.getMonth() + UPCOMING_HORIZON_MONTHS);
+
+  const { data, error } = await supabase
+    .from('dividend_payments')
+    .select('ticker,ex_date,payment_date,type,value_per_share')
+    .in('ticker', [...assetTypeByTicker.keys()])
+    .gte('payment_date', toIsoDate(new Date()))
+    .lte('payment_date', toIsoDate(horizon))
+    .order('payment_date', { ascending: true });
+
+  if (error) {
+    console.error('Falha ao montar o calendário', error);
+    return [];
+  }
+
+  const byMonth = new Map<string, CalendarMonth>();
+
+  for (const row of (data ?? []) as PaymentRow[]) {
+    if (!row.payment_date) continue;
+
+    // Lote comprado depois da data-com não recebe. Sem data de compra, o
+    // cadastro serve de referência — subestimar é mais honesto que inflar.
+    const quantity = positions
+      .filter(
+        (position) =>
+          position.ticker === row.ticker &&
+          (position.purchase_date ?? position.created_at).slice(0, 10) <= row.ex_date
+      )
+      .reduce((sum, position) => sum + position.quantity, 0);
+    if (quantity <= 0) continue;
+
+    const valuePerShare = toNumber(row.value_per_share);
+    const month = row.payment_date.slice(0, 7);
+    const entry = byMonth.get(month) ?? { month, total: 0, payments: [] };
+    const amount = valuePerShare * quantity;
+
+    entry.total += amount;
+    entry.payments.push({
+      ticker: row.ticker,
+      assetType: assetTypeByTicker.get(row.ticker) ?? 'stock',
+      exDate: row.ex_date,
+      paymentDate: row.payment_date,
+      type: row.type,
+      valuePerShare,
+      quantity,
+      amount,
+    });
+    byMonth.set(month, entry);
+  }
+
+  return [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
+}
+
 /**
  * Proventos já anunciados que ainda vão cair, ordenados pela data do depósito.
  *

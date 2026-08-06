@@ -134,3 +134,70 @@ export function groupByTicker(valuations: PositionValuation[]): TickerHolding[] 
     };
   });
 }
+
+/** Uma fatia da carteira por setor. */
+export interface SectorSlice {
+  sector: string;
+  value: number;
+  /** Razão 0-1 sobre o patrimônio com cotação. */
+  share: number;
+  tickers: string[];
+}
+
+/**
+ * Acima disso vale comentar. Não é regra de mercado nem limite de risco — é o
+ * ponto em que a informação passa a ser útil pra quem está começando.
+ */
+export const CONCENTRATION_THRESHOLD = 0.4;
+
+/**
+ * Com menos ativos que isso, concentração é inevitável e apontar não ajuda:
+ * quem tem duas ações SEMPRE vai estar concentrada, e ouvir isso no primeiro
+ * mês desanima em vez de ensinar.
+ */
+const MIN_ASSETS_TO_COMMENT = 3;
+
+export interface SectorConcentration {
+  slices: SectorSlice[];
+  /** A maior fatia, quando passa do limite E há ativos suficientes. */
+  dominant: SectorSlice | null;
+}
+
+/**
+ * Como a carteira se divide por setor.
+ *
+ * Só entra posição com cotação: somar quem não tem preço distorceria os
+ * percentuais sem avisar.
+ */
+export function buildSectorConcentration(
+  positions: PositionValuation[],
+  sectorByTicker: Map<string, string | null>
+): SectorConcentration {
+  const priced = positions.filter((position) => position.currentValue !== null);
+  const total = priced.reduce((sum, position) => sum + (position.currentValue ?? 0), 0);
+  if (total <= 0) return { slices: [], dominant: null };
+
+  const bySector = new Map<string, SectorSlice>();
+  for (const position of priced) {
+    const sector = sectorByTicker.get(position.ticker) || 'Outros';
+    const slice = bySector.get(sector) ?? { sector, value: 0, share: 0, tickers: [] };
+    slice.value += position.currentValue ?? 0;
+    if (!slice.tickers.includes(position.ticker)) slice.tickers.push(position.ticker);
+    bySector.set(sector, slice);
+  }
+
+  const slices = [...bySector.values()]
+    .map((slice) => ({ ...slice, share: slice.value / total }))
+    .sort((a, b) => b.value - a.value);
+
+  const distinctAssets = new Set(priced.map((position) => position.ticker)).size;
+  const biggest = slices[0];
+  const dominant =
+    distinctAssets >= MIN_ASSETS_TO_COMMENT &&
+    biggest &&
+    biggest.share > CONCENTRATION_THRESHOLD
+      ? biggest
+      : null;
+
+  return { slices, dominant };
+}

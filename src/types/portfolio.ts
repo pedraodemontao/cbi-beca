@@ -107,6 +107,14 @@ export interface DividendIncomeReport {
   estimatedMonthlyIncome: number;
   /** Alguma posição sem data de compra — o total pode estar subestimado. */
   hasMissingPurchaseDates: boolean;
+  /**
+   * Quanto do total recebido veio como JCP. Importa porque JCP tem 15% de IR
+   * retido na fonte e dividendo comum não tem — o que caiu na conta é menor
+   * que o bruto, e nenhuma ferramenta popular mostra isso.
+   */
+  jcpReceived: number;
+  /** IR retido sobre a parte de JCP. */
+  taxWithheld: number;
 }
 
 export interface PortfolioSnapshot {

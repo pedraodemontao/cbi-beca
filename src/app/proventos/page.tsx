@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
-import { getUpcomingDividends } from '@/lib/dividends';
+import { buildDividendCalendar } from '@/lib/dividends';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { BecaTip } from '@/components/shared/beca-tip';
-import { DividendsCard } from '@/components/resumo/dividends-card';
+import { DividendCalendar } from '@/components/proventos/dividend-calendar';
 import { IncomeSummary } from '@/components/proventos/income-summary';
 import { MonthlyIncomeChart } from '@/components/proventos/monthly-income-chart';
 import { IncomeByTicker } from '@/components/proventos/income-by-ticker';
@@ -29,9 +29,9 @@ export default async function ProventosPage() {
     .order('created_at', { ascending: true });
   const positions = (rows ?? []) as PositionRow[];
 
-  const [report, upcoming, topPayers] = await Promise.all([
+  const [report, calendar, topPayers] = await Promise.all([
     buildDividendIncomeReport(supabase, positions),
-    getUpcomingDividends(supabase, positions),
+    buildDividendCalendar(supabase, positions),
     fetchTopPayers(supabase),
   ]);
 
@@ -64,7 +64,7 @@ export default async function ProventosPage() {
 
             <IncomeByTicker byTicker={report.byTicker} />
 
-            <DividendsCard dividends={upcoming} />
+            <DividendCalendar months={calendar} />
 
             <BecaTip title="Pra você entender">
               Provento é a tua parte do lucro, sem vender nada. Empresa costuma

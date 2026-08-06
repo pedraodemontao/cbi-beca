@@ -13,7 +13,12 @@ import type {
 interface DividendPayment {
   date: string;
   rate: number;
+  /** 'JCP' quando conhecido. Vindo do Yahoo o tipo não existe. */
+  type?: string;
 }
+
+/** Imposto retido na fonte sobre juros sobre capital próprio. */
+const JCP_TAX = 0.15;
 
 // Quanto a carteira JÁ pingou: para cada pagamento anunciado depois da compra,
 // valor recebido = taxa por cota × quantidade. Nada é digitado pela usuária.
@@ -58,6 +63,7 @@ async function loadHistories(
           fromDatabase.map((payment) => ({
             date: payment.exDate,
             rate: payment.valuePerShare,
+            type: payment.type,
           })),
         ] as const;
       }
@@ -90,6 +96,8 @@ export async function buildDividendIncomeReport(
     byTicker: [],
     estimatedMonthlyIncome: 0,
     hasMissingPurchaseDates: false,
+    jcpReceived: 0,
+    taxWithheld: 0,
   };
 
   if (positions.length === 0) return empty;
@@ -100,6 +108,7 @@ export async function buildDividendIncomeReport(
   const now = new Date();
   const monthTotals = new Map<string, number>();
   const tickerTotals = new Map<string, { total: number; payments: number }>();
+  let jcpReceived = 0;
 
   for (const position of positions) {
     const since = incomeStartDate(position);
@@ -112,6 +121,11 @@ export async function buildDividendIncomeReport(
 
       const amount = dividend.rate * position.quantity;
       const key = monthKey(paidOn);
+
+      // JCP entra na conta separada porque leva 15% de IR na fonte. Pagamento
+      // sem tipo (o que vem do Yahoo) conta como dividendo comum: supor imposto
+      // onde não se sabe seria inventar desconto.
+      if (dividend.type === 'JCP') jcpReceived += amount;
 
       monthTotals.set(key, (monthTotals.get(key) ?? 0) + amount);
       const current = tickerTotals.get(position.ticker) ?? { total: 0, payments: 0 };
@@ -147,6 +161,8 @@ export async function buildDividendIncomeReport(
     // Últimos 12 meses projetados pro ritmo atual da carteira
     estimatedMonthlyIncome: estimateMonthlyIncome(positions, historyByTicker, now),
     hasMissingPurchaseDates: positions.some((position) => !position.purchase_date),
+    jcpReceived,
+    taxWithheld: jcpReceived * JCP_TAX,
   };
 }
 

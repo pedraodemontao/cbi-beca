@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getQuote, type BrapiQuote } from '@/lib/brapi';
 import { getAccumulatedCdi, getCurrentCdiYearly } from '@/lib/bcb';
 import { getUpcomingDividends } from '@/lib/dividends';
-import { buildPortfolioSummary } from '@/lib/portfolio';
+import { buildPortfolioSummary, buildSectorConcentration } from '@/lib/portfolio';
+import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { formatBRL, formatPercent } from '@/lib/format';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { BecaTip } from '@/components/shared/beca-tip';
@@ -12,6 +13,8 @@ import { AllocationBar } from '@/components/resumo/allocation-bar';
 import { DividendsCard } from '@/components/resumo/dividends-card';
 import { EvolutionChart } from '@/components/resumo/evolution-chart';
 import { CdiComparison } from '@/components/resumo/cdi-comparison';
+import { IncomeGoalCard } from '@/components/resumo/income-goal-card';
+import { SectorConcentration } from '@/components/resumo/sector-concentration';
 import type { PortfolioSnapshot, PositionRow } from '@/types/portfolio';
 
 export default async function ResumoPage() {
@@ -24,27 +27,43 @@ export default async function ResumoPage() {
     redirect('/login');
   }
 
-  const [{ data: positionRows }, { data: snapshotRows }] = await Promise.all([
-    supabase.from('positions').select('*').order('created_at', { ascending: true }),
-    supabase
-      .from('portfolio_snapshots')
-      .select('captured_on,total_value,invested_value')
-      .order('captured_on', { ascending: true })
-      .limit(180),
-  ]);
+  const [{ data: positionRows }, { data: snapshotRows }, { data: profile }] =
+    await Promise.all([
+      supabase.from('positions').select('*').order('created_at', { ascending: true }),
+      supabase
+        .from('portfolio_snapshots')
+        .select('captured_on,total_value,invested_value')
+        .order('captured_on', { ascending: true })
+        .limit(180),
+      supabase.from('profiles').select('income_goal').eq('id', user.id).maybeSingle(),
+    ]);
 
   const positions = (positionRows ?? []) as PositionRow[];
   const snapshots = (snapshotRows ?? []) as PortfolioSnapshot[];
 
   const tickers = [...new Set(positions.map((p) => p.ticker))];
-  const [quotes, upcomingDividends] = await Promise.all([
-    tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
-    getUpcomingDividends(supabase, positions),
-  ]);
+  const [quotes, upcomingDividends, incomeReport, { data: sectorRows }] =
+    await Promise.all([
+      tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
+      getUpcomingDividends(supabase, positions),
+      buildDividendIncomeReport(supabase, positions),
+      tickers.length > 0
+        ? supabase.from('companies').select('ticker,sector').in('ticker', tickers)
+        : Promise.resolve({ data: [] }),
+    ]);
   const quoteMap = new Map<string, BrapiQuote>(
     (quotes ?? []).map((quote) => [quote.symbol, quote])
   );
   const summary = buildPortfolioSummary(positions, quoteMap);
+  const concentration = buildSectorConcentration(
+    summary.positions,
+    new Map(
+      ((sectorRows ?? []) as { ticker: string; sector: string | null }[]).map((row) => [
+        row.ticker,
+        row.sector,
+      ])
+    )
+  );
   const isUp = summary.profit >= 0;
 
   // CDI acumulado desde a compra mais antiga — a régua da renda fixa
@@ -110,6 +129,14 @@ export default async function ResumoPage() {
                 <p className="micro-hint mt-1">saiu do teu bolso</p>
               </div>
             </section>
+
+            <IncomeGoalCard
+              goal={(profile?.income_goal as number | null) ?? null}
+              monthlyIncome={incomeReport.estimatedMonthlyIncome}
+              portfolioValue={summary.totalValue}
+            />
+
+            <SectorConcentration concentration={concentration} />
 
             <EvolutionChart snapshots={snapshots} />
 
