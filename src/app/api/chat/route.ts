@@ -320,13 +320,47 @@ export async function POST(request: Request) {
 
   const ceilingBlock = buildCeilingContext(ceilingAssets, ceilingOverrides, quoteMap);
 
+  // A pergunta é gravada antes de responder: se a resposta falhar no meio, a
+  // usuária pelo menos reencontra o que perguntou.
+  const question = lastUserText(messages);
+  if (question) {
+    await supabase
+      .from('chat_messages')
+      .insert({ user_id: user.id, role: 'user', content: question });
+  }
+
   const result = streamText({
     model: anthropic(CHAT_MODEL),
     system: [systemPrompt, contextBlock, ceilingBlock].filter(Boolean).join('\n\n'),
     messages: await convertToModelMessages(messages),
+    async onFinish({ text }) {
+      if (!text.trim()) return;
+      // Só a conversa vai pro banco. O prompt de sistema carrega a carteira
+      // inteira dela e é remontado a cada pergunta — gravar seria guardar um
+      // retrato financeiro desatualizado sem motivo.
+      await supabase
+        .from('chat_messages')
+        .insert({ user_id: user.id, role: 'assistant', content: text });
+    },
   });
 
   return createUIMessageStreamResponse({
     stream: toUIMessageStream({ stream: result.stream }),
   });
+}
+
+/** Texto da última pergunta. As partes da mensagem podem vir fatiadas. */
+function lastUserText(messages: { role: string; parts?: unknown[] }[]): string | null {
+  const last = [...messages].reverse().find((message) => message.role === 'user');
+  if (!last) return null;
+
+  const text = (last.parts ?? [])
+    .flatMap((part) =>
+      part && typeof part === 'object' && 'text' in part && typeof part.text === 'string'
+        ? [part.text]
+        : []
+    )
+    .join('')
+    .trim();
+  return text || null;
 }

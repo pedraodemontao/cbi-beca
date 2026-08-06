@@ -38,11 +38,15 @@ export function IncomeGoalCard({
             <span className="text-sm font-bold">Quero receber por mês</span>
             <span className="flex items-center gap-2 rounded-panel border border-border bg-panel px-4 focus-within:border-primary">
               <span className="text-sm font-bold text-muted-foreground">R$</span>
+              {/* `step` fica em "any" de propósito: com `min="1"` e `step="100"`
+                  os valores válidos seriam 1, 101, 201… e 2000 era recusado pela
+                  validação do browser. O submit falhava calado — `requestSubmit`
+                  nem chega a disparar o evento quando o campo é inválido. */}
               <input
                 name="goal"
                 type="number"
                 min="1"
-                step="100"
+                step="any"
                 inputMode="decimal"
                 defaultValue={2000}
                 className="num w-full bg-transparent py-3 text-base outline-none"

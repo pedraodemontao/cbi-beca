@@ -3,7 +3,8 @@
 import { BecaAvatar } from '@/components/shared/beca-avatar';
 import { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
+import { DefaultChatTransport, type UIMessage } from 'ai';
+import { clearChatHistory } from '@/app/chat/actions';
 
 const SUGGESTIONS = [
   'Como tá minha carteira?',
@@ -11,9 +12,15 @@ const SUGGESTIONS = [
   'Quando recebo meus próximos proventos?',
 ] as const;
 
-export function ChatPanel() {
+interface ChatPanelProps {
+  /** Conversa já gravada, mais antiga primeiro. */
+  initialMessages: UIMessage[];
+}
+
+export function ChatPanel({ initialMessages }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const { messages, sendMessage, status, error } = useChat({
+    messages: initialMessages,
     transport: new DefaultChatTransport({ api: '/api/chat' }),
   });
 
@@ -28,6 +35,17 @@ export function ChatPanel() {
 
   return (
     <div className="flex flex-1 flex-col gap-4">
+      {messages.length > 0 && (
+        <form action={clearChatHistory} className="flex justify-end">
+          <button
+            type="submit"
+            className="rounded-full px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:text-primary"
+          >
+            Limpar conversa
+          </button>
+        </form>
+      )}
+
       <div className="flex flex-1 flex-col gap-4">
         {messages.length === 0 && (
           <div className="card-lg">

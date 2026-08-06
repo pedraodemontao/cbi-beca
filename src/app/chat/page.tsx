@@ -3,6 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { ChatPanel } from '@/components/chat/chat-panel';
 
+interface ChatMessageRow {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export default async function ChatPage() {
   const supabase = await createClient();
   const {
@@ -12,6 +18,22 @@ export default async function ChatPage() {
   if (!user) {
     redirect('/login');
   }
+
+  // Últimas trocas, mais antiga primeiro. O limite existe porque a conversa
+  // inteira volta pro modelo a cada pergunta — e conversa longa vira custo.
+  const { data: history } = await supabase
+    .from('chat_messages')
+    .select('id,role,content')
+    .order('created_at', { ascending: false })
+    .limit(40);
+
+  const initialMessages = ((history ?? []) as ChatMessageRow[])
+    .reverse()
+    .map((row) => ({
+      id: row.id,
+      role: row.role,
+      parts: [{ type: 'text' as const, text: row.content }],
+    }));
 
   return (
     <>
@@ -26,7 +48,7 @@ export default async function ChatPage() {
           </p>
         </header>
 
-        <ChatPanel />
+        <ChatPanel initialMessages={initialMessages} />
       </main>
       <BottomNav />
     </>

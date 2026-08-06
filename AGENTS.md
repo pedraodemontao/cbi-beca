@@ -353,6 +353,51 @@ catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
 - **Chat sabe do preço teto** (`CONTEXTO_PRECO_TETO` em `/api/chat`): a Beca
   responde "a PETR4 está abaixo do teto?" com o número já calculado.
 
+## Funcionalidades de 2026-08-06 (segunda leva)
+
+- **Calendário de proventos** (`/proventos`): o que já foi ANUNCIADO, mês a mês.
+  Não é grade de dias de propósito — provento é esparso, e 31 quadradinhos
+  vazios no celular não respondem "quanto cai em setembro". A quantidade sai dos
+  lotes comprados **até a data-com**: comprar hoje não dá direito a provento cuja
+  data-com já passou.
+- **Meta de renda** (`profiles.income_goal`, migration 0008): o quanto falta é
+  calculado com o rendimento REAL da carteira dela, não com média de mercado.
+  Sem carteira ou sem provento a tela diz que não dá pra projetar em vez de
+  chutar 8%.
+- **Concentração por setor** (`buildSectorConcentration`): o selo de "muito
+  concentrada" só aparece a partir de **três ativos distintos**. Quem tem dois
+  SEMPRE vai estar concentrada, e ouvir isso no primeiro mês desanima em vez de
+  ensinar. O corte é 40% — não é regra de mercado, é o ponto em que a informação
+  passa a ser útil pra quem começa.
+- **IR de JCP** (`/proventos`): pagamento sem tipo conhecido (o que vem do
+  Yahoo) conta como dividendo comum. Supor imposto onde não se sabe seria
+  inventar desconto.
+- **`companies.fund_type`** (migration 0009) separa **balde de rótulo**:
+  `asset_type = 'fii'` é a categoria que agrupa fundo listado, `fund_type` diz o
+  que a coisa é (FII, Fiagro, FI-Infra). Foi o que permitiu incluir 33 Fiagro e
+  15 FI-Infra sem mexer no enum `positions.asset_type` e sem chamar Fiagro de
+  fundo imobiliário na tela. A aba virou "Fundos".
+- **`companies.last_seen_at`** (migration 0010): cada sincronização carimba quem
+  a brapi ainda lista; quem some por 10 dias sai das telas. **Marcar em vez de
+  apagar** — `ceiling_overrides` tem FK pra `companies` e um DELETE levaria junto
+  o ajuste da usuária. Saíram 124 ativos, entre eles o EQPA7.
+- **`chat_messages`** (migration 0011): só a conversa vai pro banco. O prompt de
+  sistema carrega a carteira inteira dela e é remontado a cada pergunta — gravar
+  seria guardar um retrato financeiro desatualizado sem motivo.
+
+### Duas armadilhas que custaram caro
+
+- **`min` + `step` em `<input type="number">` invalidam valores no meio.** A meta
+  de renda tinha `min="1" step="100"`, o que torna 2000 inválido (válidos seriam
+  1, 101, 201…). O browser bloqueia o submit **em silêncio**: `requestSubmit()`
+  nem dispara o evento, não aparece requisição na rede e não há erro no console.
+  Pra campo de dinheiro, `step="any"`.
+- **Rendimento corrompido derruba o lote inteiro.** Parte dos Fiagro devolve
+  `dividend_yield_ttm` absurdo em `/distributions` (mesmo defeito do screener);
+  o número estourava o `numeric(12,6)` e o PostgREST rejeitava o INSERT todo,
+  levando junto os fundos certos. Valor acima de 500% ao ano vira null na
+  ingestão (`MAX_PLAUSIBLE_YIELD` em `lib/bolsai.ts`).
+
 ## Pendências conhecidas
 
 - **3 ações não têm fundamento na bolsai**: SMTO3, RAIZ4 e JALL3 devolvem 404
