@@ -404,8 +404,22 @@ Três coisas que só apareceram no celular:
 - **"Editar" e "Remover" tinham 28px.** Pouco pra qualquer botão, ainda mais
   pra um destrutivo. Foram pra 36px.
 
+- **Faltava `viewport-fit=cover`.** O Next declara o viewport padrão, mas sem
+  essa peça `env(safe-area-inset-*)` devolve 0 — e a barra de navegação fixa
+  ficava embaixo do home indicator do iPhone. O `padding-bottom` dela agora é
+  `max(0.5rem, env(safe-area-inset-bottom))`, que não muda nada em aparelho sem
+  entalhe.
+
 O resto dos alvos fica entre 36 e 40px. Abaixo dos 44px que a diretriz pede,
 mas subir tudo incharia a interface — se for mexer, medir antes.
+
+**O que NÃO foi verificado:** aparelho real (iOS/Android de verdade), 3G,
+leitor de tela e paisagem. O teste foi iframe em Chrome desktop.
+
+**Peso do `/preco-teto`:** 690 ativos viram ~213 kB de dado antes do gzip. É o
+preço de recalcular a tabela inteira no client quando a usuária mexe no slider.
+Se virar problema em rede ruim, o corte é paginar do servidor — mas aí o slider
+deixa de ser instantâneo.
 
 ## QA obrigatório antes de entregar
 

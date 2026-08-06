@@ -20,7 +20,12 @@ export function BottomNav() {
       aria-label="Navegação principal"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur sm:static sm:mx-auto sm:mt-6 sm:w-full sm:max-w-3xl sm:rounded-full sm:border sm:bg-surface sm:shadow-soft"
     >
-      <ul className="mx-auto flex max-w-3xl items-center justify-around px-2 py-2 sm:justify-center sm:gap-2 sm:py-1.5">
+      {/* O respiro de baixo acompanha o home indicator do iPhone; em aparelho
+          sem entalhe `env()` devolve 0 e nada muda. */}
+      <ul
+        className="mx-auto flex max-w-3xl items-center justify-around px-2 py-2 sm:justify-center sm:gap-2 sm:py-1.5 sm:pb-1.5"
+        style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+      >
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
