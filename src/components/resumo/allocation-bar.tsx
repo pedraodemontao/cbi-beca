@@ -8,7 +8,7 @@ const LABELS = {
 
 const COLORS = {
   stock: 'bg-primary',
-  fii: 'bg-accent-foreground',
+  fii: 'bg-muted-foreground',
 } as const;
 
 interface AllocationBarProps {

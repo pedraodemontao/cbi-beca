@@ -1,5 +1,6 @@
 'use client';
 
+import { BrandMark } from '@/components/shared/brand-mark';
 export default function GlobalError({
   reset,
 }: {
@@ -8,12 +9,7 @@ export default function GlobalError({
 }) {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-5 px-5 py-16 text-center">
-      <span
-        aria-hidden
-        className="grid size-14 place-items-center rounded-full border-[3px] border-white bg-gradient-to-br from-[#2E9463] to-primary-deep text-xl font-extrabold text-white shadow-soft"
-      >
-        B
-      </span>
+      <BrandMark size={56} />
       <div>
         <h1 className="text-xl font-extrabold tracking-tight">
           Ops, deu ruim aqui do meu lado

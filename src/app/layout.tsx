@@ -8,9 +8,9 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Carteira da Beca",
+  title: "Central CBI",
   description:
-    "Acompanhe sua carteira de ações e FIIs sem economês — com a ajuda da Beca.",
+    "Preço teto, carteira e proventos de ações e FIIs — sem economês, com a Beca."
 };
 
 export default function RootLayout({

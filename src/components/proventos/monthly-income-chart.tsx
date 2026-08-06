@@ -45,7 +45,10 @@ export function MonthlyIncomeChart({ monthly }: MonthlyIncomeChartProps) {
         {recent.map((entry) => (
           <li
             key={entry.month}
-            className="group flex flex-1 flex-col items-center justify-end gap-2"
+            // `h-full` não é enfeite: a altura da barra é percentual, e sem uma
+            // altura definida no pai ela resolve pra zero. O gráfico inteiro
+            // ficava invisível — só os rótulos dos meses apareciam.
+            className="group flex h-full flex-1 flex-col items-center justify-end gap-2"
             title={`${label(entry.month)}: ${formatBRL(entry.amount)}`}
           >
             <span className="num text-[0.6rem] font-bold text-primary-deep opacity-0 transition-opacity group-hover:opacity-100 sm:text-xs">

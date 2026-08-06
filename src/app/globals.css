@@ -1,46 +1,71 @@
 @import "tailwindcss";
 
-/* ═══ Camada 1 — Primitivos (direção "Amiga Professora") ═══ */
+/* ═══ Camada 1 — Primitivos (direção "Central CBI": preto, ouro, verde) ═══
+ *
+ * Todos os pares foram medidos: nenhum texto abaixo de 4,5:1 sobre o fundo em
+ * que ele aparece. No escuro a separação entre superfícies não vem da luz — a
+ * diferença entre o preto e o card é de só 1,09:1 — e sim da BORDA. Por isso
+ * `.card` tem borda, coisa que a direção clara não precisava.
+ */
 :root {
-  --beca-cream: #faf7f2;
-  --beca-white: #ffffff;
-  --beca-ink: #28322b;
-  --beca-ink-soft: #5a645d;
-  --beca-green: #1b7a4e;
-  --beca-green-deep: #14603c;
-  --beca-green-tint: #dff0e6;
-  --beca-green-wash: #edf6f0;
-  --beca-butter: #fcf0ce;
-  --beca-butter-ink: #6e4f14;
-  --beca-butter-text: #4a3e1c;
-  --beca-coral: #be3a2b;
-  --beca-coral-tint: #fbe5de;
-  --beca-coral-deep: #a22f1e;
-  --beca-line: #e8e2d8;
+  --cbi-black: #08080a;
+  --cbi-surface: #141419;
+  --cbi-panel: #1e1e25;
+  --cbi-line: #2e2e38;
+
+  /* Ouro é a marca: botão, rótulo, CTA. Nunca significa alta de mercado. */
+  --cbi-gold: #d6a93c;
+  --cbi-gold-soft: #e3be63;
+  --cbi-gold-deep: #a87f22;
+  --cbi-gold-tint: #332c1f;
+
+  /* Verde é detalhe E é alta. Os dois papéis convivem porque alta é detalhe. */
+  --cbi-green: #3fbf87;
+  --cbi-green-soft: #5bd3a0;
+  --cbi-green-tint: #1b2f2b;
+
+  --cbi-coral: #f0705f;
+  --cbi-coral-soft: #ff8a78;
+  --cbi-coral-tint: #372324;
+
+  --cbi-ink: #f4f1e8;
+  --cbi-ink-soft: #a8a69e;
 
   /* ═══ Camada 2 — Semânticos ═══ */
-  --background: var(--beca-cream);
-  --surface: var(--beca-white);
-  --foreground: var(--beca-ink);
-  --muted-fg: var(--beca-ink-soft);
-  --border-subtle: var(--beca-line);
-  --primary: var(--beca-green);
-  --primary-deep: var(--beca-green-deep);
-  --primary-tint: var(--beca-green-tint);
-  --primary-wash: var(--beca-green-wash);
-  --accent: var(--beca-butter);
-  --accent-fg: var(--beca-butter-ink);
-  --accent-text: var(--beca-butter-text);
-  --positive: var(--beca-green-deep);
-  --negative: var(--beca-coral);
-  --negative-tint: var(--beca-coral-tint);
-  --negative-deep: var(--beca-coral-deep);
+  --background: var(--cbi-black);
+  --surface: var(--cbi-surface);
+  --panel: var(--cbi-panel);
+  --foreground: var(--cbi-ink);
+  --muted-fg: var(--cbi-ink-soft);
+  --border-subtle: var(--cbi-line);
+
+  --primary: var(--cbi-gold);
+  --primary-deep: var(--cbi-gold-soft);
+  --primary-tint: var(--cbi-gold-tint);
+  --primary-wash: var(--cbi-gold-tint);
+  /* Texto que vai EM CIMA do ouro. Branco sobre ouro reprova em contraste;
+   * preto dá 9,15:1. */
+  --primary-fg: var(--cbi-black);
+
+  --accent: var(--cbi-gold-tint);
+  --accent-fg: var(--cbi-gold-soft);
+  --accent-text: var(--cbi-gold-soft);
+
+  /* Mercado. Desacoplado da marca de propósito: quando o ouro virou primária,
+   * `chip-up` herdando `primary` teria pintado "alta" de dourado. */
+  --positive: var(--cbi-green);
+  --positive-deep: var(--cbi-green-soft);
+  --positive-tint: var(--cbi-green-tint);
+  --negative: var(--cbi-coral);
+  --negative-tint: var(--cbi-coral-tint);
+  --negative-deep: var(--cbi-coral-soft);
 }
 
 /* ═══ Camada 3 — Utilities Tailwind ═══ */
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-panel: var(--panel);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-fg);
   --color-border: var(--border-subtle);
@@ -49,10 +74,13 @@
   --color-primary-deep: var(--primary-deep);
   --color-primary-tint: var(--primary-tint);
   --color-primary-wash: var(--primary-wash);
+  --color-primary-foreground: var(--primary-fg);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-fg);
   --color-accent-text: var(--accent-text);
   --color-positive: var(--positive);
+  --color-positive-deep: var(--positive-deep);
+  --color-positive-tint: var(--positive-tint);
   --color-negative: var(--negative);
   --color-negative-tint: var(--negative-tint);
   --color-negative-deep: var(--negative-deep);
@@ -60,12 +88,14 @@
   --font-sans: var(--font-jakarta);
   --radius-card: 24px;
   --radius-panel: 18px;
-  --shadow-soft: 0 10px 30px rgb(43 74 58 / 0.08), 0 2px 8px rgb(43 74 58 / 0.05);
-  --shadow-lift: 0 16px 40px rgb(43 74 58 / 0.12), 0 3px 10px rgb(43 74 58 / 0.06);
+  /* Sombra no escuro quase não aparece; quem separa o card é a borda. Ela fica
+   * só pra dar profundidade nos elementos que flutuam. */
+  --shadow-soft: 0 12px 32px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 20px 48px rgb(0 0 0 / 0.6), 0 4px 12px rgb(0 0 0 / 0.45);
 }
 
 html {
-  color-scheme: light;
+  color-scheme: dark;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -78,7 +108,7 @@ body {
   position: relative;
 }
 
-/* Respiro quente ao fundo — assinatura da direção */
+/* Brilho quente ao fundo — assinatura da direção, agora em ouro sobre preto. */
 body::before {
   content: "";
   position: fixed;
@@ -86,19 +116,19 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(560px 320px at 85% -40px, rgb(252 240 206 / 0.75), transparent 70%),
-    radial-gradient(640px 380px at -10% 160px, rgb(223 240 230 / 0.65), transparent 70%);
+    radial-gradient(620px 340px at 88% -60px, rgb(214 169 60 / 0.14), transparent 70%),
+    radial-gradient(680px 400px at -10% 140px, rgb(63 191 135 / 0.07), transparent 70%);
 }
 
 :focus-visible {
-  outline: 3px solid rgb(27 122 78 / 0.5);
+  outline: 3px solid rgb(214 169 60 / 0.65);
   outline-offset: 3px;
   border-radius: 8px;
 }
 
 ::selection {
-  background: var(--primary-tint);
-  color: var(--primary-deep);
+  background: var(--primary);
+  color: var(--primary-fg);
 }
 
 @layer components {
@@ -107,31 +137,32 @@ body::before {
   }
 
   .card {
-    @apply rounded-panel bg-surface p-5 shadow-soft;
+    @apply rounded-panel border border-border bg-surface p-5 shadow-soft;
   }
 
   .card-lg {
-    @apply rounded-card bg-surface p-6 shadow-soft;
+    @apply rounded-card border border-border bg-surface p-6 shadow-soft;
   }
 
   .field {
-    @apply w-full rounded-panel border border-border bg-surface px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary;
+    @apply w-full rounded-panel border border-border bg-panel px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary;
   }
 
   .btn-primary {
-    @apply rounded-full bg-primary px-6 py-3 font-bold text-white shadow-soft transition-colors hover:bg-primary-deep disabled:opacity-60;
+    @apply rounded-full bg-primary px-6 py-3 font-bold text-primary-foreground shadow-soft transition-colors hover:bg-primary-deep disabled:opacity-60;
   }
 
   .btn-ghost {
-    @apply rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary;
+    @apply rounded-full border border-border bg-panel px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary;
   }
 
   .chip {
     @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold;
   }
 
+  /* Alta e queda saem dos tokens de MERCADO, não dos da marca. */
   .chip-up {
-    @apply bg-primary-tint text-primary-deep;
+    @apply bg-positive-tint text-positive-deep;
   }
 
   .chip-down {
@@ -139,7 +170,7 @@ body::before {
   }
 
   .chip-neutral {
-    @apply bg-background text-muted-foreground;
+    @apply bg-panel text-muted-foreground;
   }
 
   /* Rótulo didático acima de cada número */

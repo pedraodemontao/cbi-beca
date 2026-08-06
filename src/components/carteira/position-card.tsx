@@ -58,7 +58,9 @@ export function PositionCard({
             </Link>
             <span
               className={`chip px-2.5 py-1 text-xs ${
-                isFii ? 'bg-accent text-accent-foreground' : 'chip-up'
+                // Tipo de ativo é rótulo, não direção de mercado: verde aqui faria
+                // "Ação" parecer "em alta". FII fica no ouro, ação no neutro.
+                isFii ? 'bg-accent text-accent-foreground' : 'chip-neutral'
               }`}
             >
               {isFii ? 'FII' : 'Ação'}

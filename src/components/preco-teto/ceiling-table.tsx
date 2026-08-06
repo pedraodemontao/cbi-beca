@@ -345,7 +345,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
             aria-current={method === item.key ? 'true' : undefined}
             className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${
               method === item.key
-                ? 'bg-primary text-white shadow-soft'
+                ? 'bg-primary text-primary-foreground shadow-soft'
                 : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
             }`}
           >
@@ -533,7 +533,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                   aria-pressed={onlyBelowCeiling}
                   className={`rounded-panel px-5 py-3 text-sm font-bold transition-colors ${
                     onlyBelowCeiling
-                      ? 'bg-primary text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
                   }`}
                 >
@@ -550,7 +550,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     aria-pressed={onlyOwned}
                     className={`rounded-panel px-5 py-3 text-sm font-bold transition-colors ${
                       onlyOwned
-                        ? 'bg-primary text-white'
+                        ? 'bg-primary text-primary-foreground'
                         : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
                     }`}
                   >
@@ -1220,7 +1220,7 @@ function MarginChip({ margin }: { margin: number | null }) {
 function OwnedBadge() {
   return (
     <span
-      className="inline-block rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-white"
+      className="inline-block rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-primary-foreground"
       title="Essa ação já está na tua carteira."
     >
       você tem

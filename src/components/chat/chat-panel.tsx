@@ -1,5 +1,6 @@
 'use client';
 
+import { BecaAvatar } from '@/components/shared/beca-avatar';
 import { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
@@ -31,12 +32,7 @@ export function ChatPanel() {
         {messages.length === 0 && (
           <div className="card-lg">
             <div className="flex items-start gap-3.5">
-              <span
-                aria-hidden
-                className="grid size-11 flex-none place-items-center rounded-full border-[3px] border-white bg-gradient-to-br from-[#2E9463] to-primary-deep text-lg font-extrabold text-white shadow-sm"
-              >
-                B
-              </span>
+              <BecaAvatar size={44} />
               <div>
                 <p className="font-bold">
                   Oi! Pode perguntar o que quiser sobre tua carteira.
@@ -78,7 +74,7 @@ export function ChatPanel() {
               <div
                 className={`max-w-[85%] whitespace-pre-wrap rounded-card px-4 py-3 text-[0.97rem] shadow-soft ${
                   isUser
-                    ? 'bg-primary font-medium text-white'
+                    ? 'bg-primary font-medium text-primary-foreground'
                     : 'bg-surface font-medium text-foreground'
                 }`}
               >
@@ -120,7 +116,7 @@ export function ChatPanel() {
         <button
           type="submit"
           disabled={isBusy || input.trim().length === 0}
-          className="rounded-full bg-primary px-5 py-2.5 font-bold text-white transition-colors hover:bg-primary-deep disabled:opacity-50"
+          className="rounded-full bg-primary px-5 py-2.5 font-bold text-primary-foreground transition-colors hover:bg-primary-deep disabled:opacity-50"
         >
           Enviar
         </button>
