@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { deletePosition } from '@/app/carteira/actions';
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
 import { EditPositionForm } from '@/components/carteira/edit-position-form';
+import { AssetLogo } from '@/components/shared/asset-logo';
 import type { TickerHolding } from '@/types/portfolio';
 
 interface PositionCardProps {
@@ -13,6 +14,7 @@ interface PositionCardProps {
   dayChangePercent: number | null;
   /** Teto pra render 6% ao ano; nulo quando ainda não tenho o lucro da empresa. */
   ceiling: number | null;
+  logoUrl: string | null;
 }
 
 export function PositionCard({
@@ -20,6 +22,7 @@ export function PositionCard({
   purchaseDates,
   dayChangePercent,
   ceiling,
+  logoUrl,
 }: PositionCardProps) {
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const [showLots, setShowLots] = useState(false);
@@ -46,6 +49,7 @@ export function PositionCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
+            <AssetLogo ticker={holding.ticker} url={logoUrl} size={30} />
             <Link
               href={`/ativo/${holding.ticker}`}
               className="text-lg font-extrabold tracking-tight hover:text-primary hover:underline"

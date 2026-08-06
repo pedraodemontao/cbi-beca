@@ -63,6 +63,35 @@ export function bazinCeiling(
   return roundToHalf(dividendsPerShare12m / targetYield);
 }
 
+/**
+ * Yield que o mercado de FII usa como régua. É o padrão da calculadora da
+ * Comunidade da Riqueza, que é a referência que a Beca segue.
+ */
+export const DEFAULT_FII_YIELD = 0.09;
+
+/** Faixa que o slider abre. Abaixo de 6% e acima de 15% ninguém opera FII. */
+export const FII_YIELD_RANGE = { min: 6, max: 15 } as const;
+
+/**
+ * Preço teto de FII: o que ele distribuiu por cota em 12 meses dividido pelo
+ * yield que se quer receber.
+ *
+ * Mesma conta da calculadora de referência, que entra com o rendimento MENSAL e
+ * multiplica por doze — aqui já guardamos o acumulado do ano.
+ *
+ * Diferente do teto de ação, **não arredonda pra R$ 0,50**. O passo de meio real
+ * foi calibrado pra ação e distorce cota barata: MXRF11 custa R$ 9,43 e o teto
+ * de 10% dela sai R$ 10,77, que arredondado viraria R$ 11,00 — 2,1% de erro
+ * inventado pela régua.
+ */
+export function fiiCeiling(
+  dividendsPerShare12m: number | null,
+  targetYield: number = DEFAULT_FII_YIELD
+): number | null {
+  if (!isPositive(dividendsPerShare12m) || !isPositive(targetYield)) return null;
+  return dividendsPerShare12m / targetYield;
+}
+
 /** Valor intrínseco de Graham: √(22,5 × LPA × VPA). */
 export function grahamCeiling(
   eps: number | null,
@@ -123,10 +152,23 @@ export function profitDeviation(
   return null;
 }
 
-/** Quanto o preço teto está acima (positivo) ou abaixo (negativo) da cotação. */
-export function ceilingMargin(ceiling: number | null, price: number | null): number | null {
-  if (ceiling === null || !isPositive(price)) return null;
-  return (ceiling - price) / price;
+/**
+ * Margem de segurança: quanto do teto a cotação de hoje NÃO cobra.
+ *
+ * É a definição clássica do Graham — desconto sobre o valor justo, não ganho
+ * potencial. Divide pelo TETO, não pelo preço, e é isso que faz a frase "a
+ * cotação está 47,7% abaixo do teto" ficar literalmente correta: uma cota de
+ * R$ 14,38 contra teto de R$ 27,50 é 27,50 × (1 − 0,477).
+ *
+ * A conta pelo preço — (teto − preço) ÷ preço — mede outra coisa (o quanto
+ * poderia subir) e dá 91,2% no mesmo par. Misturar as duas com o mesmo rótulo
+ * já produziu erro de leitura aqui; o app usa esta, com este nome, em todo lugar.
+ *
+ * Preço acima do teto devolve negativo: é ágio, não desconto.
+ */
+export function safetyMargin(ceiling: number | null, price: number | null): number | null {
+  if (!isPositive(ceiling) || !isPositive(price)) return null;
+  return (ceiling - price) / ceiling;
 }
 
 /** Dividend yield que o preço de hoje entregaria com o DPA projetado. */
@@ -153,6 +195,7 @@ export interface CeilingInput {
 export interface CeilingAtYield {
   targetYield: number;
   ceiling: number | null;
+  /** Margem de segurança deste teto — o desconto que a cotação tem sobre ele. */
   margin: number | null;
 }
 
@@ -165,7 +208,7 @@ export interface CeilingProjection {
   dividendYield: number | null;
   ceilings: CeilingAtYield[];
   graham: number | null;
-  /** Margem no yield de 6% — é por ela que o ranking ordena. */
+  /** Margem de segurança no yield de 6% — é por ela que o ranking ordena. */
   headlineMargin: number | null;
 }
 
@@ -187,7 +230,7 @@ export function buildCeilingProjection(input: CeilingInput): CeilingProjection {
 
   const ceilings = TARGET_YIELDS.map((targetYield) => {
     const ceiling = projectedCeiling(dps, targetYield);
-    return { targetYield, ceiling, margin: ceilingMargin(ceiling, input.price) };
+    return { targetYield, ceiling, margin: safetyMargin(ceiling, input.price) };
   });
 
   return {

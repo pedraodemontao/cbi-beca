@@ -11,6 +11,7 @@ import {
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { BecaTip } from '@/components/shared/beca-tip';
+import { AssetLogo } from '@/components/shared/asset-logo';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
 import { PriceChart } from '@/components/ativo/price-chart';
 import { CeilingCard } from '@/components/ativo/ceiling-card';
@@ -86,15 +87,18 @@ export default async function AtivoPage({
 
         <header className="card-lg">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-[clamp(1.8rem,6vw,2.2rem)] font-extrabold tracking-tight">
-                {ticker}
-              </h1>
-              {quote?.longName && (
-                <p className="text-[0.95rem] font-medium text-muted-foreground">
-                  {quote.longName}
-                </p>
-              )}
+            <div className="flex items-center gap-3">
+              <AssetLogo ticker={ticker} url={ceilingAsset?.logoUrl ?? null} size={48} />
+              <div>
+                <h1 className="text-[clamp(1.8rem,6vw,2.2rem)] font-extrabold tracking-tight">
+                  {ticker}
+                </h1>
+                {quote?.longName && (
+                  <p className="text-[0.95rem] font-medium text-muted-foreground">
+                    {quote.longName}
+                  </p>
+                )}
+              </div>
             </div>
             {dayChange !== null && (
               <span className={`chip ${dayChange >= 0 ? 'chip-up' : 'chip-down'}`}>

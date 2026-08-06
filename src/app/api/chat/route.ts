@@ -22,7 +22,7 @@ import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
 import {
   bazinCeiling,
   buildCeilingProjection,
-  ceilingMargin,
+  safetyMargin,
   DEFAULT_PAYOUT,
 } from '@/lib/ceiling-price';
 import type { AppliedOverride, CeilingAsset } from '@/types/ceiling';
@@ -223,7 +223,7 @@ function buildCeilingContext(
     const ceiling = projection.ceilings[0]?.ceiling;
     if (ceiling === null || ceiling === undefined) continue;
 
-    const margin = ceilingMargin(ceiling, price);
+    const margin = safetyMargin(ceiling, price);
     lines.push(
       `- ${asset.ticker}: lucro por ação ${formatBRL(projection.eps!)}, dividendo previsto ${formatBRL(
         projection.dps!
@@ -233,8 +233,8 @@ function buildCeilingContext(
         margin === null
           ? ''
           : margin >= 0
-            ? `; a cotação de hoje está ABAIXO do teto — o teto é ${formatPercent(margin * 100)} maior que a cotação (NÃO diga que a ação está esse tanto "abaixo do teto", a conta é essa mesma: teto sobre cotação)`
-            : `; a cotação de hoje está ACIMA do teto — o teto é ${formatPercent(Math.abs(margin) * 100)} menor que a cotação`
+            ? `; margem de segurança de ${formatPercent(margin * 100)} — ou seja, a cotação de hoje está esse tanto ABAIXO do teto`
+            : `; SEM margem de segurança: a cotação está ACIMA do teto`
       }${
         override ? ' — a usuária ajustou o payout ou o lucro dessa empresa' : ''
       }`
@@ -245,6 +245,7 @@ function buildCeilingContext(
 
   lines.push(
     '',
+    'Margem de segurança é o desconto da cotação sobre o TETO — com 47% de margem, a ação custa 47% menos que o teto. Use o número como está aqui, não recalcule.',
     'O lucro vem do último balanço publicado na CVM e pode não se repetir. Preço teto é referência de estudo, NUNCA recomendação: não diga pra comprar, vender ou esperar.',
     '</CONTEXTO_PRECO_TETO>'
   );

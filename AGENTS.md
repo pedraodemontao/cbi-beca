@@ -197,10 +197,12 @@ plataformas de referência. Graham = √(22,5 × LPA × VPA); Gordon = D₁ ÷ (
 - **O ranking de dividendos exclui quem pagou mais de 15% do preço em 12 meses**
   e diz quantos tirou. Sem isso o topo inteiro vira venda de ativo e devolução
   de capital — chegava a 63% ao ano, que ninguém recebe duas vezes.
-- **Nunca escrever "a ação está X% abaixo do teto".** Margem é (teto − preço) ÷
-  preço: com margem de +96%, o TETO é 96% maior que a cotação — a ação não está
-  96% abaixo dele. O chat já errou isso uma vez; o `CONTEXTO_PRECO_TETO` e o
-  card do ativo agora usam a frase "o teto é X% maior/menor que a cotação".
+- **Existe UMA conta de margem no app: `safetyMargin` = (teto − preço) ÷ TETO.**
+  Enquanto a conta era ÷ preço, "a ação está X% abaixo do teto" era falso (com
+  +96%, o TETO é 96% maior que a cotação — a ação não está 96% abaixo dele) e o
+  chat chegou a errar isso. Dividindo pelo teto a frase fica correta, e é a
+  definição clássica de margem de segurança. **Não reintroduzir a variante ÷
+  preço** com o mesmo rótulo: a ambiguidade é que causava o erro.
 
 ### Etapas do Preço Teto
 
@@ -273,6 +275,42 @@ FII e os proventos de qualquer ticker.
 
 Cobertura depois da primeira carga completa (2026-08-05): 380 ações e 296 FIIs no
 catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
+
+### Pedidos da Beca em 2026-08-06
+
+- **Margem virou MARGEM DE SEGURANÇA: (teto − preço) ÷ TETO**, não ÷ preço.
+  É a definição do Graham — desconto sobre o valor justo — e resolve de vez a
+  armadilha que a regra antiga tentava contornar com aviso: agora "a ação está
+  47,7% abaixo do teto" é literalmente correto. A ordenação não muda (as duas
+  contas são monotônicas no mesmo par), só a escala: BRSR6 saiu de +198,0% pra
+  +66,6%. O `CONTEXTO_PRECO_TETO` do chat manda o número pronto e proíbe
+  recalcular.
+- **Cada teto mostra a própria margem** no card do ativo — era o pedido do
+  print. `Item` recebe `margin` opcional; LPA e dividendo previsto não são teto
+  e ficam sem.
+- **FII usa a calculadora da Comunidade da Riqueza**
+  (`comunidadedariqueza.com/calculadora-de-preco-teto-de-fundos-imobiliarios`):
+  um slider de yield desejado começando em **9% a.a.**, um teto só. Os três
+  tetos fixos de 6/8/10 vieram de ação e não separavam fundo nenhum — como FII
+  paga 11-13%, todo mundo aparecia com margem parecida contra a régua de 6%.
+- **Teto de FII NÃO arredonda pra R$ 0,50** (`fiiCeiling`, separada de
+  `bazinCeiling`). O passo de meio real foi calibrado pra ação e distorce cota
+  barata: MXRF11 custa R$ 9,43 e o teto de 10% dela sai R$ 10,77, que
+  arredondado viraria R$ 11,00 — 2,1% de erro inventado pela régua.
+- **A página do ativo tem card próprio de FII** (`FiiCeilingCard`). Antes dizia
+  "ainda não tenho o lucro dessa empresa", o que é errado duas vezes: FII não
+  tem lucro por cota e o dado não falta. A carteira também passou a usar
+  `fiiCeiling` pros fundos, em vez de `buildCeilingProjection` (que devolve nulo).
+- **Logo de cada ativo** (`components/shared/asset-logo.tsx`) na tabela, nos
+  cards mobile, na carteira e no cabeçalho do ativo. Vem de `logo_url`, que a
+  brapi já preenchia pra 100% do catálogo e nunca tinha sido usado. Vai
+  `unoptimized`: são ícones de 32px e o plano Hobby tem cota de otimização de
+  imagem — passar centenas por pageview queimaria a cota sem economizar byte.
+  Iniciais do ticker como fallback, resolvido no client porque a URL só se
+  revela quebrada lá.
+- **`/preco-teto` é `max-w-7xl`, as outras telas seguem `max-w-5xl`.** Com dez
+  colunas num container de 1024px a coluna de margem — que é a que decide tudo —
+  ficava escondida no scroll horizontal.
 
 ### Feito além do roadmap (para a demo)
 

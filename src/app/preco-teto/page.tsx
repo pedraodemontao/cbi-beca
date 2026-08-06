@@ -35,7 +35,12 @@ export default async function PrecoTetoPage() {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
+      {/*
+        Mais larga que as outras telas de propósito: a tabela tem dez colunas e
+        num container de 5xl a margem de segurança — que é a coluna que decide
+        tudo — ficava escondida no scroll horizontal.
+      */}
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
         <header>
           <h1 className="text-[clamp(1.9rem,6.5vw,2.4rem)] font-extrabold tracking-tight">
             Preço teto

@@ -5,10 +5,13 @@ import Link from 'next/link';
 import {
   buildCeilingProjection,
   bazinCeiling,
-  ceilingMargin,
   gordonCeiling,
+  fiiCeiling,
   profitDeviation,
+  safetyMargin,
   DEFAULT_PAYOUT,
+  DEFAULT_FII_YIELD,
+  FII_YIELD_RANGE,
   TARGET_YIELDS,
   type CeilingProjection,
   type ProfitDeviation,
@@ -17,6 +20,7 @@ import { formatBRL, formatRatio, formatRatioSigned } from '@/lib/format';
 import { BecaTip } from '@/components/shared/beca-tip';
 import { OverrideForm } from '@/components/preco-teto/override-form';
 import { Sparkline } from '@/components/preco-teto/sparkline';
+import { AssetLogo } from '@/components/shared/asset-logo';
 import type { AppliedOverride, CeilingAsset, MarketAssetType } from '@/types/ceiling';
 
 /**
@@ -141,6 +145,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
   );
   const [growthPercent, setGrowthPercent] = useState(DEFAULT_GROWTH);
   const [bazinBase, setBazinBase] = useState<BazinBase>('12m');
+  const [fiiYieldPercent, setFiiYieldPercent] = useState(DEFAULT_FII_YIELD * 100);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('margin');
   const [onlyLiquid, setOnlyLiquid] = useState(true);
@@ -188,7 +193,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
 
       const columns =
         asset.assetType === 'fii'
-          ? buildFiiColumns(asset)
+          ? buildFiiColumns(asset, fiiYieldPercent / 100)
           : buildColumns(method, projection, asset, requiredReturn, growth, bazinBase);
       const ceiling = columns.find((column) => column.strong)?.value ?? null;
 
@@ -230,10 +235,11 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
         override,
         columns,
         ceiling,
-        margin: ceilingMargin(ceiling, asset.price),
+        margin: safetyMargin(ceiling, asset.price),
       };
     });
   }, [
+    fiiYieldPercent,
     assets,
     kind,
     payoutPercent,
@@ -377,6 +383,33 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                   />
                   <span className="num w-20 flex-none rounded-panel bg-primary-wash py-2 text-center text-lg font-extrabold text-primary-deep">
                     {payoutPercent}%
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {kind === 'fii' && (
+              <div>
+                <label htmlFor="fii-yield" className="micro-label">
+                  Quanto você quer receber de aluguel por ano
+                </label>
+                <p className="micro-hint">
+                  É o dividend yield desejado. Quanto mais você exige de
+                  rendimento, mais barato o fundo precisa estar pra valer a pena.
+                </p>
+                <div className="mt-3 flex items-center gap-4">
+                  <input
+                    id="fii-yield"
+                    type="range"
+                    min={FII_YIELD_RANGE.min}
+                    max={FII_YIELD_RANGE.max}
+                    step={0.5}
+                    value={fiiYieldPercent}
+                    onChange={(event) => setFiiYieldPercent(Number(event.target.value))}
+                    className="h-2 w-full cursor-pointer accent-primary"
+                  />
+                  <span className="num w-24 flex-none rounded-panel bg-primary-wash py-2 text-center text-lg font-extrabold text-primary-deep">
+                    {fiiYieldPercent.toFixed(1).replace('.', ',')}%
                   </span>
                 </div>
               </div>
@@ -557,8 +590,12 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                 <>
                   <strong className="font-bold text-foreground">Rendeu em 12m</strong>{' '}
                   é quanto o fundo depositou por cota no último ano;{' '}
-                  <strong className="font-bold text-foreground">teto</strong> é esse
-                  valor dividido pelo aluguel que você quer receber ao ano.
+                  <strong className="font-bold text-foreground">por mês</strong> é
+                  isso dividido por doze; e o{' '}
+                  <strong className="font-bold text-foreground">teto</strong> é o
+                  rendimento do ano dividido pelo yield que você escolheu ali em
+                  cima. Aqui o número não é arredondado — em cota barata, meio real
+                  pra cima ou pra baixo já muda a conta.
                 </>
               ) : (
                 <>
@@ -613,7 +650,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     </th>
                   ))}
                   <th className="px-4 py-3 text-right text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
-                    Margem
+                    Margem de segurança
                   </th>
                   <th className="px-4 py-3">
                     <span className="sr-only">Ajustar</span>
@@ -628,14 +665,19 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                     <Fragment key={asset.ticker}>
                       <tr className="border-b border-border/70 hover:bg-primary-wash/50">
                         <td className="px-4 py-3">
-                          <Link
-                            href={`/ativo/${asset.ticker}`}
-                            className="font-extrabold text-primary-deep hover:underline"
-                          >
-                            {asset.ticker}
-                          </Link>
-                          <span className="block max-w-[13rem] truncate text-xs font-medium text-muted-foreground">
-                            {friendlyName(asset.name, asset.ticker)}
+                          <span className="flex items-center gap-2.5">
+                            <AssetLogo ticker={asset.ticker} url={asset.logoUrl} size={30} />
+                            <span className="min-w-0">
+                              <Link
+                                href={`/ativo/${asset.ticker}`}
+                                className="font-extrabold text-primary-deep hover:underline"
+                              >
+                                {asset.ticker}
+                              </Link>
+                              <span className="block max-w-[11rem] truncate text-xs font-medium text-muted-foreground">
+                                {friendlyName(asset.name, asset.ticker)}
+                              </span>
+                            </span>
                           </span>
                           <span className="flex flex-wrap gap-1">
                             {owned.has(asset.ticker) && <OwnedBadge />}
@@ -710,16 +752,19 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
               return (
                 <li key={asset.ticker} className="card">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link
-                        href={`/ativo/${asset.ticker}`}
-                        className="text-lg font-extrabold text-primary-deep"
-                      >
-                        {asset.ticker}
-                      </Link>
-                      <p className="truncate text-xs font-medium text-muted-foreground">
-                        {friendlyName(asset.name, asset.ticker)}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <AssetLogo ticker={asset.ticker} url={asset.logoUrl} size={36} />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/ativo/${asset.ticker}`}
+                          className="text-lg font-extrabold text-primary-deep"
+                        >
+                          {asset.ticker}
+                        </Link>
+                        <p className="truncate text-xs font-medium text-muted-foreground">
+                          {friendlyName(asset.name, asset.ticker)}
+                        </p>
+                      </div>
                     </div>
                     <MarginChip margin={margin} />
                   </div>
@@ -801,12 +846,18 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
           )}
 
           {kind === 'fii' ? (
-            <BecaTip title="Como eu chego nesse número">
-              Somo tudo que o fundo depositou por cota nos últimos 12 meses. Se
-              você quer receber 6% ao ano, o teto é esse total dividido por 6%.
-              Pagou mais caro que isso? Você recebe o mesmo aluguel, só que ele
-              rende menos sobre o que você pagou.
-            </BecaTip>
+            <>
+              <BecaTip title="Como eu chego nesse número">
+                Somo tudo que o fundo depositou por cota nos últimos 12 meses e
+                divido pelo aluguel que você quer receber por ano. Com o slider em{' '}
+                {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que
+                pagou R$ 12,00 por cota no ano tem teto de{' '}
+                {formatBRL(12 / (fiiYieldPercent / 100))}. Pagou mais caro que
+                isso? Você recebe o mesmo aluguel, só que ele rende menos sobre o
+                que você pagou.
+              </BecaTip>
+              <FiiMethodNote />
+            </>
           ) : (
             <MethodExplainer
               method={method}
@@ -832,16 +883,25 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
  * 12 meses dividido pelo yield desejado — a mesma conta do Bazin, e por isso
  * aqui não existe payout nem escolha de método.
  */
-function buildFiiColumns(asset: CeilingAsset): MethodColumn[] {
+/**
+ * Colunas de FII.
+ *
+ * Um teto só, comandado pelo slider — é o formato da calculadora da Comunidade
+ * da Riqueza, que entra com o rendimento mensal e um yield desejado. Os três
+ * tetos fixos de 6/8/10 vieram de ação e distorciam aqui: fundo que paga 12%
+ * comparado com uma régua de 6% aparecia com margem de +120% em tudo, o que não
+ * separa fundo nenhum de fundo nenhum.
+ */
+function buildFiiColumns(asset: CeilingAsset, targetYield: number): MethodColumn[] {
   const monthly = asset.dividends12m === null ? null : asset.dividends12m / 12;
   return [
     { label: 'Rendeu em 12m', value: asset.dividends12m },
     { label: 'Por mês', value: monthly },
-    ...TARGET_YIELDS.map((targetYield) => ({
+    {
       label: `Teto ${formatRatio(targetYield)}`,
-      value: bazinCeiling(asset.dividends12m, targetYield),
+      value: fiiCeiling(asset.dividends12m, targetYield),
       strong: true,
-    })),
+    },
   ];
 }
 
@@ -908,6 +968,51 @@ function buildColumns(
   ];
 }
 
+/**
+ * Como o mercado calcula preço teto de FII.
+ *
+ * A Beca segue a calculadora da Comunidade da Riqueza, e a página precisa dizer
+ * isso — a conta é a mesma que a nossa, só expressa com o rendimento mensal em
+ * vez do acumulado do ano. Deixar a equivalência à vista evita a usuária achar
+ * que a plataforma inventou um número diferente do que ela viu por aí.
+ */
+function FiiMethodNote() {
+  return (
+    <section className="card">
+      <h3 className="text-sm font-extrabold tracking-tight">
+        Como a galera calcula o preço teto de FII
+      </h3>
+      <p className="micro-hint mt-2">
+        Fundo imobiliário não tem lucro por ação nem payout — ele é obrigado a
+        distribuir quase tudo que recebe de aluguel. Por isso o teto dele não usa
+        Bazin, Graham nem Gordon: sai direto do rendimento pago.
+      </p>
+      <p className="mt-3 rounded-panel bg-primary-wash px-4 py-3 text-sm font-bold text-primary-deep">
+        preço teto = (rendimento mensal × 12) ÷ dividend yield desejado
+      </p>
+      <p className="micro-hint mt-3">
+        É a fórmula da{' '}
+        <a
+          href="https://comunidadedariqueza.com/calculadora-de-preco-teto-de-fundos-imobiliarios/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-bold text-primary hover:underline"
+        >
+          calculadora da Comunidade da Riqueza
+        </a>
+        , que é a referência mais usada. Lá você digita o rendimento de um mês;
+        aqui eu já uso o que o fundo pagou no ano inteiro, que dá no mesmo e ainda
+        suaviza mês fraco e mês forte. O padrão de 9% ao ano é o mesmo deles.
+      </p>
+      <p className="micro-hint mt-2">
+        Não arredondo o resultado. Em ação o mercado costuma arredondar pro meio
+        real mais próximo, mas cota de FII barata sofre com isso: num fundo de
+        R$ 9,00 o arredondamento sozinho já mexe 2% no teto.
+      </p>
+    </section>
+  );
+}
+
 function MethodLegend({ method }: { method: MethodKey }) {
   if (method === 'bazin') {
     return (
@@ -953,8 +1058,9 @@ function MethodLegend({ method }: { method: MethodKey }) {
       cabe em cada ação;{' '}
       <strong className="font-bold text-foreground">DPA</strong> é quanto disso
       deve virar dividendo;{' '}
-      <strong className="font-bold text-foreground">margem</strong> é o desconto
-      (ou o ágio) do preço de hoje em relação ao teto de 6%.
+      <strong className="font-bold text-foreground">margem de segurança</strong>{' '}
+      é o desconto que a cotação de hoje tem sobre o teto de 6% — com 40% de
+      margem, a ação custa 40% menos que o limite.
     </>
   );
 }
@@ -1098,7 +1204,14 @@ function MarginChip({ margin }: { margin: number | null }) {
     return <span className="chip chip-neutral">sem teto</span>;
   }
   return (
-    <span className={`chip ${margin >= 0 ? 'chip-up' : 'chip-down'}`}>
+    <span
+      className={`chip ${margin >= 0 ? 'chip-up' : 'chip-down'}`}
+      title={
+        margin >= 0
+          ? 'Quanto do teto a cotação de hoje não cobra. Quanto maior, mais folga.'
+          : 'A cotação passou do teto: em vez de desconto, tem ágio.'
+      }
+    >
       {formatRatioSigned(margin)}
     </span>
   );

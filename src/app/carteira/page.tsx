@@ -4,7 +4,7 @@ import { getQuote, type BrapiQuote } from '@/lib/brapi';
 import { buildPortfolioSummary, groupByTicker } from '@/lib/portfolio';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
-import { buildCeilingProjection, DEFAULT_PAYOUT } from '@/lib/ceiling-price';
+import { buildCeilingProjection, fiiCeiling, DEFAULT_PAYOUT } from '@/lib/ceiling-price';
 import { AppHeader } from '@/components/layout/app-header';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { AddPositionForm } from '@/components/carteira/add-position-form';
@@ -37,22 +37,28 @@ export default async function CarteiraPage() {
     fetchAppliedOverrides(supabase),
   ]);
 
-  // Teto de 6% por ticker — é o que cada card compara com o preço de hoje.
+  // Teto por ticker — é o que cada card compara com o preço de hoje. Ação sai do
+  // lucro projetado; FII não tem lucro por cota e sai do rendimento pago, na
+  // mesma conta da aba de fundos.
   const ceilings = new Map<string, number>();
+  const logos = new Map<string, string | null>();
   for (const asset of ceilingAssets) {
+    logos.set(asset.ticker, asset.logoUrl);
+
     const override = overrides.get(asset.ticker);
-    const { ceilings: byYield } = buildCeilingProjection({
-      price: asset.price,
-      reportedProfit: asset.netIncome,
-      manualProfit: override?.manualProfit ?? null,
-      sharesOutstanding: asset.sharesOutstanding,
-      bookValuePerShare: asset.vpa,
-      payout: override?.payout ?? DEFAULT_PAYOUT,
-    });
-    const ceiling = byYield[0]?.ceiling;
-    if (ceiling !== null && ceiling !== undefined) {
-      ceilings.set(asset.ticker, ceiling);
-    }
+    const ceiling =
+      asset.assetType === 'fii'
+        ? fiiCeiling(asset.dividends12m)
+        : (buildCeilingProjection({
+            price: asset.price,
+            reportedProfit: asset.netIncome,
+            manualProfit: override?.manualProfit ?? null,
+            sharesOutstanding: asset.sharesOutstanding,
+            bookValuePerShare: asset.vpa,
+            payout: override?.payout ?? DEFAULT_PAYOUT,
+          }).ceilings[0]?.ceiling ?? null);
+
+    if (ceiling !== null) ceilings.set(asset.ticker, ceiling);
   }
   const quoteMap = new Map<string, BrapiQuote>(
     (quotes ?? []).map((quote) => [quote.symbol, quote])
@@ -95,6 +101,7 @@ export default async function CarteiraPage() {
           positions={positions}
           quoteMap={quoteMap}
           ceilings={ceilings}
+            logos={logos}
         />
       </main>
       <BottomNav />
