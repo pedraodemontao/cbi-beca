@@ -119,6 +119,59 @@ export async function fetchCeilingAssets(
   });
 }
 
+/** Um fundo pronto pra simulação: preço e rendimento por cota. */
+export interface FiiOption {
+  ticker: string;
+  name: string;
+  price: number;
+  /** R$ por cota nos últimos 12 meses. */
+  dividends12m: number;
+}
+
+/**
+ * FIIs que a calculadora de renda oferece.
+ *
+ * Existe pra que a simulação não peça número nenhum à usuária: escolhendo o
+ * fundo, cotação e rendimento vêm do banco. A calculadora avulsa que circula por
+ * aí precisa que a pessoa cole um token da brapi justamente porque não tem base
+ * própria — aqui isso não faz falta.
+ *
+ * Sem piso de liquidez, ao contrário da tabela de preço teto: lá o filtro
+ * protege um RANKING que a usuária percorre sem escolher, e papel parado subia
+ * ao topo com margem inventada. Aqui ela digita um ticker que já conhece —
+ * esconder o fundo que ela tem seria pior que mostrar um preço defasado, ainda
+ * mais porque a cotação é editável.
+ */
+export async function fetchFiiOptions(supabase: SupabaseClient): Promise<FiiOption[]> {
+  const [{ data: companyRows }, { data: fundamentalRows }] = await Promise.all([
+    supabase
+      .from('companies')
+      .select('ticker,name,price')
+      .eq('asset_type', 'fii')
+      .gt('price', 0),
+    supabase
+      .from('company_fundamentals')
+      .select('ticker,dividends_12m')
+      .gt('dividends_12m', 0),
+  ]);
+
+  const dividends = new Map(
+    ((fundamentalRows ?? []) as { ticker: string; dividends_12m: number }[]).map((row) => [
+      row.ticker,
+      Number(row.dividends_12m),
+    ])
+  );
+
+  return ((companyRows ?? []) as { ticker: string; name: string; price: number }[])
+    .flatMap((company) => {
+      const dividends12m = dividends.get(company.ticker);
+      const price = Number(company.price);
+      if (!dividends12m || !price) return [];
+      return [{ ticker: company.ticker, name: company.name, price, dividends12m }];
+    })
+    .sort((a, b) => a.ticker.localeCompare(b.ticker));
+}
+
 export interface TopPayer {
   ticker: string;
   name: string;

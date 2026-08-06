@@ -4,6 +4,8 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 import { BecaTip } from '@/components/shared/beca-tip';
 import { CompoundCalculator } from '@/components/calculadoras/compound-calculator';
 import { PassiveIncomeCalculator } from '@/components/calculadoras/passive-income-calculator';
+import { FiiIncomeCalculator } from '@/components/calculadoras/fii-income-calculator';
+import { fetchFiiOptions } from '@/lib/ceiling-data';
 
 export default async function CalculadorasPage() {
   const supabase = await createClient();
@@ -14,6 +16,10 @@ export default async function CalculadorasPage() {
   if (!user) {
     redirect('/login');
   }
+
+  // As calculadoras continuam sem gravar nada e sem chamar API externa; o que
+  // muda é que a de FII já chega com o catálogo, em vez de pedir número.
+  const funds = await fetchFiiOptions(supabase);
 
   return (
     <>
@@ -31,6 +37,8 @@ export default async function CalculadorasPage() {
         <CompoundCalculator />
 
         <PassiveIncomeCalculator />
+
+        <FiiIncomeCalculator funds={funds} />
 
         <BecaTip>
           Simulação não é previsão, combinado? O mercado sobe e desce. Isso aqui

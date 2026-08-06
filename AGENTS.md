@@ -54,7 +54,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 6. ✅ Página de ativo (`/ativo/[ticker]`: gráfico SVG, indicadores traduzidos, proventos)
 7. ✅ Chat de IA (`/chat` + `/api/chat`, streaming via `useChat`, disclaimer no topo)
 
-8. ✅ Calculadoras (`/calculadoras`: juros compostos + renda passiva)
+8. ✅ Calculadoras (`/calculadoras`: juros compostos, renda passiva e renda de FII)
 9. ✅ Proventos (`/proventos`: total já recebido, mês a mês, quem mais paga)
 
 ## Tese do produto (definida em 2026-08-03)
@@ -71,7 +71,17 @@ visível de quem segura.
 CRUD de posições completo: adicionar, **editar** e remover. `loading.tsx` em carteira/resumo/ativo; `error.tsx` e `not-found.tsx` na raiz.
 
 - **Posições são consolidadas por ticker na UI** (`groupByTicker` em `lib/portfolio.ts`): duas compras de PETR4 viram um card só, com preço médio ponderado e os lotes expansíveis pra editar/remover individualmente. O banco continua guardando lote a lote.
-- **Calculadoras são 100% client-side** — não gravam nada e não chamam API. Ambas trazem aviso de que simulação não é promessa de retorno.
+- **Calculadoras não gravam nada e não chamam API externa.** A de FII recebe o
+  catálogo do servidor: escolher o fundo já preenche cotação e rendimento, e é
+  por isso que ela não precisa do token da brapi que a versão avulsa pede. As
+  três trazem aviso de que simulação não é promessa de retorno.
+- **A calculadora de FII NÃO aplica piso de liquidez**, ao contrário da tabela
+  de preço teto. Lá o filtro protege um ranking que a usuária percorre sem
+  escolher; aqui ela digita um ticker que já conhece, e esconder o fundo que ela
+  tem seria pior que mostrar preço defasado — ainda mais com a cotação editável.
+  São 285 fundos na lista contra 70 se o piso valesse.
+- **O rendimento mensal sai da média de 12 meses, não do último pagamento.** FII
+  tem mês gordo e mês magro; um mês isolado engana pros dois lados.
 - **CDI/SELIC/IPCA vêm da API pública do Banco Central** (`lib/bcb.ts`, séries SGS 12/11/433) — grátis e sem chave. O `/v2/macro` da brapi é 403 no plano free. Taxas diárias são **compostas**, nunca somadas.
 - **Snapshots de patrimônio** (`portfolio_snapshots`, migration 0002): o cron `/api/cron/snapshot` roda 22h UTC em dias úteis (`vercel.json`), usa service role e grava um registro por usuário/dia. RLS dá só SELECT ao dono — escrita é exclusiva do cron. Proteger com `CRON_SECRET` em produção.
 
