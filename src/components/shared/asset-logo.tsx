@@ -51,7 +51,10 @@ export function AssetLogo({ ticker, url, size = 32 }: AssetLogoProps) {
       height={size}
       unoptimized
       onError={() => setFailed(true)}
-      className="flex-none rounded-full bg-surface object-contain"
+      // As logos da brapi já vêm como ladrilho opaco 56×56 com fundo próprio
+      // (a da B3 é um quadrado azul-marinho), então o `rounded-full` só recorta.
+      // O fundo aqui é rede pra alguma que venha transparente.
+      className="flex-none rounded-full bg-panel object-contain"
       style={{ width: size, height: size }}
     />
   );

@@ -54,7 +54,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 6. ✅ Página de ativo (`/ativo/[ticker]`: gráfico SVG, indicadores traduzidos, proventos)
 7. ✅ Chat de IA (`/chat` + `/api/chat`, streaming via `useChat`, disclaimer no topo)
 
-8. ✅ Calculadoras (`/calculadoras`: juros compostos, renda passiva e renda de FII)
+8. ✅ Calculadoras (`/calculadoras`: juros compostos, renda passiva, renda de ação e renda de FII)
 9. ✅ Proventos (`/proventos`: total já recebido, mês a mês, quem mais paga)
 
 ## Tese do produto (definida em 2026-08-03)
@@ -82,6 +82,21 @@ CRUD de posições completo: adicionar, **editar** e remover. `loading.tsx` em c
   São 285 fundos na lista contra 70 se o piso valesse.
 - **O rendimento mensal sai da média de 12 meses, não do último pagamento.** FII
   tem mês gordo e mês magro; um mês isolado engana pros dois lados.
+- **A calculadora de ação mostra o valor LÍQUIDO, e é o que nenhuma genérica
+  consegue.** JCP tem 15% de IR na fonte e dividendo comum não tem; como
+  `dividend_payments` guarda o tipo de cada pagamento, dá pra dizer quanto sobra
+  de verdade. Não é detalhe: B3SA3, VBBR3, ABCB4 e HYPE3 pagaram **100% em JCP**
+  nos últimos 12 meses, então o que cai na conta é 15% menor que o DY sugere.
+  Gráfico e projeção usam o mesmo líquido do número em destaque — bruto num
+  lugar e líquido no outro faria a usuária achar que a conta está errada.
+- **Os selos de DY saem dos quartis reais do catálogo**, medidos em 2026-08-06
+  sobre 134 ações líquidas: 3,11% / 5,59% / 8,20%. Não são faixas chutadas.
+- **`getCurrentCdiYearly()` devolve PERCENTUAL (14,15), não razão.** Quem
+  consome precisa saber — a primeira versão da calculadora multiplicou por 100 e
+  ia anunciar CDI de 1.415%.
+- **As logos da brapi são ladrilhos opacos 56×56 com fundo próprio** (a da B3 é
+  um quadrado azul-marinho). Não precisam de placa clara atrás; `rounded-full`
+  só recorta.
 - **CDI/SELIC/IPCA vêm da API pública do Banco Central** (`lib/bcb.ts`, séries SGS 12/11/433) — grátis e sem chave. O `/v2/macro` da brapi é 403 no plano free. Taxas diárias são **compostas**, nunca somadas.
 - **Snapshots de patrimônio** (`portfolio_snapshots`, migration 0002): o cron `/api/cron/snapshot` roda 22h UTC em dias úteis (`vercel.json`), usa service role e grava um registro por usuário/dia. RLS dá só SELECT ao dono — escrita é exclusiva do cron. Proteger com `CRON_SECRET` em produção.
 

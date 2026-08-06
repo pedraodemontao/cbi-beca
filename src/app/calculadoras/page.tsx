@@ -5,7 +5,9 @@ import { BecaTip } from '@/components/shared/beca-tip';
 import { CompoundCalculator } from '@/components/calculadoras/compound-calculator';
 import { PassiveIncomeCalculator } from '@/components/calculadoras/passive-income-calculator';
 import { FiiIncomeCalculator } from '@/components/calculadoras/fii-income-calculator';
-import { fetchFiiOptions } from '@/lib/ceiling-data';
+import { StockIncomeCalculator } from '@/components/calculadoras/stock-income-calculator';
+import { getCurrentCdiYearly } from '@/lib/bcb';
+import { fetchFiiOptions, fetchStockOptions } from '@/lib/ceiling-data';
 
 export default async function CalculadorasPage() {
   const supabase = await createClient();
@@ -19,7 +21,12 @@ export default async function CalculadorasPage() {
 
   // As calculadoras continuam sem gravar nada e sem chamar API externa; o que
   // muda é que a de FII já chega com o catálogo, em vez de pedir número.
-  const funds = await fetchFiiOptions(supabase);
+  const [funds, stocks, cdiYearly] = await Promise.all([
+    fetchFiiOptions(supabase),
+    fetchStockOptions(supabase),
+    // CDI ao vivo do Banco Central: a calculadora avulsa pede pra digitar.
+    getCurrentCdiYearly(),
+  ]);
 
   return (
     <>
@@ -37,6 +44,8 @@ export default async function CalculadorasPage() {
         <CompoundCalculator />
 
         <PassiveIncomeCalculator />
+
+        <StockIncomeCalculator stocks={stocks} cdiYearlyPercent={cdiYearly} />
 
         <FiiIncomeCalculator funds={funds} />
 

@@ -172,6 +172,102 @@ export async function fetchFiiOptions(supabase: SupabaseClient): Promise<FiiOpti
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 }
 
+/** Uma ação pronta pra simulação de renda. */
+export interface StockOption {
+  ticker: string;
+  name: string;
+  sector: string | null;
+  logoUrl: string | null;
+  price: number;
+  /** R$ por ação nos últimos 12 meses. */
+  dividends12m: number;
+  /**
+   * Quanto do que ela pagou em 12 meses veio como JCP, em razão 0-1.
+   *
+   * Importa porque JCP leva 15% de imposto na fonte e dividendo não. Várias
+   * empresas pagam 100% em JCP (B3SA3, VBBR3, ABCB4), e nesses casos o que cai
+   * na conta é 15% menor que o dividend yield sugere. Nenhuma calculadora
+   * genérica enxerga isso — a gente enxerga porque guarda o tipo de cada
+   * pagamento em `dividend_payments`.
+   */
+  jcpShare: number;
+}
+
+interface PaymentTypeRow {
+  ticker: string;
+  type: string;
+  value_per_share: number;
+}
+
+/** Ações que a calculadora de renda oferece. Mesmo critério da de FII. */
+export async function fetchStockOptions(
+  supabase: SupabaseClient
+): Promise<StockOption[]> {
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+  const [{ data: companyRows }, { data: fundamentalRows }, { data: paymentRows }] =
+    await Promise.all([
+      supabase
+        .from('companies')
+        .select('ticker,name,sector,logo_url,price')
+        .eq('asset_type', 'stock')
+        .gt('price', 0),
+      supabase
+        .from('company_fundamentals')
+        .select('ticker,dividends_12m')
+        .gt('dividends_12m', 0),
+      supabase
+        .from('dividend_payments')
+        .select('ticker,type,value_per_share')
+        .gte('ex_date', twelveMonthsAgo.toLocaleDateString('en-CA')),
+    ]);
+
+  const dividends = new Map(
+    ((fundamentalRows ?? []) as { ticker: string; dividends_12m: number }[]).map((row) => [
+      row.ticker,
+      Number(row.dividends_12m),
+    ])
+  );
+
+  const totals = new Map<string, { all: number; jcp: number }>();
+  for (const row of (paymentRows ?? []) as PaymentTypeRow[]) {
+    const value = Number(row.value_per_share);
+    if (!Number.isFinite(value)) continue;
+    const current = totals.get(row.ticker) ?? { all: 0, jcp: 0 };
+    current.all += value;
+    if (row.type === 'JCP') current.jcp += value;
+    totals.set(row.ticker, current);
+  }
+
+  return ((companyRows ?? []) as {
+    ticker: string;
+    name: string;
+    sector: string | null;
+    logo_url: string | null;
+    price: number;
+  }[])
+    .flatMap((company) => {
+      const dividends12m = dividends.get(company.ticker);
+      const price = Number(company.price);
+      if (!dividends12m || !price) return [];
+
+      const paid = totals.get(company.ticker);
+      return [
+        {
+          ticker: company.ticker,
+          name: company.name,
+          sector: company.sector,
+          logoUrl: company.logo_url,
+          price,
+          dividends12m,
+          jcpShare: paid && paid.all > 0 ? paid.jcp / paid.all : 0,
+        },
+      ];
+    })
+    .sort((a, b) => a.ticker.localeCompare(b.ticker));
+}
+
 export interface TopPayer {
   ticker: string;
   name: string;
