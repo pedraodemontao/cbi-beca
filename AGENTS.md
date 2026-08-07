@@ -497,6 +497,20 @@ deixa de ser instantâneo.
 
 Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta no bundle (`next build` + conferir) · disclaimer educacional em 3 lugares (rodapé, chat, página de ativo).
 
+## Repositório e deploy
+
+- **Código:** `github.com/pedraodemontao/cbi-beca` (branch `main`). O repositório
+  antigo `beca-carteira` tem só o commit inicial e ficou como `origin-antigo` —
+  não é mais o lugar do projeto.
+- **Produção:** `beca-carteira.vercel.app`. O projeto na Vercel ainda se chama
+  `beca-carteira` por dentro; só o produto virou Central CBI.
+- **Deploy sai de push na `main`.** Durante a construção os deploys foram por
+  upload da CLI (`vercel deploy --prod`), o que deixou o repositório 17 commits
+  atrás do que estava no ar. Com o Git conectado isso não acontece mais — mas se
+  alguém rodar `vercel deploy` na mão, volta a acontecer.
+- **Variável de ambiente nova não sobe com o código.** Precisa de
+  `vercel env add NOME production` antes do deploy que depende dela.
+
 ## Comandos
 
 - `npm run dev` / `npm run build` / `npm run lint`
