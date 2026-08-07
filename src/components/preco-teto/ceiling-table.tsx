@@ -854,18 +854,15 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
           )}
 
           {kind === 'fii' ? (
-            <>
-              <BecaTip title="Como eu chego nesse número">
-                Somo tudo que o fundo depositou por cota nos últimos 12 meses e
-                divido pelo aluguel que você quer receber por ano. Com o slider em{' '}
-                {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que
-                pagou R$ 12,00 por cota no ano tem teto de{' '}
-                {formatBRL(12 / (fiiYieldPercent / 100))}. Pagou mais caro que
-                isso? Você recebe o mesmo aluguel, só que ele rende menos sobre o
-                que você pagou.
-              </BecaTip>
-              <FiiMethodNote />
-            </>
+            <BecaTip title="Como eu chego nesse número">
+              Somo tudo que o fundo depositou por cota nos últimos 12 meses e
+              divido pelo aluguel que você quer receber por ano. Com o slider em{' '}
+              {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que pagou
+              R$ 12,00 por cota no ano tem teto de{' '}
+              {formatBRL(12 / (fiiYieldPercent / 100))}. Pagou mais caro que isso?
+              Você recebe o mesmo aluguel, só que ele rende menos sobre o que você
+              pagou.
+            </BecaTip>
           ) : (
             <MethodExplainer
               method={method}
@@ -974,53 +971,6 @@ function buildColumns(
       strong: true,
     })),
   ];
-}
-
-/**
- * Como o mercado calcula preço teto de FII.
- *
- * A Beca segue a calculadora da Comunidade da Riqueza, e a página precisa dizer
- * isso — a conta é a mesma que a nossa, só expressa com o rendimento mensal em
- * vez do acumulado do ano. Deixar a equivalência à vista evita a usuária achar
- * que a plataforma inventou um número diferente do que ela viu por aí.
- */
-function FiiMethodNote() {
-  return (
-    <section className="card">
-      <h3 className="text-sm font-extrabold tracking-tight">
-        Como a galera calcula o preço teto de FII
-      </h3>
-      <p className="micro-hint mt-2">
-        Fundo listado não tem lucro por ação nem payout — ele é obrigado a
-        distribuir quase tudo que arrecada. Por isso o teto dele não usa Bazin,
-        Graham nem Gordon: sai direto do rendimento pago. Vale pros fundos
-        imobiliários e também pros de agronegócio (Fiagro) e de infraestrutura
-        (FI-Infra), que aparecem aqui com o selo do tipo.
-      </p>
-      <p className="mt-3 rounded-panel bg-primary-wash px-4 py-3 text-sm font-bold text-primary-deep">
-        preço teto = (rendimento mensal × 12) ÷ dividend yield desejado
-      </p>
-      <p className="micro-hint mt-3">
-        É a fórmula da{' '}
-        <a
-          href="https://comunidadedariqueza.com/calculadora-de-preco-teto-de-fundos-imobiliarios/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-bold text-primary hover:underline"
-        >
-          calculadora da Comunidade da Riqueza
-        </a>
-        , que é a referência mais usada. Lá você digita o rendimento de um mês;
-        aqui eu já uso o que o fundo pagou no ano inteiro, que dá no mesmo e ainda
-        suaviza mês fraco e mês forte. O padrão de 9% ao ano é o mesmo deles.
-      </p>
-      <p className="micro-hint mt-2">
-        Não arredondo o resultado. Em ação o mercado costuma arredondar pro meio
-        real mais próximo, mas cota de FII barata sofre com isso: num fundo de
-        R$ 9,00 o arredondamento sozinho já mexe 2% no teto.
-      </p>
-    </section>
-  );
 }
 
 function MethodLegend({ method }: { method: MethodKey }) {

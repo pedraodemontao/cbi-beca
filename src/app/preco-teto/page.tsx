@@ -45,9 +45,11 @@ export default async function PrecoTetoPage() {
           <h1 className="text-[clamp(1.9rem,6.5vw,2.4rem)] font-extrabold tracking-tight">
             Preço teto
           </h1>
+          {/* "ativo" e não "ação": a página cobre as duas abas, e fundo não é
+              ação. */}
           <p className="micro-hint">
-            Até quanto vale a pena pagar numa ação pra ela te pagar o dividendo
-            que você quer.
+            Até quanto vale a pena pagar por um ativo pra ele te pagar o
+            dividendo que você quer.
           </p>
         </header>
 
