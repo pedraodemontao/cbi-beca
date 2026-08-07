@@ -398,6 +398,33 @@ catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
   levando junto os fundos certos. Valor acima de 500% ao ano vira null na
   ingestão (`MAX_PLAUSIBLE_YIELD` em `lib/bolsai.ts`).
 
+## App instalável (PWA, 2026-08-07)
+
+`src/app/manifest.ts` + ícones em `public/`. A usuária adiciona à tela de início
+e abre em tela cheia, com ícone próprio — antes só dava pra abrir pela barra do
+navegador, com a URL comendo uma faixa da tela.
+
+- **Ícones são arquivo fixo em `public/`, não rota gerada.** O Next serve
+  `app/icon.tsx` com hash na URL, e tanto o manifesto quanto o iOS querem
+  caminho estável. Foram gerados uma vez com o `next/og` (Satori) — a máquina
+  não tem ImageMagick nem Pillow, só `sips`, que não lê SVG.
+- **O `maskable` tem 20% de folga em volta.** O Android recorta o ícone em
+  círculo, losango ou squircle dependendo do aparelho; sem a margem o "CBI"
+  perde as pontas.
+- **`favicon.ico` era o logo do Next.** Veio do scaffold e ninguém tinha trocado
+  — a aba do navegador mostrava a marca errada. O novo é um ICO com PNG de 256px
+  dentro (o formato aceita desde o Vista), montado à mão porque não há
+  ferramenta de imagem na máquina.
+- **O iOS ignora o manifesto.** Quem manda ele abrir em tela cheia é
+  `metadata.appleWebApp`. O Next emite só `mobile-web-app-capable`, que o iOS
+  entende a partir do 16.4 — o `apple-mobile-web-app-capable` legado entra à mão
+  em `metadata.other` pra iPhone mais velho.
+- **NÃO existe service worker, de propósito.** O Chrome não exige mais um pra
+  considerar o app instalável, e cache num app de investimento é ativamente
+  perigoso: mostrar cotação velha achando que é a de agora é pior que não
+  mostrar nada. Se um dia entrar, tem que ser só pro casco da interface, nunca
+  pros dados.
+
 ## Pendências conhecidas
 
 - **3 ações não têm fundamento na bolsai**: SMTO3, RAIZ4 e JALL3 devolvem 404

@@ -19,6 +19,20 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  // O iOS ignora o manifesto: quem manda ele abrir em tela cheia é este bloco.
+  // `black-translucent` deixa o conteúdo passar por baixo da barra de status, e
+  // o `viewport-fit: cover` acima é o que impede o texto de ficar embaixo dela.
+  appleWebApp: {
+    capable: true,
+    title: 'Central CBI',
+    statusBarStyle: 'black-translucent',
+  },
+  other: {
+    // O Next emite só `mobile-web-app-capable`, que o iOS entende a partir do
+    // 16.4. Em iPhone mais velho, sem esta linha o app abre dentro do Safari
+    // com a barra de endereço — funciona, mas não parece app.
+    'apple-mobile-web-app-capable': 'yes',
+  },
   title: "Central CBI",
   description:
     "Preço teto, carteira e proventos de ações e FIIs — sem economês, com a Beca."
