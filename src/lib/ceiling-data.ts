@@ -383,18 +383,23 @@ export async function fetchAppliedOverrides(
     .from('ceiling_overrides')
     .select('ticker,payout,manual_profit,user_id');
 
+  type Row = Pick<CeilingOverrideRow, 'ticker' | 'payout' | 'manual_profit' | 'user_id'>;
+
+  const global = new Map<string, Row>();
+  const personal = new Map<string, Row>();
+  for (const row of (data ?? []) as Row[]) {
+    (row.user_id === null ? global : personal).set(row.ticker, row);
+  }
+
   const overrides = new Map<string, AppliedOverride>();
-  for (const row of (data ?? []) as Pick<
-    CeilingOverrideRow,
-    'ticker' | 'payout' | 'manual_profit' | 'user_id'
-  >[]) {
-    const isGlobal = row.user_id === null;
-    if (isGlobal && overrides.has(row.ticker)) continue;
-    overrides.set(row.ticker, {
-      ticker: row.ticker,
+  for (const ticker of new Set([...personal.keys(), ...global.keys()])) {
+    const row = personal.get(ticker) ?? global.get(ticker)!;
+    overrides.set(ticker, {
+      ticker,
       payout: row.payout,
       manualProfit: row.manual_profit,
-      isGlobal,
+      isGlobal: row.user_id === null,
+      hasGlobal: global.has(ticker),
     });
   }
   return overrides;

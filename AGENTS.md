@@ -398,6 +398,38 @@ catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
   levando junto os fundos certos. Valor acima de 500% ao ano vira null na
   ingestão (`MAX_PLAUSIBLE_YIELD` em `lib/bolsai.ts`).
 
+## Ajuste da Beca valendo pra todo mundo (2026-08-10)
+
+Pedido dela em áudio: "eu ajusto de tempos em tempos, e quando a pessoa procura
+já vê o meu preço teto". Metade já existia desde a migration 0003 — `user_id`
+nulo em `ceiling_overrides` é ajuste global e a policy de SELECT já entregava
+pra todas. Faltava a escrita: `with check (auth.uid() = user_id)` barrava a
+linha com nulo, então a Beca ajustando pela tela salvava algo que só ela via.
+
+- **`profiles.is_curator`** (migration 0012) é o papel de curadora. A policy
+  precisa ler `profiles` de dentro de uma policy, e leitura direta com RLS
+  ligada entra em recursão — daí `public.is_curator()` ser `security definer`
+  com `search_path` fixo.
+- **A checagem existe em dois lugares de propósito.** A RLS é a que protege; a
+  do `saveCeilingOverride` existe pra devolver português em vez de erro do
+  Postgres, e pra que mexer no HTML não publique em nome da Beca.
+- **Publicar global apaga o ajuste pessoal da curadora no mesmo ticker.** Como
+  o pessoal vence o global na hora de aplicar, deixar os dois faria a Beca
+  publicar e continuar vendo o número velho — exatamente a confusão que o
+  pedido dela descreve.
+- **O pessoal continua vencendo o global.** A Beca dá o palpite, a usuária
+  decide; o selo já separava os dois ("ajuste da Beca" × "teu ajuste"). Efeito:
+  quem mexeu naquela empresa não recebe a atualização da Beca até clicar em
+  "Voltar ao padrão".
+- **`clearCeilingOverride` recebe escopo.** Apagar global usa `.is('user_id',
+  null)` — no PostgREST `eq` com nulo não casa linha nenhuma.
+- **`AppliedOverride.hasGlobal`** diz se existe ajuste da Beca naquele ticker
+  mesmo quando o pessoal está vencendo. Serve só pro formulário da curadora
+  saber se o botão é "Publicar" ou "Despublicar".
+- **Verificado no banco (2026-08-10):** upsert com `user_id` nulo casa no
+  índice `unique nulls not distinct` e atualiza em vez de duplicar; usuária
+  comum lê o global, mas insert global e delete do global são barrados pela RLS.
+
 ## App instalável (PWA, 2026-08-07)
 
 `src/app/manifest.ts` + ícones em `public/`. A usuária adiciona à tela de início

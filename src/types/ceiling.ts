@@ -102,6 +102,12 @@ export interface AppliedOverride {
   manualProfit: number | null;
   /** Veio da Beca (user_id nulo) — a usuária vê, mas não edita nem apaga. */
   isGlobal: boolean;
+  /**
+   * Existe ajuste da Beca pra esse ticker, mesmo que o da usuária esteja
+   * vencendo. Só a curadora usa: é o que diz se o formulário está prestes a
+   * publicar ou a atualizar algo que já está no ar.
+   */
+  hasGlobal: boolean;
 }
 
 export interface CeilingOverrideRow {

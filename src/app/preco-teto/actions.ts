@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { isCurator } from '@/lib/curator';
 import { ceilingOverrideSchema } from '@/lib/schemas';
 
 export interface CeilingOverrideActionState {
@@ -9,11 +10,14 @@ export interface CeilingOverrideActionState {
   success?: boolean;
 }
 
+const NOT_CURATOR = 'Só a Beca publica ajuste pra todo mundo.';
+
 /**
- * Grava o payout e o lucro que a usuária espera de uma empresa específica.
+ * Grava o payout e o lucro que se espera de uma empresa específica.
  *
- * O override é sempre dela: `user_id` nulo é reservado pros ajustes globais da
- * Beca, que só entram por fora do app.
+ * Dois escopos: o ajuste da usuária, que só ela vê, e o da Beca (`user_id`
+ * nulo), que vale pra todas — é o que faz a tabela chegar pra galera já com a
+ * leitura dela, sem cada uma ter que refazer a conta.
  */
 export async function saveCeilingOverride(
   _prev: CeilingOverrideActionState,
@@ -32,7 +36,13 @@ export async function saveCeilingOverride(
     return { error: parsed.error.issues[0].message };
   }
 
-  const { ticker, payoutPercent, expectedEps } = parsed.data;
+  const { ticker, payoutPercent, expectedEps, scope } = parsed.data;
+
+  // A RLS já barraria, mas o erro chegaria cru. E a checagem aqui é o que
+  // garante que mexer no HTML não publica ajuste em nome da Beca.
+  if (scope === 'global' && !(await isCurator(supabase, user.id))) {
+    return { error: NOT_CURATOR };
+  }
 
   // O lucro total sai do LPA digitado vezes as ações do banco — a quantidade
   // nunca vem do formulário, senão dava pra forjar o teto de qualquer empresa.
@@ -55,9 +65,12 @@ export async function saveCeilingOverride(
     manualProfit = expectedEps * shares;
   }
 
+  // `unique nulls not distinct (user_id, ticker)` é o que faz o ON CONFLICT
+  // enxergar o conflito quando o user_id é nulo — sem isso cada publicação da
+  // Beca viraria uma linha nova.
   const { error } = await supabase.from('ceiling_overrides').upsert(
     {
-      user_id: user.id,
+      user_id: scope === 'global' ? null : user.id,
       ticker,
       payout: payoutPercent / 100,
       manual_profit: manualProfit,
@@ -69,6 +82,17 @@ export async function saveCeilingOverride(
     return { error: 'Não foi possível salvar o ajuste. Tenta de novo.' };
   }
 
+  // Publicou pra todo mundo: o ajuste antigo dela mesma sai do caminho. Como o
+  // pessoal vence o global na hora de aplicar, deixar os dois faria a Beca
+  // continuar vendo o número velho e achar que a publicação não pegou.
+  if (scope === 'global') {
+    await supabase
+      .from('ceiling_overrides')
+      .delete()
+      .eq('ticker', ticker)
+      .eq('user_id', user.id);
+  }
+
   revalidatePath('/preco-teto');
   return { error: null, success: true };
 }
@@ -76,6 +100,7 @@ export async function saveCeilingOverride(
 export async function clearCeilingOverride(formData: FormData) {
   const ticker = formData.get('ticker');
   if (typeof ticker !== 'string') return;
+  const scope = formData.get('scope') === 'global' ? 'global' : 'personal';
 
   const supabase = await createClient();
   const {
@@ -83,13 +108,25 @@ export async function clearCeilingOverride(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  // O `user_id` explícito protege os ajustes globais da Beca: a RLS deixaria a
-  // usuária ler os dela com user_id nulo, mas apagar é outra história.
-  await supabase
-    .from('ceiling_overrides')
-    .delete()
-    .eq('ticker', ticker)
-    .eq('user_id', user.id);
+  if (scope === 'global') {
+    if (!(await isCurator(supabase, user.id))) return;
+    // `is('user_id', null)` em vez de `eq`: no PostgREST comparar com nulo por
+    // igualdade não casa linha nenhuma.
+    await supabase
+      .from('ceiling_overrides')
+      .delete()
+      .eq('ticker', ticker)
+      .is('user_id', null);
+  } else {
+    // O `user_id` explícito protege os ajustes globais da Beca: a RLS deixa a
+    // usuária ler os que têm user_id nulo, e sem o filtro o delete tentaria
+    // levá-los junto.
+    await supabase
+      .from('ceiling_overrides')
+      .delete()
+      .eq('ticker', ticker)
+      .eq('user_id', user.id);
+  }
 
   revalidatePath('/preco-teto');
 }

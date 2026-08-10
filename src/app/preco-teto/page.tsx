@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
+import { isCurator } from '@/lib/curator';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { BecaTip } from '@/components/shared/beca-tip';
 import { CeilingTable } from '@/components/preco-teto/ceiling-table';
@@ -23,10 +24,11 @@ export default async function PrecoTetoPage() {
     redirect('/login');
   }
 
-  const [assets, overrides, { data: positionRows }] = await Promise.all([
+  const [assets, overrides, { data: positionRows }, curator] = await Promise.all([
     fetchCeilingAssets(supabase, { limit: UNIVERSE_SIZE }),
     fetchAppliedOverrides(supabase),
     supabase.from('positions').select('ticker'),
+    isCurator(supabase, user.id),
   ]);
 
   const ownedTickers = [
@@ -64,6 +66,7 @@ export default async function PrecoTetoPage() {
             assets={assets}
             overrides={[...overrides.values()]}
             ownedTickers={ownedTickers}
+            isCurator={curator}
           />
         )}
       </main>

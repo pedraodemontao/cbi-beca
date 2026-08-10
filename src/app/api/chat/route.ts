@@ -236,7 +236,14 @@ function buildCeilingContext(
             ? `; margem de segurança de ${formatPercent(margin * 100)} — ou seja, a cotação de hoje está esse tanto ABAIXO do teto`
             : `; SEM margem de segurança: a cotação está ACIMA do teto`
       }${
-        override ? ' — a usuária ajustou o payout ou o lucro dessa empresa' : ''
+        // Desde que o ajuste da Beca vale pra todo mundo, dizer "a usuária
+        // ajustou" seria falso pra quem nunca mexeu em nada — e a IA repetiria
+        // isso na cara dela.
+        override
+          ? override.isGlobal
+            ? ' — o payout ou o lucro dessa empresa foi ajustado por você, Beca, e vale pra todas as usuárias'
+            : ' — a usuária ajustou o payout ou o lucro dessa empresa'
+          : ''
       }`
     );
   }

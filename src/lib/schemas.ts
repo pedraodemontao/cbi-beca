@@ -57,6 +57,12 @@ export const ceilingOverrideSchema = z.object({
       (value) => value === undefined || (Number.isFinite(value) && value > 0),
       'O lucro por ação precisa ser maior que zero'
     ),
+  /**
+   * 'global' é o ajuste da Beca, que vale pra todas as usuárias. O padrão é
+   * 'personal' porque o formulário só manda o campo pra quem é curadora — quem
+   * não é nem vê a escolha, e a action confere de novo antes de gravar.
+   */
+  scope: z.enum(['personal', 'global']).default('personal'),
 });
 
 export type CeilingOverrideFormData = z.infer<typeof ceilingOverrideSchema>;

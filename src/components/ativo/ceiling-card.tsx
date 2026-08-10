@@ -75,7 +75,11 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
       </div>
       <p className="micro-hint">
         Até quanto pagar pra que o dividendo dessa empresa te renda o que você
-        quer. Considerando que ela distribui {Math.round(payout * 100)}% do lucro.
+        quer. Considerando que ela distribui {Math.round(payout * 100)}% do lucro
+        {/* O payout fora do padrão precisa de dono: com o ajuste da Beca
+            valendo pra todo mundo, a usuária vê um número diferente do de
+            ontem sem ter mexido em nada. */}
+        {override && (override.isGlobal ? ' — é o ajuste da Beca' : ' — é o teu ajuste')}.
       </p>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 rounded-panel bg-primary-wash px-5 py-4">

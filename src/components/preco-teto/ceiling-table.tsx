@@ -132,9 +132,16 @@ interface CeilingTableProps {
   overrides: AppliedOverride[];
   /** Tickers que a usuária já tem — ganham selo e filtro próprio. */
   ownedTickers: string[];
+  /** A Beca: o formulário dela publica o ajuste pra todas as usuárias. */
+  isCurator: boolean;
 }
 
-export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTableProps) {
+export function CeilingTable({
+  assets,
+  overrides,
+  ownedTickers,
+  isCurator,
+}: CeilingTableProps) {
   const [kind, setKind] = useState<'stock' | 'fii'>('stock');
   const [method, setMethod] = useState<MethodKey>('projected');
   const [sector, setSector] = useState('all');
@@ -736,6 +743,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                               override={override}
                               reportedEps={reportedEps(asset)}
                               defaultPayoutPercent={payoutPercent}
+                              isCurator={isCurator}
                               onDone={() => setEditingTicker(null)}
                             />
                           </td>
@@ -834,6 +842,7 @@ export function CeilingTable({ assets, overrides, ownedTickers }: CeilingTablePr
                         override={override}
                         reportedEps={reportedEps(asset)}
                         defaultPayoutPercent={payoutPercent}
+                        isCurator={isCurator}
                         onDone={() => setEditingTicker(null)}
                       />
                     </div>
