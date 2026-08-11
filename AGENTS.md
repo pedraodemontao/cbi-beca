@@ -31,7 +31,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 - **Chaves:** anon key do Supabase é pública por design (RLS protege). `SUPABASE_SERVICE_ROLE_KEY`, `BRAPI_TOKEN`, `BOLSAI_API_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET` só server-side.
 - **Persona do chat** em `prompts/system.md` — derivada das seções VOZ + PROIBIDO de `beca-painel/api/_beca.js` (sem o FORMATO de Reels). Regra inegociável: IA nunca recomenda comprar/vender/manter; nunca calcula números (recebe prontos via `CONTEXTO_CARTEIRA`).
 - **Formulários via Server Actions + `useActionState`** (validação Zod nos dois lados). React Hook Form entra só se algum form crescer em complexidade.
-- **O produto se chama CENTRAL CBI** (rebrand de 2026-08-06, era "Carteira da Beca"). A **Beca continua sendo a voz** — chat, dicas e tom são dela; CBI é a marca do sistema. Por isso existem dois símbolos: `BrandMark` (contorno em ouro com "CBI", institucional) e `BecaAvatar` (disco cheio com "B", pessoa).
+- **O produto se chama CENTRAL CBI** (rebrand de 2026-08-06, era "Carteira da Beca"). A **Beca continua sendo a voz** — chat, dicas e tom são dela; CBI é a marca do sistema. Por isso existem dois símbolos: `BrandMark` (a logo — hexágono em ouro com o monograma e a seta de alta, institucional) e `BecaAvatar` (disco cheio com "B", pessoa). O `BrandMark` era monograma em texto até a logo em arquivo chegar, em 2026-08-11.
 - **Direção visual: preto, ouro e verde de detalhe.** Fundo `#08080A`, card `#141419`, ouro `#D6A93C` (marca), verde `#3FBF87` (alta), coral `#F0705F` (queda), texto `#F4F1E8`. Fonte **Plus Jakarta Sans** (mantida: serifa de luxo prejudica leitura de número). O escuro é a direção de origem; desde 2026-08-11 existe tema claro por escolha da usuária — mas **sem `light:`/`dark:` variants**, a troca é toda na camada semântica.
 - **No escuro a separação de superfície NÃO vem da luz.** Preto e card diferem só 1,09:1 — abaixo do que o olho separa. Quem desenha o card é a **borda** (`#2E2E38`), e é por isso que `.card` e `.card-lg` ganharam `border` nesta direção. Sombra vira profundidade, não delimitação.
 - **Contraste medido, não estimado:** todo texto sobre o fundo em que aparece está em 4,5:1 no mínimo, a maioria acima de 7:1. Ouro sobre preto 9,15:1; preto sobre ouro 9,15:1; verde 8,59:1; coral 6,85:1.
@@ -487,6 +487,38 @@ fica salva (`localStorage`, chave `cbi-theme`).
 - **`AppHeader` ganhou `pr-14`** pra reservar a faixa do botão fixo — sem isso
   ele cai em cima do "Sair" da carteira.
 
+## A logo em arquivo (2026-08-11)
+
+A Beca mandou a marca desenhada: hexágono em ouro com o monograma e a seta de
+alta. Entrou no `BrandMark` (que já existia prevendo isso), nos ícones do PWA,
+no favicon e numa faixa nova no topo de todas as telas.
+
+- **A arte veio em JPEG com fundo preto chapado** — sem alfa, sem vetor. O
+  recorte é por luminância (`scripts/build-brand-assets.mjs`): o desenho é ouro
+  claro, o fundo é quase preto, então a luz do pixel vira o alfa. Os pixels de
+  borda são **desmultiplicados** (cor ÷ alfa); sem isso a logo carrega um halo
+  escuro pro tema claro.
+- **`sharp` já vem com o Next** — foi o que permitiu fazer isso sem dependência
+  nova. A máquina não tem ImageMagick nem Pillow, e o `sips` não faz alfa nem
+  ICO.
+- **Duas versões da marca, não uma.** O ouro da arte mede 1,43:1 sobre o papel
+  do tema claro: some. A versão clara nasce em `modulate({ brightness: 0.55,
+  saturation: 1.3 })` e fica com tom médio #856B0A, 4,82:1 sobre o papel —
+  praticamente o `--cbi-gold-ink` do CSS. `linear` (multiplicar os canais) foi
+  tentado antes e lava a cor junto: deu um marrom acinzentado de 4,17:1.
+- **200px de altura, com paleta.** A marca aparece em 34px (faixa) e 56px
+  (login e erro); em 512px o arquivo ia a 174 kB e era baixado em toda página.
+  Hoje são 11 kB.
+- **A faixa do topo existe porque logo fixa não cabia.** O botão de tema era
+  `fixed` no canto; pôr a marca no canto oposto a jogaria em cima do `<h1>` de
+  toda página no celular, onde o container tem 20px de respiro. A faixa resolve
+  os dois — e o `pr-14` que o `AppHeader` tinha ganhado pôde sair.
+- **Símbolo + nome, não só o símbolo.** Em 30px o monograma dentro do hexágono
+  vira borrão e quem não conhece a marca não lê "CBI". O texto carrega o nome.
+- **A faixa esconde a marca em login e cadastro** — essas telas já mostram a
+  logo grande no meio; repetir no topo seria a mesma arte duas vezes na mesma
+  dobra. O botão de tema fica.
+
 ## App instalável (PWA, 2026-08-07)
 
 `src/app/manifest.ts` + ícones em `public/`. A usuária adiciona à tela de início
@@ -495,15 +527,15 @@ navegador, com a URL comendo uma faixa da tela.
 
 - **Ícones são arquivo fixo em `public/`, não rota gerada.** O Next serve
   `app/icon.tsx` com hash na URL, e tanto o manifesto quanto o iOS querem
-  caminho estável. Foram gerados uma vez com o `next/og` (Satori) — a máquina
-  não tem ImageMagick nem Pillow, só `sips`, que não lê SVG.
+  caminho estável. A primeira leva saiu do `next/og` (Satori); desde a logo de
+  2026-08-11 quem gera é `scripts/build-brand-assets.mjs`.
 - **O `maskable` tem 20% de folga em volta.** O Android recorta o ícone em
   círculo, losango ou squircle dependendo do aparelho; sem a margem o "CBI"
   perde as pontas.
 - **`favicon.ico` era o logo do Next.** Veio do scaffold e ninguém tinha trocado
-  — a aba do navegador mostrava a marca errada. O novo é um ICO com PNG de 256px
-  dentro (o formato aceita desde o Vista), montado à mão porque não há
-  ferramenta de imagem na máquina.
+  — a aba do navegador mostrava a marca errada. O atual é um ICO com PNG de
+  256px dentro (o formato aceita desde o Vista), montado byte a byte no script
+  porque não há ferramenta de imagem que monte ICO nesta máquina.
 - **O iOS ignora o manifesto.** Quem manda ele abrir em tela cheia é
   `metadata.appleWebApp`. O Next emite só `mobile-web-app-capable`, que o iOS
   entende a partir do 16.4 — o `apple-mobile-web-app-capable` legado entra à mão

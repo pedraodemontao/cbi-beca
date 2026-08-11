@@ -93,10 +93,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label="Alternar entre tema claro e escuro"
       title="Alternar entre tema claro e escuro"
-      className="fixed right-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface/90 text-muted-foreground shadow-soft backdrop-blur transition-colors hover:border-primary hover:text-primary"
-      // O respiro de cima acompanha a barra de status do iPhone; em aparelho
-      // sem entalhe `env()` devolve 0 e o botão fica nos 12px de sempre.
-      style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}
+      className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-surface text-muted-foreground transition-colors hover:border-primary hover:text-primary"
     >
       <SunIcon />
       <MoonIcon />

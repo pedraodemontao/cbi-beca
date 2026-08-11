@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { AppTopBar } from "@/components/layout/app-top-bar";
 import { THEME_COLOR, THEME_STORAGE_KEY } from "@/lib/theme";
 
 /**
@@ -76,7 +76,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
-        <ThemeToggle />
+        <AppTopBar />
         {children}
         <footer className="px-5 py-6 text-center text-xs text-muted-foreground">
           ⚠️ Conteúdo educacional — não é recomendação de compra ou venda de
