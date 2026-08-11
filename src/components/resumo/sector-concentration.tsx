@@ -20,12 +20,12 @@ export function SectorConcentration({ concentration }: SectorConcentrationProps)
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Em que teu dinheiro está apostado
+        Concentração por setor
       </h2>
       <p className="micro-hint">
-        Empresas do mesmo setor costumam subir e cair juntas. Saber onde teu
-        dinheiro está concentrado é o primeiro passo — não é problema, é
-        informação.
+        Empresas de um mesmo setor tendem a reagir de forma semelhante ao
+        mesmo evento. A distribuição abaixo indica onde a carteira está
+        concentrada.
       </p>
 
       <ul className="mt-5 flex flex-col gap-4">
@@ -53,12 +53,11 @@ export function SectorConcentration({ concentration }: SectorConcentrationProps)
       {dominant && (
         <p className="mt-5 rounded-panel bg-accent px-4 py-3 text-sm font-medium text-accent-text">
           <strong className="font-bold">
-            {(dominant.share * 100).toFixed(0)}% da tua carteira está em{' '}
+            {(dominant.share * 100).toFixed(0)}% da carteira está em{' '}
             {dominant.sector}.
           </strong>{' '}
-          Isso quer dizer que, quando esse setor vai mal, boa parte do teu
-          dinheiro sente junto. Não precisa mudar nada hoje — só vale lembrar
-          disso no teu próximo aporte.
+          Uma queda setorial afeta essa parcela de forma simultânea. É um dado a
+          considerar na distribuição dos próximos aportes.
         </p>
       )}
     </section>

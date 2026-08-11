@@ -23,11 +23,11 @@ export function DividendRanking({ stocks, fiis, excluded }: DividendRankingProps
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Quem mais paga na bolsa hoje
+        Maiores pagadores de proventos
       </h2>
       <p className="micro-hint">
-        O que cada um distribuiu nos últimos 12 meses comparado ao preço da
-        ação. Só entra quem negocia de verdade — papel parado engana.
+        Distribuição dos últimos 12 meses em relação à cotação. A lista
+        considera apenas ativos com liquidez, cuja cotação está atualizada.
       </p>
 
       <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -45,7 +45,7 @@ export function DividendRanking({ stocks, fiis, excluded }: DividendRankingProps
             uma vez e não volta.{' '}
           </>
         )}
-        Mesmo aqui, rendimento passado não se repete por decreto. É ponto de
+        Rendimento passado não se repete necessariamente. A lista é ponto de
         partida pra pesquisa, não recomendação.
       </p>
     </section>

@@ -30,7 +30,7 @@ function buildIndicators(stats: BrapiStatistics): Indicator[] {
     list.push({
       label: 'P/L',
       value: decimal.format(pe),
-      hint: `Quantos anos de lucro a empresa levaria pra "pagar" o preço da ação. ${decimal.format(pe)} significa que você paga ${decimal.format(pe)} reais pra cada real que ela lucra por ano.`,
+      hint: `Preço da ação dividido pelo lucro por ação. O valor de ${decimal.format(pe)} indica quantos anos de lucro atual seriam necessários para equivaler ao preço pago.`,
     });
   }
 
@@ -40,8 +40,8 @@ function buildIndicators(stats: BrapiStatistics): Indicator[] {
       value: decimal.format(stats.priceToBook),
       hint:
         stats.priceToBook > 1
-          ? 'O preço está acima do patrimônio da empresa. O mercado aposta que ela vale mais do que o que tem no balanço.'
-          : 'O preço está abaixo do patrimônio da empresa. Pode ser oportunidade ou pode ser desconfiança do mercado — só o número não diz qual.',
+          ? 'Cotação acima do valor patrimonial por ação. O mercado precifica a empresa acima do registrado em balanço.'
+          : 'Cotação abaixo do valor patrimonial por ação. O indicador isolado não distingue ativo descontado de deterioração do negócio.',
     });
   }
 
@@ -49,7 +49,7 @@ function buildIndicators(stats: BrapiStatistics): Indicator[] {
     list.push({
       label: 'Dividend Yield',
       value: percent.format(stats.dividendYield),
-      hint: 'Quanto o ativo pagou em proventos nos últimos 12 meses, em relação ao preço. É o "aluguel" que ele te paga por ano.',
+      hint: 'Proventos distribuídos nos últimos 12 meses em relação à cotação atual, em percentual ao ano.',
     });
   }
 
@@ -59,8 +59,8 @@ function buildIndicators(stats: BrapiStatistics): Indicator[] {
       value: decimal.format(stats.beta),
       hint:
         stats.beta > 1
-          ? 'Balança mais que o mercado. Quando a bolsa sobe, ele tende a subir mais — e a cair mais também.'
-          : 'Balança menos que o mercado. Costuma oscilar com mais calma que a bolsa em geral.',
+          ? 'Oscila mais que o índice de referência, tanto na alta quanto na queda.'
+          : 'Oscila menos que o índice de referência.',
     });
   }
 

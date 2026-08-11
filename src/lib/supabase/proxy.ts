@@ -24,7 +24,31 @@ export async function updateSession(request: NextRequest) {
   );
 
   // getUser() renova o token expirado; sem isso a sessão morre no server
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Portão de entrada, além do `redirect` que cada página já faz.
+  //
+  // Hoje todas as rotas protegidas checam a sessão por conta própria — e todas
+  // acertam. Mas essa é uma garantia que depende de lembrar: uma página nova
+  // que esqueça o `getUser()` vira vazamento silencioso. Aqui a regra é
+  // invertida — protegido por padrão, aberto só o que está na lista.
+  if (!user && !isPublicPath(request.nextUrl.pathname)) {
+    const login = request.nextUrl.clone();
+    login.pathname = '/login';
+    login.search = '';
+    return NextResponse.redirect(login);
+  }
 
   return supabaseResponse;
+}
+
+/** Rotas que existem justamente para quem ainda não tem sessão. */
+const PUBLIC_PREFIXES = ['/login', '/cadastro', '/auth', '/api/cron'];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AppliedOverride,
@@ -95,14 +96,16 @@ export async function fetchCeilingAssets(
     if (limit) companyQuery = companyQuery.limit(limit);
   }
 
-  const [{ data: companyRows }, { data: fundamentalRows }] = await Promise.all([
+  // A de fundamentos vai paginada: são 747 linhas hoje contra o teto de 1.000
+  // do PostgREST, e toda empresa sem fundamento correspondente é DESCARTADA em
+  // silêncio no `flatMap` abaixo. Sem isso, ativos começariam a sumir da tabela
+  // sem erro nenhum assim que o catálogo passasse de mil.
+  const [{ data: companyRows }, fundamentalRows] = await Promise.all([
     companyQuery,
-    fundamentalQuery,
+    fetchAllRows<FundamentalFields>((from, to) => fundamentalQuery.range(from, to)),
   ]);
 
-  const fundamentals = new Map(
-    ((fundamentalRows ?? []) as FundamentalFields[]).map((row) => [row.ticker, row])
-  );
+  const fundamentals = new Map(fundamentalRows.map((row) => [row.ticker, row]));
 
   return ((companyRows ?? []) as CompanyFields[]).flatMap((company) => {
     const fundamental = fundamentals.get(company.ticker);
@@ -161,24 +164,24 @@ export interface FiiOption {
  * mais porque a cotação é editável.
  */
 export async function fetchFiiOptions(supabase: SupabaseClient): Promise<FiiOption[]> {
-  const [{ data: companyRows }, { data: fundamentalRows }] = await Promise.all([
+  const [{ data: companyRows }, fundamentalRows] = await Promise.all([
     supabase
       .from('companies')
       .select('ticker,name,price')
       .eq('asset_type', 'fii')
       .gt('price', 0)
       .gte('last_seen_at', listedSince()),
-    supabase
-      .from('company_fundamentals')
-      .select('ticker,dividends_12m')
-      .gt('dividends_12m', 0),
+    fetchAllRows<{ ticker: string; dividends_12m: number }>((from, to) =>
+      supabase
+        .from('company_fundamentals')
+        .select('ticker,dividends_12m')
+        .gt('dividends_12m', 0)
+        .range(from, to)
+    ),
   ]);
 
   const dividends = new Map(
-    ((fundamentalRows ?? []) as { ticker: string; dividends_12m: number }[]).map((row) => [
-      row.ticker,
-      Number(row.dividends_12m),
-    ])
+    fundamentalRows.map((row) => [row.ticker, Number(row.dividends_12m)])
   );
 
   return ((companyRows ?? []) as { ticker: string; name: string; price: number }[])
@@ -225,7 +228,7 @@ export async function fetchStockOptions(
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
 
-  const [{ data: companyRows }, { data: fundamentalRows }, { data: paymentRows }] =
+  const [{ data: companyRows }, { data: fundamentalRows }, paymentRows] =
     await Promise.all([
       supabase
         .from('companies')
@@ -237,10 +240,17 @@ export async function fetchStockOptions(
         .from('company_fundamentals')
         .select('ticker,dividends_12m')
         .gt('dividends_12m', 0),
-      supabase
-        .from('dividend_payments')
-        .select('ticker,type,value_per_share')
-        .gte('ex_date', twelveMonthsAgo.toLocaleDateString('en-CA')),
+      // Paginado: são ~3.500 pagamentos em 12 meses e o PostgREST devolvia as
+      // 1.000 primeiras, cobrindo 158 dos ~500 tickers. Quem ficava de fora ia
+      // pra tela com `jcpShare: 0` — ou seja, o valor BRUTO no lugar do
+      // líquido, justo na calculadora cujo diferencial é descontar o IR do JCP.
+      fetchAllRows<PaymentTypeRow>((from, to) =>
+        supabase
+          .from('dividend_payments')
+          .select('ticker,type,value_per_share')
+          .gte('ex_date', twelveMonthsAgo.toLocaleDateString('en-CA'))
+          .range(from, to)
+      ),
     ]);
 
   const dividends = new Map(
@@ -251,7 +261,7 @@ export async function fetchStockOptions(
   );
 
   const totals = new Map<string, { all: number; jcp: number }>();
-  for (const row of (paymentRows ?? []) as PaymentTypeRow[]) {
+  for (const row of paymentRows) {
     const value = Number(row.value_per_share);
     if (!Number.isFinite(value)) continue;
     const current = totals.get(row.ticker) ?? { all: 0, jcp: 0 };
@@ -318,22 +328,23 @@ export async function fetchTopPayers(
   supabase: SupabaseClient,
   limitPerType = 8
 ): Promise<{ stocks: TopPayer[]; fiis: TopPayer[]; excluded: number }> {
-  const [{ data: companyRows }, { data: fundamentalRows }] = await Promise.all([
+  const [{ data: companyRows }, fundamentalRows] = await Promise.all([
     supabase
       .from('companies')
       .select('ticker,name,asset_type,price,volume')
       .in('asset_type', ['stock', 'fii'])
       .gte('last_seen_at', listedSince()),
-    supabase
-      .from('company_fundamentals')
-      .select('ticker,dividends_12m')
-      .gt('dividends_12m', 0),
+    fetchAllRows<{ ticker: string; dividends_12m: number }>((from, to) =>
+      supabase
+        .from('company_fundamentals')
+        .select('ticker,dividends_12m')
+        .gt('dividends_12m', 0)
+        .range(from, to)
+    ),
   ]);
 
   const dividends = new Map(
-    ((fundamentalRows ?? []) as { ticker: string; dividends_12m: number }[]).map(
-      (row) => [row.ticker, row.dividends_12m]
-    )
+    fundamentalRows.map((row) => [row.ticker, row.dividends_12m])
   );
 
   const all = ((companyRows ?? []) as (CompanyFields & { asset_type: 'stock' | 'fii' })[])

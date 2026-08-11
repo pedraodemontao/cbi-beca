@@ -18,7 +18,7 @@ export default function manifest(): MetadataRoute.Manifest {
     // Cabe embaixo do ícone na tela de início; nome longo o Android corta.
     short_name: 'CBI',
     description:
-      'Preço teto, carteira e proventos de ações e FIIs — sem economês, com a Beca.',
+      'Preço teto, carteira e proventos de ações e fundos listados na B3.',
     start_url: '/',
     display: 'standalone',
     background_color: '#08080a',

@@ -14,10 +14,10 @@ export function IncomeByTicker({ byTicker }: IncomeByTickerProps) {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Quem mais te paga
+        Proventos por ativo
       </h2>
       <p className="micro-hint">
-        Os ativos que mais colocaram dinheiro no teu bolso até agora.
+        Total distribuído por cada ativo desde a data de aquisição.
       </p>
 
       <ul className="mt-4 flex flex-col gap-4">

@@ -27,7 +27,13 @@ const quantityFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 8,
 });
 
+/**
+ * Um valor não finito na tela é sempre defeito de cálculo, e o `Intl` imprime
+ * "R$ ∞" ou "R$ NaN" sem reclamar. O traço deixa claro que o dado falta, em vez
+ * de exibir um símbolo que ninguém entende.
+ */
 export function formatBRL(value: number): string {
+  if (!Number.isFinite(value)) return '—';
   return brlFormatter.format(value);
 }
 

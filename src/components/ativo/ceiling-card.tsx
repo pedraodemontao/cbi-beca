@@ -58,8 +58,8 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
       <section className="card-lg">
         <h2 className="text-lg font-extrabold tracking-tight">Preço teto</h2>
         <p className="micro-hint mt-1">
-          Ainda não tenho o lucro dessa empresa pra calcular o teto. Assim que o
-          balanço dela entrar na minha base, aparece aqui.
+          Lucro desta empresa ainda não disponível na base. O preço teto é
+          exibido assim que o balanço for sincronizado.
         </p>
       </section>
     );
@@ -70,21 +70,22 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-extrabold tracking-tight">Preço teto</h2>
         <Link href="/preco-teto" className="text-sm font-bold text-primary hover:underline">
-          Ver a tabela toda
+          Ver tabela completa
         </Link>
       </div>
       <p className="micro-hint">
-        Até quanto pagar pra que o dividendo dessa empresa te renda o que você
-        quer. Considerando que ela distribui {Math.round(payout * 100)}% do lucro
-        {/* O payout fora do padrão precisa de dono: com o ajuste da Beca
+        Preço máximo de compra para o rendimento anual desejado, considerando
+        distribuição de {Math.round(payout * 100)}% do lucro
+        {/* O payout fora do padrão precisa de dono: com o ajuste da curadoria
             valendo pra todo mundo, a usuária vê um número diferente do de
             ontem sem ter mexido em nada. */}
-        {override && (override.isGlobal ? ' — é o ajuste da Beca' : ' — é o teu ajuste')}.
+        {override &&
+          (override.isGlobal ? ' — ajuste da curadoria' : ' — ajuste definido por você')}.
       </p>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 rounded-panel bg-primary-wash px-5 py-4">
         <div>
-          <p className="micro-label">Teto pra render 6% ao ano</p>
+          <p className="micro-label">Teto para rendimento de 6% ao ano</p>
           <p className="num text-[clamp(1.8rem,7vw,2.4rem)] font-extrabold leading-none text-primary-deep">
             {headline === null ? '—' : formatBRL(headline)}
           </p>
@@ -98,17 +99,17 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
 
       <p className="micro-hint mt-3">
         {margin === null
-          ? 'Sem cotação eu não consigo comparar com o preço de hoje.'
+          ? 'Cotação indisponível: não é possível comparar com o preço atual.'
           : margin >= 0
-            ? `Hoje ela custa ${formatBRL(price!)}, ou seja ${formatRatio(margin)} abaixo do teto. Essa folga é a tua margem de segurança: é o quanto do limite você não está pagando.`
-            : `Hoje ela custa ${formatBRL(price!)}, acima do teto. Não sobra margem de segurança — comprando por esse preço, o dividendo rende menos que 6% ao ano pra você.`}
+            ? `Cotação atual de ${formatBRL(price!)}, ${formatRatio(margin)} abaixo do preço teto. Essa diferença é a margem de segurança.`
+            : `Cotação atual de ${formatBRL(price!)}, acima do preço teto. Não há margem de segurança: nesse preço, o dividendo projetado rende menos de 6% ao ano.`}
       </p>
 
       <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {projection.ceilings.slice(1).map(({ targetYield, ceiling, margin: yieldMargin }) => (
           <Item
             key={targetYield}
-            label={`Pra render ${formatRatio(targetYield)}`}
+            label={`Para ${formatRatio(targetYield)}`}
             value={ceiling}
             margin={yieldMargin}
           />
@@ -117,13 +118,13 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
           label="Graham"
           value={projection.graham}
           margin={safetyMargin(projection.graham, price)}
-          hint="lucro + patrimônio"
+          hint="lucro e patrimônio"
         />
         <Item
           label="Gordon"
           value={gordon}
           margin={safetyMargin(gordon, price)}
-          hint="dividendo crescendo 4% ao ano"
+          hint="crescimento de 4% ao ano"
         />
       </dl>
 
@@ -134,8 +135,8 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
 
       {asset.referenceDate && (
         <p className="micro-hint mt-4 border-t border-border pt-3">
-          Lucro do balanço de {formatReference(asset.referenceDate)} — é o mais
-          recente que a CVM publicou, e não o de hoje.
+          Lucro apurado no balanço de {formatReference(asset.referenceDate)},
+          o mais recente publicado na CVM.
         </p>
       )}
     </section>
@@ -165,8 +166,8 @@ function FiiCeilingCard({
       <section className="card-lg">
         <h2 className="text-lg font-extrabold tracking-tight">Preço teto</h2>
         <p className="micro-hint mt-1">
-          Ainda não tenho o que esse fundo distribuiu por cota nos últimos 12
-          meses. Sem isso não dá pra calcular o teto dele.
+          Distribuições por cota dos últimos 12 meses ainda não disponíveis.
+          O preço teto depende desse dado.
         </p>
       </section>
     );
@@ -177,19 +178,19 @@ function FiiCeilingCard({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-extrabold tracking-tight">Preço teto</h2>
         <Link href="/preco-teto" className="text-sm font-bold text-primary hover:underline">
-          Ver a tabela toda
+          Ver tabela completa
         </Link>
       </div>
       <p className="micro-hint">
-        Até quanto pagar por cota pra que o aluguel desse fundo te renda o que
-        você quer. Fundo imobiliário não tem lucro por cota — o teto sai direto do
-        que ele já depositou.
+        Preço máximo por cota para o rendimento anual desejado. Fundos
+        listados não apuram lucro por cota: o teto é calculado sobre as
+        distribuições já realizadas.
       </p>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 rounded-panel bg-primary-wash px-5 py-4">
         <div>
           <p className="micro-label">
-            Teto pra render {formatRatio(DEFAULT_FII_YIELD)} ao ano
+            Teto para rendimento de {formatRatio(DEFAULT_FII_YIELD)} ao ano
           </p>
           <p className="num text-[clamp(1.8rem,7vw,2.4rem)] font-extrabold leading-none text-primary-deep">
             {formatBRL(headline)}
@@ -204,10 +205,10 @@ function FiiCeilingCard({
 
       <p className="micro-hint mt-3">
         {margin === null
-          ? 'Sem cotação eu não consigo comparar com o preço de hoje.'
+          ? 'Cotação indisponível: não é possível comparar com o preço atual.'
           : margin >= 0
-            ? `Hoje a cota custa ${formatBRL(price!)}, ou seja ${formatRatio(margin)} abaixo do teto. Essa folga é a tua margem de segurança.`
-            : `Hoje a cota custa ${formatBRL(price!)}, acima do teto. Comprando por esse preço, o mesmo aluguel rende menos que ${formatRatio(DEFAULT_FII_YIELD)} ao ano pra você.`}
+            ? `Cotação atual de ${formatBRL(price!)}, ${formatRatio(margin)} abaixo do preço teto. Essa diferença é a margem de segurança.`
+            : `Cotação atual de ${formatBRL(price!)}, acima do preço teto. Nesse preço, a mesma distribuição rende menos de ${formatRatio(DEFAULT_FII_YIELD)} ao ano.`}
       </p>
 
       <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -216,19 +217,19 @@ function FiiCeilingCard({
           return (
             <Item
               key={targetYield}
-              label={`Pra render ${formatRatio(targetYield)}`}
+              label={`Para ${formatRatio(targetYield)}`}
               value={ceiling}
               margin={safetyMargin(ceiling, price)}
             />
           );
         })}
-        <Item label="Rendeu em 12m" value={asset.dividends12m} />
+        <Item label="Distribuído em 12m" value={asset.dividends12m} />
         <Item label="Por mês" value={monthly} />
       </dl>
 
       <p className="micro-hint mt-4 border-t border-border pt-3">
-        Conta usada pelo mercado: (rendimento mensal × 12) ÷ yield desejado. O que
-        o fundo pagou no passado não obriga ele a repetir.
+        Cálculo: (distribuição mensal × 12) ÷ rendimento desejado.
+        Distribuições passadas não garantem distribuições futuras.
       </p>
     </section>
   );

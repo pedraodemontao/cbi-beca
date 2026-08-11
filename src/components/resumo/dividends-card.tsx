@@ -25,13 +25,13 @@ export function DividendsCard({ dividends }: DividendsCardProps) {
         Próximos proventos
       </h2>
       <p className="micro-hint">
-        Dinheiro que os teus ativos já anunciaram que vão te pagar.
+        Pagamentos já anunciados pelos ativos em carteira.
       </p>
 
       {dividends.length === 0 ? (
         <p className="mt-4 rounded-panel bg-background px-4 py-3 text-sm font-medium text-muted-foreground">
-          Nenhum pagamento anunciado por enquanto. Isso é normal — as empresas e
-          fundos anunciam com pouca antecedência.
+          Nenhum pagamento anunciado no momento. Empresas e fundos costumam
+          divulgar as distribuições com pouca antecedência.
         </p>
       ) : (
         <ul className="mt-4 flex flex-col divide-y divide-border">

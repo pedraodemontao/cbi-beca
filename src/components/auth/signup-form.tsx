@@ -16,9 +16,9 @@ export function SignupForm() {
           {state.success}
         </p>
         <p className="text-sm font-medium text-muted-foreground">
-          Depois de confirmar,{' '}
+          Após a confirmação,{' '}
           <Link href="/login" className="font-bold text-primary underline">
-            entra por aqui
+            faça login
           </Link>
           .
         </p>
@@ -31,7 +31,7 @@ export function SignupForm() {
       <form action={formAction} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-bold text-foreground">
-            Como a gente te chama?
+            Nome
           </span>
           <input
             name="displayName"
@@ -73,7 +73,7 @@ export function SignupForm() {
         )}
 
         <button type="submit" disabled={isPending} className="btn-primary mt-1">
-          {isPending ? 'Criando conta…' : 'Criar minha conta'}
+          {isPending ? 'Criando conta…' : 'Criar conta'}
         </button>
       </form>
 

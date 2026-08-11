@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { NumberField } from '@/components/calculadoras/number-field';
 import { formatBRL } from '@/lib/format';
 import type { FiiOption } from '@/lib/ceiling-data';
 
@@ -46,7 +47,12 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
   const shares = price > 0 ? Math.floor(amount / price) : 0;
   const monthlyIncome = shares * monthlyDividend;
   const yearlyIncome = monthlyIncome * 12;
-  const effectiveYield = amount > 0 ? yearlyIncome / amount : 0;
+  // Divide pelo que É investido, não pelo que ela digitou: cota não se compra
+  // pela metade, e o troco entrava no denominador derrubando o yield. Com cota
+  // de R$ 1.200 e aporte de R$ 5.000 sobram R$ 200 parados, e o rendimento
+  // aparecia 4% menor do que o fundo de fato paga.
+  const investedForReal = shares * price;
+  const effectiveYield = investedForReal > 0 ? yearlyIncome / investedForReal : 0;
 
   const bars = PRESETS.map((preset) => ({
     preset,
@@ -59,15 +65,15 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Quanto um FII me paga por mês
+        Renda mensal de um fundo
       </h2>
       <p className="micro-hint">
-        Escolhe o fundo e diz quanto você pensa em investir. Eu mostro quantas
-        cotas dá pra comprar e quanto de aluguel isso pinga por mês.
+        Informe o fundo e o valor a investir para estimar a quantidade de
+        cotas e a renda mensal em distribuições.
       </p>
 
       <label className="mt-5 flex flex-col gap-1.5">
-        <span className="text-sm font-bold">Qual fundo</span>
+        <span className="text-sm font-bold">Fundo</span>
         <input
           list="fii-options"
           value={ticker}
@@ -87,21 +93,21 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
         <span className="text-xs font-medium text-muted-foreground">
           {selected
             ? `${selected.name} — cotação e rendimento preenchidos da minha base.`
-            : `${funds.length} fundos disponíveis. Se o teu não estiver aqui, preenche os dois campos abaixo na mão.`}
+            : `${funds.length} fundos disponíveis. Para fundos fora da lista, informe cotação e rendimento manualmente.`}
         </span>
       </label>
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Cotação" prefix="R$" value={price} onChange={setPrice} step={0.01} />
-        <Field
-          label="Rendimento por cota/mês"
+        <NumberField label="Cotação" prefix="R$" value={price} onChange={setPrice} step={0.01} />
+        <NumberField
+          label="Rendimento mensal por cota"
           prefix="R$"
           value={monthlyDividend}
           onChange={setMonthlyDividend}
           step={0.01}
         />
-        <Field
-          label="Quanto vou investir"
+        <NumberField
+          label="Valor a investir"
           prefix="R$"
           value={amount}
           onChange={setAmount}
@@ -131,13 +137,13 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
         <>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-panel bg-panel p-4">
-              <p className="micro-label">Cotas que dá pra comprar</p>
+              <p className="micro-label">Cotas adquiridas</p>
               <p className="num mt-1 text-2xl font-extrabold">
                 {shares.toLocaleString('pt-BR')}
               </p>
             </div>
             <div className="rounded-panel bg-primary-wash p-4">
-              <p className="micro-label">Cai na tua conta por mês</p>
+              <p className="micro-label">Renda mensal estimada</p>
               <p className="num mt-1 text-[clamp(1.7rem,6vw,2.2rem)] font-extrabold leading-none text-primary-deep">
                 {formatBRL(monthlyIncome)}
               </p>
@@ -175,8 +181,8 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
         </>
       ) : (
         <p className="mt-6 rounded-panel bg-panel p-4 text-sm font-medium text-muted-foreground">
-          Escolhe um fundo ali em cima — ou preenche a cotação e o rendimento na
-          mão — que eu faço a conta.
+          Selecione um fundo acima ou informe cotação e rendimento
+          manualmente.
         </p>
       )}
 
@@ -189,32 +195,4 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
   );
 }
 
-interface FieldProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  prefix?: string;
-  step?: number;
-}
 
-function Field({ label, value, onChange, prefix, step = 1 }: FieldProps) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-bold">{label}</span>
-      <span className="flex items-center gap-2 rounded-panel border border-border bg-panel px-4 focus-within:border-primary">
-        {prefix && (
-          <span className="text-sm font-bold text-muted-foreground">{prefix}</span>
-        )}
-        <input
-          type="number"
-          min="0"
-          step={step}
-          inputMode="decimal"
-          value={value}
-          onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
-          className="num w-full bg-transparent py-3 text-base outline-none"
-        />
-      </span>
-    </label>
-  );
-}

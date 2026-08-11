@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
 import { isCurator } from '@/lib/curator';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import { CeilingTable } from '@/components/preco-teto/ceiling-table';
 import type { PositionRow } from '@/types/portfolio';
 
@@ -50,17 +50,16 @@ export default async function PrecoTetoPage() {
           {/* "ativo" e não "ação": a página cobre as duas abas, e fundo não é
               ação. */}
           <p className="micro-hint">
-            Até quanto vale a pena pagar por um ativo pra ele te pagar o
-            dividendo que você quer.
+            Preço máximo de compra para que o ativo pague o rendimento anual
+            desejado.
           </p>
         </header>
 
         {assets.length === 0 ? (
-          <BecaTip>
-            Ainda não carreguei os números das empresas aqui. Assim que a
-            sincronização do mercado rodar, essa tabela aparece inteirinha —
-            volta daqui a pouco.
-          </BecaTip>
+          <InfoNote>
+            Os dados das empresas ainda não foram carregados. A tabela é
+            preenchida na próxima sincronização de mercado.
+          </InfoNote>
         ) : (
           <CeilingTable
             assets={assets}

@@ -58,7 +58,7 @@ export function OverrideForm({
     <div className="flex flex-col gap-4 rounded-panel bg-background p-4">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-base font-extrabold tracking-tight">
-          {isPublishing ? `Ajuste pra ${asset.ticker}` : `Teu ajuste pra ${asset.ticker}`}
+          {isPublishing ? `Ajuste de ${asset.ticker}` : `Seu ajuste de ${asset.ticker}`}
         </h3>
         <button type="button" onClick={onDone} className="btn-ghost">
           Fechar
@@ -71,17 +71,17 @@ export function OverrideForm({
 
         {isCurator && (
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-bold">Quem vê esse ajuste</legend>
+            <legend className="text-sm font-bold">Alcance do ajuste</legend>
             <div className="flex flex-wrap gap-2">
               <ScopeOption
-                label="Todo mundo"
-                hint="vale pra todas as usuárias"
+                label="Todas as contas"
+                hint="publicado pela curadoria"
                 checked={scope === 'global'}
                 onSelect={() => setScope('global')}
               />
               <ScopeOption
-                label="Só pra mim"
-                hint="ninguém mais vê"
+                label="Apenas esta conta"
+                hint="visível só para você"
                 checked={scope === 'personal'}
                 onSelect={() => setScope('personal')}
               />
@@ -91,7 +91,7 @@ export function OverrideForm({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-bold">Payout só dessa empresa</span>
+            <span className="text-sm font-bold">Payout desta empresa</span>
             <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
               <input
                 name="payoutPercent"
@@ -110,7 +110,7 @@ export function OverrideForm({
 
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-bold">
-              Lucro por ação que você espera{' '}
+              Lucro por ação esperado{' '}
               <span className="font-medium text-muted-foreground">(opcional)</span>
             </span>
             <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
@@ -131,21 +131,22 @@ export function OverrideForm({
 
         {isPublishing && (
           <p className="micro-hint">
-            Salvando assim, esse é o preço teto que <strong>todas as usuárias</strong>{' '}
-            enxergam em {asset.ticker}, com o selo “ajuste da Beca”. Quem já mexeu no
-            próprio ajuste dessa empresa continua vendo o dela.
+            Ao salvar, este passa a ser o preço teto de {asset.ticker} exibido
+            em <strong>todas as contas</strong>, com o selo “ajuste da
+            curadoria”. Contas que já definiram ajuste próprio para esta empresa
+            mantêm o delas.
           </p>
         )}
 
         <p className="micro-hint">
           {reportedEps === null ? (
-            <>Sem o lucro do balanço eu não consigo projetar sozinha — o que você digitar aqui vira a base da conta.</>
+            <>Sem o lucro do balanço não há projeção automática: o valor informado aqui passa a ser a base do cálculo.</>
           ) : (
             <>
-              O balanço mais recente dá {formatBRL(reportedEps)} de lucro por ação.
-              Se você acha que esse número não se repete — teve venda de ativo, um
-              trimestre fora da curva — põe aqui o que você espera pra frente. Deixa
-              vazio pra usar o balanço.
+              O balanço mais recente registra {formatBRL(reportedEps)} de lucro
+              por ação. Se esse resultado não deve se repetir — venda de ativo,
+              trimestre atípico —, informe aqui o valor esperado. Em branco, o
+              cálculo usa o balanço.
             </>
           )}
         </p>
@@ -156,7 +157,7 @@ export function OverrideForm({
 
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={isPending} className="btn-primary">
-            {isPending ? 'Salvando…' : isPublishing ? 'Publicar pra todo mundo' : 'Salvar ajuste'}
+            {isPending ? 'Salvando…' : isPublishing ? 'Publicar para todas as contas' : 'Salvar ajuste'}
           </button>
 
           {canClear && (
@@ -165,7 +166,7 @@ export function OverrideForm({
             // junto é o mesmo hidden do formulário, então o botão apaga
             // exatamente o ajuste que está sendo editado.
             <button type="submit" formAction={clearCeilingOverride} className="btn-ghost">
-              {isPublishing ? 'Despublicar' : 'Voltar ao padrão'}
+              {isPublishing ? 'Despublicar' : 'Restaurar padrão'}
             </button>
           )}
         </div>

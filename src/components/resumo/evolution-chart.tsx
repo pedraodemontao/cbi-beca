@@ -9,27 +9,21 @@ const WIDTH = 600;
 const HEIGHT = 160;
 const PADDING = 6;
 
-const shortDate = new Intl.DateTimeFormat('pt-BR', {
-  day: '2-digit',
-  month: 'short',
-  timeZone: 'America/Sao_Paulo',
-});
-
 export function EvolutionChart({ snapshots }: EvolutionChartProps) {
   if (snapshots.length < 2) {
     return (
       <section className="card-lg">
         <h2 className="text-lg font-extrabold tracking-tight">
-          Como teu patrimônio cresceu
+          Evolução do patrimônio
         </h2>
         <p className="micro-hint">
-          Todo dia eu anoto quanto tua carteira vale, pra você ver a linha subir
+          O valor da carteira é registrado diariamente para compor o histórico
           com o tempo.
         </p>
         <p className="mt-4 rounded-panel bg-background px-4 py-3 text-sm font-medium text-muted-foreground">
           {snapshots.length === 0
-            ? 'Ainda não tenho histórico suficiente. Volta amanhã que eu já começo a desenhar esse gráfico pra você.'
-            : 'Anotei o primeiro dia. Com mais alguns, o gráfico aparece aqui.'}
+            ? 'Histórico insuficiente para gerar o gráfico. O primeiro registro é feito no próximo fechamento.'
+            : 'Primeiro registro efetuado. O gráfico é exibido a partir do segundo dia de histórico.'}
         </p>
       </section>
     );
@@ -62,10 +56,10 @@ export function EvolutionChart({ snapshots }: EvolutionChartProps) {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Como teu patrimônio cresceu
+        Evolução do patrimônio
       </h2>
       <p className="micro-hint">
-        A linha cheia é quanto vale hoje. A pontilhada é quanto você colocou.
+        A linha contínua indica o valor de mercado; a pontilhada, o total investido.
       </p>
 
       <svg
@@ -105,15 +99,23 @@ export function EvolutionChart({ snapshots }: EvolutionChartProps) {
       </svg>
 
       <div className="num mt-1 flex justify-between text-xs font-semibold text-muted-foreground">
-        <span>{shortDate.format(new Date(first.captured_on))}</span>
-        <span>{shortDate.format(new Date(last.captured_on))}</span>
+        {/* `captured_on` é coluna `date`, sem hora: `new Date` daquilo é
+            meia-noite UTC e, formatado em São Paulo, voltava um dia. */}
+        <span>{formatDay(first.captured_on)}</span>
+        <span>{formatDay(last.captured_on)}</span>
       </div>
 
       <p className="mt-4 rounded-panel bg-primary-wash px-4 py-3 text-sm font-semibold text-primary-deep">
         {growth >= 0
-          ? `Teu patrimônio subiu ${formatBRL(growth)} desde que comecei a acompanhar.`
-          : `Teu patrimônio caiu ${formatBRL(Math.abs(growth))} nesse período. Oscilação faz parte — o que conta é a linha no longo prazo.`}
+          ? `O patrimônio subiu ${formatBRL(growth)} desde o início do acompanhamento.`
+          : `O patrimônio caiu ${formatBRL(Math.abs(growth))} no período. Oscilação é esperada em renda variável.`}
       </p>
     </section>
   );
+}
+
+/** Data pura (YYYY-MM-DD) em dd/mm, sem passar por fuso. */
+function formatDay(date: string): string {
+  const [, month, day] = date.split('-');
+  return `${day}/${month}`;
 }

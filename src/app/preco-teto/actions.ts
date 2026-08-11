@@ -10,7 +10,7 @@ export interface CeilingOverrideActionState {
   success?: boolean;
 }
 
-const NOT_CURATOR = 'Só a Beca publica ajuste pra todo mundo.';
+const NOT_CURATOR = 'Apenas a curadoria pode publicar ajustes para todas as contas.';
 
 /**
  * Grava o payout e o lucro que se espera de uma empresa específica.
@@ -28,7 +28,7 @@ export async function saveCeilingOverride(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: 'Sessão expirada. Entra de novo.' };
+    return { error: 'Sessão expirada. Faça login novamente.' };
   }
 
   const parsed = ceilingOverrideSchema.safeParse(Object.fromEntries(formData));
@@ -59,7 +59,7 @@ export async function saveCeilingOverride(
 
     if (!shares) {
       return {
-        error: 'Ainda não sei quantas ações essa empresa tem — só dá pra ajustar o payout.',
+        error: 'Quantidade de ações desta empresa indisponível. Apenas o payout pode ser ajustado.',
       };
     }
     manualProfit = expectedEps * shares;
@@ -79,7 +79,7 @@ export async function saveCeilingOverride(
   );
 
   if (error) {
-    return { error: 'Não foi possível salvar o ajuste. Tenta de novo.' };
+    return { error: 'Não foi possível salvar o ajuste. Tente novamente.' };
   }
 
   // Publicou pra todo mundo: o ajuste antigo dela mesma sai do caminho. Como o

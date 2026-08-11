@@ -84,7 +84,7 @@ export function AddPositionForm() {
             Adicionar ativo
           </h2>
           <p className="micro-hint">
-            Preenche com o que você comprou. Eu cuido do resto.
+            Informe o ativo, a quantidade e o preço médio de aquisição.
           </p>
         </div>
         <button
@@ -100,7 +100,7 @@ export function AddPositionForm() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="relative flex flex-col gap-1.5">
             <label htmlFor="ticker" className="text-sm font-bold">
-              Qual ativo?
+              Ativo
             </label>
             <input
               id="ticker"
@@ -164,7 +164,7 @@ export function AddPositionForm() {
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="quantity" className="text-sm font-bold">
-              Quantas você tem?
+              Quantidade
             </label>
             <input
               id="quantity"
@@ -180,26 +180,26 @@ export function AddPositionForm() {
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="avgPrice" className="text-sm font-bold">
-              Pagou quanto por unidade?
+              Preço médio de aquisição
             </label>
             <input
               id="avgPrice"
               name="avgPrice"
               type="number"
-              step="0.01"
+              step="any"
               min="0"
               inputMode="decimal"
               required
               className="field"
             />
             <span className="text-xs font-medium text-muted-foreground">
-              Se comprou em vezes diferentes, coloca a média.
+              Em caso de aportes em datas distintas, informe o preço médio ponderado.
             </span>
           </div>
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label htmlFor="purchaseDate" className="text-sm font-bold">
-              Quando comprou?{' '}
+              Data de aquisição{' '}
               <span className="font-medium text-muted-foreground">
                 (opcional)
               </span>
@@ -222,7 +222,7 @@ export function AddPositionForm() {
           disabled={isPending}
           className="btn-primary self-start"
         >
-          {isPending ? 'Salvando…' : 'Adicionar à carteira'}
+          {isPending ? 'Salvando…' : 'Adicionar posição'}
         </button>
       </form>
     </section>

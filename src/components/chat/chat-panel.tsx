@@ -1,15 +1,14 @@
 'use client';
 
-import { BecaAvatar } from '@/components/shared/beca-avatar';
 import { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import { clearChatHistory } from '@/app/chat/actions';
 
 const SUGGESTIONS = [
-  'Como tá minha carteira?',
-  'O que significa dividend yield?',
-  'Quando recebo meus próximos proventos?',
+  'Resumo da minha carteira',
+  'O que é dividend yield?',
+  'Próximos proventos a receber',
 ] as const;
 
 interface ChatPanelProps {
@@ -49,17 +48,13 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
       <div className="flex flex-1 flex-col gap-4">
         {messages.length === 0 && (
           <div className="card-lg">
-            <div className="flex items-start gap-3.5">
-              <BecaAvatar size={44} />
-              <div>
-                <p className="font-bold">
-                  Oi! Pode perguntar o que quiser sobre tua carteira.
-                </p>
-                <p className="mt-1 text-[0.95rem] font-medium text-muted-foreground">
-                  Eu explico teus números sem economês. Só não te digo o que
-                  comprar ou vender — essa decisão é sua, sempre.
-                </p>
-              </div>
+            <div>
+              <p className="font-bold">Assistente</p>
+              <p className="mt-1 text-[0.95rem] font-medium text-muted-foreground">
+                Consultas sobre a carteira, os proventos e os indicadores da
+                plataforma, com explicação dos termos. O assistente não emite
+                recomendação de compra ou venda.
+              </p>
             </div>
 
             <ul className="mt-5 flex flex-wrap gap-2">
@@ -105,14 +100,14 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
         {isBusy && (
           <div className="flex justify-start">
             <div className="rounded-card bg-surface px-4 py-3 text-sm font-medium text-muted-foreground shadow-soft">
-              Beca tá escrevendo…
+              Gerando resposta…
             </div>
           </div>
         )}
 
         {error && (
           <p className="rounded-panel bg-negative-tint px-4 py-3 text-sm font-semibold text-negative-deep">
-            Não consegui responder agora. Tenta de novo daqui a pouco.
+            Não foi possível responder agora. Tente novamente em instantes.
           </p>
         )}
       </div>
@@ -127,7 +122,7 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pergunta pra Beca…"
+          placeholder="Digite sua pergunta"
           aria-label="Sua pergunta"
           className="flex-1 bg-transparent px-4 py-2.5 text-base outline-none placeholder:text-muted-foreground/70"
         />

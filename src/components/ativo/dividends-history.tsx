@@ -33,13 +33,13 @@ export function DividendsHistory({ dividends }: DividendsHistoryProps) {
         Histórico de proventos
       </h2>
       <p className="micro-hint">
-        O que esse ativo já pagou por cota nos últimos pagamentos.
+        Últimas distribuições por cota ou ação.
       </p>
 
       {recent.length === 0 ? (
         <p className="mt-4 rounded-panel bg-background px-4 py-3 text-sm font-medium text-muted-foreground">
-          Nenhum pagamento registrado por aqui. Nem todo ativo distribui
-          proventos — muitas empresas preferem reinvestir o lucro.
+          Nenhum pagamento registrado. Nem todo ativo distribui proventos:
+          parte das empresas reinveste integralmente o lucro.
         </p>
       ) : (
         <ul className="mt-4 flex flex-col divide-y divide-border">

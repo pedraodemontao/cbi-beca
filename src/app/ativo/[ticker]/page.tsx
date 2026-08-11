@@ -10,7 +10,7 @@ import {
 } from '@/lib/brapi';
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import { AssetLogo } from '@/components/shared/asset-logo';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
 import { PriceChart } from '@/components/ativo/price-chart';
@@ -201,11 +201,12 @@ export default async function AtivoPage({
 
         <DividendsHistory dividends={dividends} />
 
-        <BecaTip title="Importante">
-          Esses números explicam o passado e o presente do ativo — nenhum deles
-          prevê o futuro. Isso aqui é conteúdo educacional, não é recomendação
-          de compra ou venda. A decisão é sempre sua.
-        </BecaTip>
+        <InfoNote title="Aviso">
+          Os indicadores desta página descrevem resultados passados e a situação
+          atual do ativo; nenhum deles projeta desempenho futuro. O conteúdo tem
+          finalidade educacional e não constitui recomendação de compra ou
+          venda.
+        </InfoNote>
       </main>
       <BottomNav />
     </>

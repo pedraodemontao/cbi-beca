@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import { CompoundCalculator } from '@/components/calculadoras/compound-calculator';
 import { PassiveIncomeCalculator } from '@/components/calculadoras/passive-income-calculator';
 import { FiiIncomeCalculator } from '@/components/calculadoras/fii-income-calculator';
@@ -36,8 +36,7 @@ export default async function CalculadorasPage() {
             Calculadoras
           </h1>
           <p className="micro-hint">
-            Brinca com os números e vê o que acontece. Nada aqui é registrado —
-            é só pra você entender.
+            Simulações de rendimento. Os valores informados não são gravados.
           </p>
         </header>
 
@@ -49,11 +48,12 @@ export default async function CalculadorasPage() {
 
         <FiiIncomeCalculator funds={funds} />
 
-        <BecaTip>
-          Simulação não é previsão, combinado? O mercado sobe e desce. Isso aqui
-          serve pra te dar noção de grandeza e te ajudar a planejar — não é
-          garantia de retorno nem recomendação de investimento.
-        </BecaTip>
+        <InfoNote>
+          As projeções assumem que as condições informadas se mantêm ao longo de
+          todo o período, o que não ocorre no mercado. Servem para dimensionar
+          cenários, não constituem garantia de retorno nem recomendação de
+          investimento.
+        </InfoNote>
       </main>
       <BottomNav />
     </>

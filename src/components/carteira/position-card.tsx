@@ -12,7 +12,7 @@ interface PositionCardProps {
   holding: TickerHolding;
   purchaseDates: Map<string, string | null>;
   dayChangePercent: number | null;
-  /** Teto pra render 6% ao ano; nulo quando ainda não tenho o lucro da empresa. */
+  /** Teto para 6% ao ano; nulo quando falta o lucro da empresa. */
   ceiling: number | null;
   logoUrl: string | null;
 }
@@ -137,8 +137,8 @@ export function PositionCard({
         >
           <span className="font-medium text-muted-foreground">
             {holding.currentPrice <= ceiling
-              ? 'Ainda dá pra comprar abaixo do teto'
-              : 'Hoje está acima do teto'}
+              ? 'Cotação abaixo do preço teto'
+              : 'Cotação acima do preço teto'}
           </span>
           <span
             className={`num font-extrabold ${
@@ -182,7 +182,7 @@ export function PositionCard({
                   <input type="hidden" name="id" value={lot.positionId} />
                   <button
                     type="submit"
-                    aria-label={`Remover esta compra de ${holding.ticker}`}
+                    aria-label={`Remover este aporte de ${holding.ticker}`}
                     className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-negative-tint hover:text-negative-deep"
                   >
                     Remover
@@ -208,7 +208,7 @@ export function PositionCard({
             onClick={() => setShowLots((open) => !open)}
             className="rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-primary-wash hover:text-primary-deep"
           >
-            {showLots ? 'Esconder compras' : 'Ver minhas compras'}
+            {showLots ? 'Ocultar aportes' : 'Ver aportes'}
           </button>
         ) : (
           <div className="flex items-center gap-1">

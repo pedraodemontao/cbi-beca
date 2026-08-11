@@ -430,6 +430,118 @@ linha com nulo, então a Beca ajustando pela tela salvava algo que só ela via.
   índice `unique nulls not distinct` e atualiza em vez de duplicar; usuária
   comum lê o global, mas insert global e delete do global são barrados pela RLS.
 
+## Voz do produto: de persona para ferramenta (2026-08-11)
+
+A copy do sistema inteiro passou de "amiga que ensina" para voz de ferramenta.
+Sem gíria, sem tratamento por "teu/tua", sem primeira pessoa, sem bordão. A
+clareza continua sendo requisito — termo técnico aparece definido em uma frase
+objetiva, não traduzido por analogia.
+
+- **A Beca sai de dentro do produto e continua sendo a marca fora dele.** O
+  chat virou "Assistente", `prompts/system.md` foi reescrito como assistente
+  neutro, e `BecaTip`/`BecaAvatar` deixaram de existir. As regras inegociáveis
+  do prompt não mudaram: nunca recomendar compra ou venda, nunca calcular
+  número.
+- **`InfoNote` substituiu `BecaTip`**: mesma informação, sem avatar e sem
+  assinatura. A barra em ouro à esquerda é o que sobrou de marca — identifica
+  sem personificar.
+- **O ajuste global virou "ajuste da curadoria"** na interface. No banco e nos
+  comentários continua sendo o que é: a Beca publicando.
+- **`AppHeader.greeting` virou `title`.** A carteira não cumprimenta mais pelo
+  nome, então o cálculo do primeiro nome saiu junto.
+
+## Correções de segurança e de cálculo (2026-08-11)
+
+Duas varreduras — uma de segurança no Supabase, outra técnica no código —
+rodaram antes de a ferramenta receber usuárias de verdade. O que elas acharam
+e o que foi feito:
+
+- **Escalação de privilégio via `profiles` (migration 0013).** `is_curator`
+  entrou numa tabela cuja policy de UPDATE libera a LINHA inteira, e o grant do
+  Supabase cobre todas as colunas. Um `PATCH /rest/v1/profiles` direto — sem
+  passar por Server Action — promovia qualquer conta a curadora, e a partir daí
+  ela publicava preço teto para todas as usuárias. Corrigido com privilégio por
+  coluna (`grant update (display_name, income_goal)`) mais trigger de defesa em
+  profundidade. **A checagem na Server Action nunca protegeu isso**: quem
+  protege coluna é o banco.
+- **Injeção de prompt pelo `role: 'system'`.** O schema do `/api/chat` aceitava
+  o papel `system` vindo do cliente, e o SDK o repassa como instrução de mesmo
+  peso que o `prompts/system.md` — e depois dele. Qualquer conta logada podia
+  desligar a regra de não recomendar compra e venda. Hoje o schema aceita só
+  `user` e `assistant`.
+- **`/api/chat` sem teto.** Sem limite por conta, sem `maxOutputTokens`, sem
+  teto de tamanho de pergunta, e cada requisição remonta a carteira inteira
+  mais o catálogo de preço teto. Agora são 40 perguntas por hora (contadas no
+  próprio `chat_messages`, sem infra nova), 4.000 caracteres por pergunta e
+  1.500 tokens de resposta.
+- **`isAuthorizedCron` falhava em ABERTO.** Sem `CRON_SECRET`, as sete rotas de
+  cron liberavam — e todas escrevem com service role. Hoje falha fechada em
+  produção e continua aberta só em desenvolvimento. `CRON_SECRET` e
+  `BOLSAI_API_KEY` entraram no `.env.example`.
+- **O proxy virou portão.** A proteção morava só nas páginas, e todas
+  acertavam — mas isso depende de lembrar. `src/lib/supabase/proxy.ts` agora
+  redireciona quem não tem sessão, com allowlist de rotas públicas.
+- **73% dos proventos caíam no mês errado.** `ex_date` é coluna `date`, e
+  `new Date("2026-08-01")` é meia-noite UTC: convertido para São Paulo voltava
+  para 31/07. Como a bolsai usa a competência mensal como data-com dos fundos,
+  a maioria dos pagamentos cai no dia 1 e ia inteira para o mês anterior. Data
+  pura agora é fatiada, nunca convertida. **Este é o mesmo defeito do eixo do
+  gráfico de evolução**, corrigido junto.
+- **O PostgREST corta em 1.000 linhas e o supabase-js não avisa.**
+  `lib/supabase/paginate.ts` existe por isso. Duas consultas estavam sendo
+  truncadas em silêncio: o histórico de proventos (ordenado por data-com
+  ascendente, então o corte comia os pagamentos MAIS RECENTES, subestimando o
+  total e zerando a renda estimada) e a proporção de JCP por ticker (1.000
+  linhas cobriam 158 dos ~500 tickers, e o resto exibia o valor BRUTO rotulado
+  como líquido).
+- **O total recebido era bruto com o imposto explicado logo abaixo.** As duas
+  frases não podiam ser verdade juntas. O relatório passou a ter `netReceived`,
+  e é ele que aparece em destaque na carteira e em proventos.
+- **O selo do CDI comparava DY bruto** enquanto o resto da tela usava líquido —
+  numa ação 100% JCP, dizia "acima do CDI" quando o líquido estava abaixo.
+- **O yield efetivo do FII dividia pelo valor digitado**, não pelo investido: o
+  troco das cotas não compradas entrava no denominador.
+- **Rendimento zerado na calculadora de renda passiva** anunciava patrimônio
+  necessário de R$ 0,00 e meta atingida em 0 meses.
+- **`NumberField` (novo) substituiu as quatro cópias do campo numérico.** O
+  padrão `value={numero}` + `Number(e.target.value) || 0` zerava o campo em todo
+  estado intermediário: digitar "9,43" resultava em "43". O texto agora vive em
+  estado local e só vira número quando é finito.
+- **`step="0.01"` no preço médio** barrava o submit em silêncio — mesma família
+  do bug de `min`/`step` da meta de renda já documentado. Preço médio real tem
+  mais casas (38,443333).
+- **Sem teto de anos, os juros compostos imprimiam "R$ ∞"**. `formatBRL` ganhou
+  guarda de valor não finito, e o campo, `max`.
+- **O rótulo da média de Bazin dizia "(5a)" sempre.** 91 tickers têm 3 ou 4
+  anos de histórico. `dividends_years` já existia no banco e nenhum componente
+  lia.
+- **Contagem de pagamentos inflava por lote:** duas compras de PETR4
+  transformavam 8 pagamentos em 16. Agora conta eventos distintos.
+- **`normalizePayment` não aplicava `sane()`** — e como `syncDividends` apaga
+  antes de inserir, um único valor corrompido da bolsai (já houve 3,4e15)
+  deixaria os tickers do bloco sem histórico nenhum.
+
+### O que ficou pendente das varreduras
+
+- **Rotacionar o `SUPABASE_ACCESS_TOKEN`**: ele está exportado no ambiente do
+  shell, legível por qualquer processo local. É token de CONTA, não de projeto.
+- **`.mcp.json` está versionado com `read_only=false` e feature `account`.**
+  Token de conta mais escrita habilitada significa que qualquer coisa rodando
+  na máquina administra o projeto.
+- **Proteção contra senha vazada** (HaveIBeenPwned) está desligada no Supabase.
+  O mínimo do Zod subiu para 8 caracteres, mas a checagem é do painel.
+- **`syncDividends` continua apagando antes de inserir**, sem transação. O
+  `sane()` fecha o gatilho conhecido, não o desenho.
+- **Snapshot e `getQuote` fazem fan-out sem limite de concorrência** — não dói
+  com uma usuária, é o que aparece quando o tráfego chegar.
+- **`/preco-teto` manda ~469 kB de JSON por pageview** (o dobro do que este
+  arquivo registrava, porque a cobertura da sparkline cresceu). O corte barato é
+  não enviar `priceHistory` das linhas fora da primeira página.
+- A escala da bolsai **diverge entre `/fundamentals` e `/fundamentals/history`**
+  no mesmo ticker (ESTR4): o `market_cap` que serve de régua vem diferente dos
+  dois lados do corte. Hoje não produz selo errado porque a mediana do caso é
+  negativa, mas o mecanismo está armado.
+
 ## Tema claro (2026-08-11)
 
 Botão fixo no canto superior direito, em todas as telas. Na primeira visita o

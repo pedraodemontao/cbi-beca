@@ -14,7 +14,7 @@ export default function AuthLayout({
             Central CBI
           </h1>
           <p className="mt-1 text-[0.95rem] font-medium text-muted-foreground">
-            Seus investimentos, sem economês
+            Acompanhamento de carteira e preço teto
           </p>
         </div>
         <div className="card-lg">{children}</div>

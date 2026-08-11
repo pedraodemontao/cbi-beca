@@ -46,16 +46,16 @@ export async function signup(
 
   if (error) {
     if (error.message.includes('already registered')) {
-      return { error: 'Este e-mail já tem conta. Tenta entrar.' };
+      return { error: 'Este e-mail já possui conta. Faça login.' };
     }
-    return { error: 'Não foi possível criar a conta. Tenta de novo.' };
+    return { error: 'Não foi possível criar a conta. Tente novamente.' };
   }
 
   // Sem sessão = projeto exige confirmação de e-mail
   if (!data.session) {
     return {
       error: null,
-      success: 'Conta criada! Confirma teu e-mail pra entrar.',
+      success: 'Conta criada. Confirme o e-mail para acessar.',
     };
   }
 

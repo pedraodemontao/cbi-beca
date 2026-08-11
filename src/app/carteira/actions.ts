@@ -18,7 +18,7 @@ export async function addPosition(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: 'Sessão expirada. Entra de novo.' };
+    return { error: 'Sessão expirada. Faça login novamente.' };
   }
 
   const parsed = positionFormSchema.safeParse(Object.fromEntries(formData));
@@ -37,7 +37,7 @@ export async function addPosition(
   });
 
   if (error) {
-    return { error: 'Não foi possível salvar. Tenta de novo.' };
+    return { error: 'Não foi possível salvar. Tente novamente.' };
   }
 
   revalidatePath('/carteira');
@@ -59,7 +59,7 @@ export async function updatePosition(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: 'Sessão expirada. Entra de novo.' };
+    return { error: 'Sessão expirada. Faça login novamente.' };
   }
 
   const parsed = positionFormSchema.safeParse(Object.fromEntries(formData));
@@ -81,7 +81,7 @@ export async function updatePosition(
     .eq('id', id);
 
   if (error) {
-    return { error: 'Não foi possível salvar a alteração. Tenta de novo.' };
+    return { error: 'Não foi possível salvar a alteração. Tente novamente.' };
   }
 
   revalidatePath('/carteira');

@@ -10,7 +10,7 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 import { AddPositionForm } from '@/components/carteira/add-position-form';
 import { PositionsGrid } from '@/components/carteira/positions-grid';
 import { WealthCard } from '@/components/carteira/wealth-card';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import type { PositionRow } from '@/types/portfolio';
 
 export default async function CarteiraPage() {
@@ -67,30 +67,24 @@ export default async function CarteiraPage() {
   const summary = buildPortfolioSummary(positions, quoteMap);
   const dayChangePercent = weightedDayChange(summary.positions, quoteMap);
 
-  // Sem nome cadastrado sobra o e-mail, e `split(' ')` não corta e-mail nenhum —
-  // a saudação virava "Oi, fulana.sobrenome@provedor.com!" e estourava a
-  // largura da tela no celular. Antes do @ já é o suficiente pra soar pessoal.
-  const displayName = user.user_metadata.display_name as string | undefined;
-  const firstName = (displayName ?? user.email?.split('@')[0] ?? '').split(' ')[0];
-
   return (
     <>
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
         <AppHeader
-          greeting={`Oi, ${firstName}!`}
-          subtitle="Bora ver como teu dinheiro tá indo?"
+          title="Carteira"
+          subtitle="Posições cadastradas, preço médio e cotação atual."
         />
 
         {positions.length === 0 ? (
-          <BecaTip>
-            Começa cadastrando o que você já tem. Não precisa ser muito — o
-            importante é enxergar teu dinheiro com clareza.
-          </BecaTip>
+          <InfoNote>
+            Cadastre os ativos que você já possui para acompanhar posição, preço
+            médio e proventos.
+          </InfoNote>
         ) : (
           <WealthCard
             summary={summary}
             dayChangePercent={dayChangePercent}
-            totalReceived={incomeReport.totalReceived}
+            totalReceived={incomeReport.netReceived}
           />
         )}
 

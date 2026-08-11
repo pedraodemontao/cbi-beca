@@ -34,7 +34,7 @@ export function MonthlyIncomeChart({ monthly }: MonthlyIncomeChartProps) {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Mês a mês, o que caiu na conta
+        Proventos por mês
       </h2>
       <p className="micro-hint">
         Cada barrinha é um mês. É assim que a renda passiva se constrói: devagar

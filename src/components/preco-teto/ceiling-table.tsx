@@ -17,7 +17,7 @@ import {
   type ProfitDeviation,
 } from '@/lib/ceiling-price';
 import { formatBRL, formatRatio, formatRatioSigned } from '@/lib/format';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import { OverrideForm } from '@/components/preco-teto/override-form';
 import { Sparkline } from '@/components/preco-teto/sparkline';
 import { AssetLogo } from '@/components/shared/asset-logo';
@@ -76,22 +76,22 @@ const METHODS: MethodInfo[] = [
   {
     key: 'projected',
     label: 'Projetado',
-    hint: 'Parte do lucro de hoje e projeta quanto dele deve virar dividendo.',
+    hint: 'Projeta o dividendo a partir do lucro atual e do payout informado.',
   },
   {
     key: 'bazin',
     label: 'Bazin',
-    hint: 'Parte dos dividendos que a empresa realmente pagou nos últimos 12 meses.',
+    hint: 'Usa os dividendos efetivamente pagos, sem projeção de lucro.',
   },
   {
     key: 'graham',
     label: 'Graham',
-    hint: 'Cruza lucro e patrimônio pra achar o valor justo: √(22,5 × LPA × VPA).',
+    hint: 'Valor justo pela fórmula de Graham: √(22,5 × LPA × VPA).',
   },
   {
     key: 'gordon',
     label: 'Gordon',
-    hint: 'Supõe que o dividendo cresce todo ano e desconta esse fluxo pra hoje.',
+    hint: 'Desconta o fluxo de dividendos supondo crescimento anual constante.',
   },
 ];
 
@@ -102,7 +102,7 @@ type SortKey = 'margin' | 'size' | 'ticker';
 
 const SORT_LABELS: Record<SortKey, string> = {
   // "recorrente" avisa que quem tem selo de atípico sai da frente da fila.
-  margin: 'Maior margem recorrente',
+  margin: 'Maior margem de segurança',
   size: 'Maiores empresas',
   ticker: 'Ordem alfabética',
 };
@@ -272,7 +272,7 @@ export function CeilingTable({
       universe = universe.filter((row) => row.margin !== null && row.margin >= 0);
     }
     // Sem teto no método escolhido não há linha pra mostrar: a empresa pode
-    // estar no prejuízo, ou eu só tenho o dividendo dela e não o balanço.
+    // estar no prejuízo, ou só ter dividendo gravado e não o balanço.
     universe = universe.filter((row) => row.ceiling !== null);
     const matching = term
       ? universe.filter(
@@ -373,11 +373,11 @@ export function CeilingTable({
             {kind === 'stock' && METHODS_WITH_PAYOUT.includes(method) && (
               <div>
                 <label htmlFor="payout" className="micro-label">
-                  Quanto do lucro a empresa distribui
+                  Payout — parcela do lucro distribuída
                 </label>
                 <p className="micro-hint">
-                  É o payout. Quanto mais a empresa reparte, mais alto o preço que
-                  compensa pagar por ela.
+                  Percentual do lucro destinado a dividendos. Quanto maior o
+                  payout, maior o preço teto resultante.
                 </p>
                 <div className="mt-3 flex items-center gap-4">
                   <input
@@ -400,11 +400,11 @@ export function CeilingTable({
             {kind === 'fii' && (
               <div>
                 <label htmlFor="fii-yield" className="micro-label">
-                  Quanto você quer receber de aluguel por ano
+                  Rendimento anual desejado
                 </label>
                 <p className="micro-hint">
-                  É o dividend yield desejado. Quanto mais você exige de
-                  rendimento, mais barato o fundo precisa estar pra valer a pena.
+                  Dividend yield alvo. Quanto maior o rendimento exigido, menor
+                  o preço teto resultante.
                 </p>
                 <div className="mt-3 flex items-center gap-4">
                   <input
@@ -426,15 +426,16 @@ export function CeilingTable({
 
             {kind === 'stock' && method === 'bazin' && (
               <div>
-                <span className="micro-label">Qual dividendo eu uso de base</span>
+                <span className="micro-label">Base de cálculo do dividendo</span>
                 <p className="micro-hint">
-                  O Bazin original trabalhava com a média de vários anos, porque
-                  um ano bom sozinho engana.
+                  O método original de Décio Bazin usa a média de vários anos —
+                  um único exercício pode não representar a distribuição
+                  recorrente.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {([
                     { key: '12m', label: 'Últimos 12 meses' },
-                    { key: '5y', label: 'Média dos 5 anos' },
+                    { key: '5y', label: 'Média de 5 anos' },
                   ] as const).map(({ key, label }) => (
                     <button
                       key={key}
@@ -457,16 +458,16 @@ export function CeilingTable({
             {kind === 'stock' && method === 'gordon' && (
               <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
                 <PercentField
-                  label="Retorno que você exige por ano"
-                  hint="O mínimo que faz valer a pena correr o risco da bolsa."
+                  label="Retorno exigido ao ano"
+                  hint="Retorno mínimo aceito para assumir o risco de renda variável."
                   value={requiredReturnPercent}
                   min={1}
                   max={30}
                   onChange={setRequiredReturnPercent}
                 />
                 <PercentField
-                  label="Crescimento do dividendo por ano"
-                  hint="Quanto você acha que o dividendo cresce, ano após ano."
+                  label="Crescimento anual do dividendo"
+                  hint="Taxa de crescimento anual estimada para o dividendo."
                   value={growthPercent}
                   min={0}
                   max={20}
@@ -474,9 +475,9 @@ export function CeilingTable({
                 />
                 {growthPercent >= requiredReturnPercent && (
                   <p className="text-sm font-semibold text-negative sm:col-span-2">
-                    O crescimento precisa ser menor que o retorno exigido — senão a
-                    conta de Gordon vai pro infinito e nenhum preço seria caro
-                    demais.
+                    O crescimento deve ser menor que o retorno exigido: caso
+                    contrário a fórmula de Gordon tende ao infinito e não produz
+                    preço teto.
                   </p>
                 )}
               </div>
@@ -492,7 +493,7 @@ export function CeilingTable({
                     setSearch(event.target.value);
                     setVisible(PAGE_SIZE);
                   }}
-                  placeholder="Busca por ticker ou nome (ex.: ITSA4)"
+                  placeholder="Buscar por ticker ou nome (ex.: ITSA4)"
                   className="field"
                 />
               </label>
@@ -546,7 +547,7 @@ export function CeilingTable({
                       : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
                   }`}
                 >
-                  Só abaixo do teto
+                  Abaixo do teto
                 </button>
 
                 {owned.size > 0 && (
@@ -563,7 +564,7 @@ export function CeilingTable({
                         : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
                     }`}
                   >
-                    Só o que eu tenho ({owned.size})
+                    Em carteira ({owned.size})
                   </button>
                 )}
               </div>
@@ -581,15 +582,15 @@ export function CeilingTable({
               />
               <span>
                 <span className="block text-sm font-bold">
-                  Mostrar só o que negocia de verdade
+                  Exibir apenas ativos com liquidez
                 </span>
                 <span className="micro-hint">
                   {illiquidCount}{' '}
                   {kind === 'fii'
                     ? `fundo${illiquidCount === 1 ? '' : 's'}`
                     : `empresa${illiquidCount === 1 ? '' : 's'}`}{' '}
-                  quase não troca de mão na bolsa. O preço fica velho na tela e o
-                  teto parece um negócio da China que você não conseguiria fechar.
+                  têm liquidez muito baixa. A cotação exibida pode estar
+                  desatualizada, o que distorce o preço teto e a margem.
                 </span>
               </span>
             </label>
@@ -597,14 +598,14 @@ export function CeilingTable({
             <p className="micro-hint border-t border-border pt-4">
               {kind === 'fii' ? (
                 <>
-                  <strong className="font-bold text-foreground">Rendeu em 12m</strong>{' '}
-                  é quanto o fundo depositou por cota no último ano;{' '}
+                  <strong className="font-bold text-foreground">Distribuído em 12m</strong>{' '}
+                  é o total pago por cota no período;{' '}
                   <strong className="font-bold text-foreground">por mês</strong> é
-                  isso dividido por doze; e o{' '}
-                  <strong className="font-bold text-foreground">teto</strong> é o
-                  rendimento do ano dividido pelo yield que você escolheu ali em
-                  cima. Aqui o número não é arredondado — em cota barata, meio real
-                  pra cima ou pra baixo já muda a conta.
+                  esse valor dividido por doze; e o{' '}
+                  <strong className="font-bold text-foreground">teto</strong>{' '}
+                  resulta da divisão pelo rendimento anual definido acima. O
+                  valor não é arredondado: em cotas de preço baixo, o
+                  arredondamento distorceria o resultado.
                 </>
               ) : (
                 <>
@@ -627,8 +628,8 @@ export function CeilingTable({
               <>
                 {' '}
                 Outr{withoutCeiling === 1 ? 'a' : 'as'} {withoutCeiling} fic
-                {withoutCeiling === 1 ? 'ou' : 'aram'} de fora porque ainda não
-                tenho o número que esse método pede.
+                {withoutCeiling === 1 ? 'ou' : 'aram'} de fora por falta do dado
+                que este método exige.
               </>
             )}
           </p>
@@ -863,15 +864,15 @@ export function CeilingTable({
           )}
 
           {kind === 'fii' ? (
-            <BecaTip title="Como eu chego nesse número">
-              Somo tudo que o fundo depositou por cota nos últimos 12 meses e
-              divido pelo aluguel que você quer receber por ano. Com o slider em{' '}
-              {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que pagou
-              R$ 12,00 por cota no ano tem teto de{' '}
-              {formatBRL(12 / (fiiYieldPercent / 100))}. Pagou mais caro que isso?
-              Você recebe o mesmo aluguel, só que ele rende menos sobre o que você
-              pagou.
-            </BecaTip>
+            <InfoNote title="Método de cálculo">
+              Soma das distribuições por cota dos últimos 12 meses dividida pelo
+              rendimento anual desejado. Com o parâmetro em{' '}
+              {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que
+              distribuiu R$ 12,00 por cota no período tem preço teto de{' '}
+              {formatBRL(12 / (fiiYieldPercent / 100))}. Acima desse valor, a
+              mesma distribuição resulta em rendimento menor sobre o capital
+              aplicado.
+            </InfoNote>
           ) : (
             <MethodExplainer
               method={method}
@@ -884,9 +885,9 @@ export function CeilingTable({
       )}
 
       <p className="text-xs font-medium text-muted-foreground">
-        Conteúdo educativo — não é recomendação de compra ou venda. O lucro é o
-        do último balanço publicado e pode não se repetir; preço teto é
-        referência de estudo, não garantia de nada.
+        Conteúdo educacional. Não constitui recomendação de compra ou venda. O
+        lucro considerado é o do último balanço publicado e pode não se repetir;
+        o preço teto é uma referência de estudo, sem garantia de resultado.
       </p>
     </div>
   );
@@ -909,7 +910,7 @@ export function CeilingTable({
 function buildFiiColumns(asset: CeilingAsset, targetYield: number): MethodColumn[] {
   const monthly = asset.dividends12m === null ? null : asset.dividends12m / 12;
   return [
-    { label: 'Rendeu em 12m', value: asset.dividends12m },
+    { label: 'Distribuído em 12m', value: asset.dividends12m },
     { label: 'Por mês', value: monthly },
     {
       label: `Teto ${formatRatio(targetYield)}`,
@@ -945,7 +946,13 @@ function buildColumns(
     const base = bazinBase === '5y' ? asset.dividends5yAvg : asset.dividends12m;
     return [
       {
-        label: bazinBase === '5y' ? 'Média por ano (5a)' : 'Pagou em 12m',
+        // O rótulo conta quantos anos ENTRARAM na média: `dividends_years` já
+        // vinha do banco e nenhum componente lia. 91 tickers têm 3 ou 4 anos de
+        // histórico e apareciam rotulados como 5.
+        label:
+          bazinBase === '5y'
+            ? `Média anual (${asset.dividendsYears ?? 5}a)`
+            : 'Pago em 12m',
         value: base,
       },
       ...TARGET_YIELDS.map((targetYield) => ({
@@ -1028,8 +1035,8 @@ function MethodLegend({ method }: { method: MethodKey }) {
       <strong className="font-bold text-foreground">DPA</strong> é quanto disso
       deve virar dividendo;{' '}
       <strong className="font-bold text-foreground">margem de segurança</strong>{' '}
-      é o desconto que a cotação de hoje tem sobre o teto de 6% — com 40% de
-      margem, a ação custa 40% menos que o limite.
+      é o desconto da cotação atual sobre o teto de 6% — com 40% de margem, a
+      cotação está 40% abaixo do preço teto.
     </>
   );
 }
@@ -1049,45 +1056,46 @@ function MethodExplainer({
 }: MethodExplainerProps) {
   if (method === 'bazin') {
     return (
-      <BecaTip title="Como eu chego nesse número">
-        Aqui eu não chuto nada: somo tudo que a empresa depositou por ação nos
-        últimos 12 meses. Se você quer receber 6% ao ano, o teto é esse total
-        dividido por 6%. Era assim que o Décio Bazin fazia — ele não confiava em
-        projeção de lucro, só no dinheiro que já tinha caído na conta.
-      </BecaTip>
+      <InfoNote title="Método de cálculo">
+        Soma dos proventos pagos por ação nos últimos 12 meses, dividida pelo
+        rendimento anual desejado. Para 6% ao ano, o teto é esse total dividido
+        por 0,06. O método de Décio Bazin dispensa projeção de lucro e considera
+        apenas distribuições já realizadas.
+      </InfoNote>
     );
   }
 
   if (method === 'graham') {
     return (
-      <BecaTip title="Como eu chego nesse número">
-        Benjamin Graham dizia pra não pagar mais que 15 vezes o lucro nem mais
-        que 1,5 vez o patrimônio. Multiplicando os dois limites dá 22,5 — e a
-        raiz de 22,5 × lucro por ação × patrimônio por ação é o valor justo. Ele
-        olha o que a empresa é hoje, não o dividendo que ela promete.
-      </BecaTip>
+      <InfoNote title="Método de cálculo">
+        Benjamin Graham estabeleceu dois limites: até 15 vezes o lucro e até 1,5
+        vez o patrimônio. O produto dos dois resulta em 22,5, e o valor justo é
+        a raiz de 22,5 × LPA × VPA. O método avalia lucro e patrimônio atuais,
+        não a distribuição de dividendos.
+      </InfoNote>
     );
   }
 
   if (method === 'gordon') {
     return (
-      <BecaTip title="Como eu chego nesse número">
-        Aqui eu suponho que o dividendo de hoje cresce {growthPercent}% todo ano,
-        pra sempre. Pego o dividendo do ano que vem e divido pela diferença entre
-        o {requiredReturnPercent}% que você exige e esse crescimento. Quanto mais
-        perto os dois números ficam, mais alto o teto sobe — por isso essa conta
-        pede pé no chão no crescimento.
-      </BecaTip>
+      <InfoNote title="Método de cálculo">
+        Supõe crescimento perpétuo de {growthPercent}% ao ano no dividendo. O
+        preço teto é o dividendo do próximo período dividido pela diferença
+        entre o retorno exigido ({requiredReturnPercent}%) e esse crescimento.
+        Quanto mais próximas as duas taxas, maior o resultado — o que torna a
+        estimativa de crescimento o parâmetro mais sensível do método.
+      </InfoNote>
     );
   }
 
   return (
-    <BecaTip title="Como eu chego nesse número">
-      Pego o lucro da empresa, divido pelo número de ações e assumo que ela
-      distribui {payoutPercent}% disso em dividendo. Se você quer receber 6% ao
-      ano, o teto é esse dividendo dividido por 6%. Pagou acima do teto? O
-      dividendo continua o mesmo, mas rende menos pra você.
-    </BecaTip>
+    <InfoNote title="Método de cálculo">
+      O lucro é dividido pelo número de ações, resultando no LPA, e sobre ele
+      aplica-se o payout de {payoutPercent}% para obter o dividendo por ação.
+      Para um rendimento de 6% ao ano, o teto é esse dividendo dividido por
+      0,06. Acima desse preço, a mesma distribuição rende menos sobre o capital
+      aplicado.
+    </InfoNote>
   );
 }
 
@@ -1103,34 +1111,34 @@ function FiiIntro({ hasData }: { hasData: boolean }) {
   if (hasData) {
     return (
       <p className="micro-hint">
-        Fundo listado não tem lucro por ação: aqui o teto sai do rendimento que
-        ele já pagou por cota no último ano.
+        Fundos listados não apuram lucro por cota. O teto é calculado sobre as
+        distribuições realizadas nos últimos 12 meses.
       </p>
     );
   }
   return (
-    <BecaTip title="Os fundos ainda estão chegando">
-      Já sei quais fundos existem, mas ainda não carreguei quanto cada um pagou
-      de aluguel. Assim que a sincronização rodar, essa lista aparece com o teto
-      de cada um.
-    </BecaTip>
+    <InfoNote title="Dados em carregamento">
+      O catálogo de fundos já está disponível, mas as distribuições por cota
+      ainda não foram sincronizadas. A lista com o preço teto de cada fundo
+      aparece após a próxima sincronização.
+    </InfoNote>
   );
 }
 
 function BazinUnavailable() {
   return (
     <div className="card-lg flex flex-col gap-4">
-      <BecaTip title="Essa conta ainda não tá no ar">
-        O método do Décio Bazin não chuta dividendo: ele usa o que a empresa
-        realmente depositou na conta de quem tinha a ação nos últimos 12 meses, e
-        divide por 6%. Esse histórico de pagamentos vem de uma fonte de dados
-        paga que eu ainda não liguei aqui.
-      </BecaTip>
+      <InfoNote title="Método indisponível">
+        O método de Bazin utiliza os proventos efetivamente pagos por ação nos
+        últimos 12 meses, divididos pelo rendimento desejado. Esse histórico de
+        pagamentos depende de uma fonte de dados ainda não habilitada nesta
+        instalação.
+      </InfoNote>
       <p className="micro-hint">
-        Enquanto isso, o <strong className="font-bold text-foreground">Projetado</strong>{' '}
-        chega no mesmo lugar por outro caminho: em vez do dividendo que já caiu,
-        ele projeta o que deve cair a partir do lucro. E o{' '}
-        <strong className="font-bold text-foreground">Graham</strong> nem depende
+        O método <strong className="font-bold text-foreground">Projetado</strong>{' '}
+        chega a uma estimativa equivalente partindo do lucro em vez do provento
+        já pago, e o{' '}
+        <strong className="font-bold text-foreground">Graham</strong> não depende
         de dividendo.
       </p>
     </div>
@@ -1177,8 +1185,8 @@ function MarginChip({ margin }: { margin: number | null }) {
       className={`chip ${margin >= 0 ? 'chip-up' : 'chip-down'}`}
       title={
         margin >= 0
-          ? 'Quanto do teto a cotação de hoje não cobra. Quanto maior, mais folga.'
-          : 'A cotação passou do teto: em vez de desconto, tem ágio.'
+          ? 'Desconto da cotação atual sobre o preço teto.'
+          : 'A cotação está acima do preço teto — não há margem de segurança.'
       }
     >
       {formatRatioSigned(margin)}
@@ -1199,8 +1207,8 @@ function FundTypeBadge({ type }: { type: string }) {
       className="inline-block rounded-full border border-border px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-muted-foreground"
       title={
         type === 'Fiagro'
-          ? 'Fundo do agronegócio. Paga renda mensal como um FII, mas os ativos são do campo, não imóveis.'
-          : 'Fundo de infraestrutura. Paga renda mensal e costuma ser isento de imposto de renda.'
+          ? 'Fiagro: fundo do agronegócio. Distribui renda periódica; os ativos são do setor agrícola, não imobiliários.'
+          : 'FI-Infra: fundo de infraestrutura. Distribui renda periódica e costuma ter isenção de imposto de renda para pessoa física.'
       }
     >
       {type}
@@ -1212,7 +1220,7 @@ function OwnedBadge() {
   return (
     <span
       className="inline-block rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-primary-foreground"
-      title="Essa ação já está na tua carteira."
+      title="Ativo presente na sua carteira."
     >
       você tem
     </span>
@@ -1225,11 +1233,11 @@ function OverrideBadge({ isGlobal }: { isGlobal: boolean }) {
       className="inline-block rounded-full bg-primary-tint px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-primary-deep"
       title={
         isGlobal
-          ? 'A Beca ajustou o payout ou o lucro dessa empresa pra todo mundo.'
-          : 'Essa linha usa o payout e o lucro que você mesma definiu.'
+          ? 'A curadoria da plataforma ajustou o payout ou o lucro desta empresa para todas as contas.'
+          : 'Esta linha usa o payout e o lucro que você definiu.'
       }
     >
-      {isGlobal ? 'ajuste da Beca' : 'teu ajuste'}
+      {isGlobal ? 'ajuste da curadoria' : 'seu ajuste'}
     </span>
   );
 }
@@ -1244,7 +1252,7 @@ function IlliquidBadge() {
   return (
     <span
       className="inline-block rounded-full bg-negative-tint px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-negative-deep"
-      title="Quase ninguém compra ou vende essa ação — o preço na tela pode estar velho, e o teto sai distorcido."
+      title="Baixa liquidez: a cotação pode estar desatualizada e distorcer o preço teto."
     >
       pouco negociada
     </span>
@@ -1265,7 +1273,7 @@ function OutlierBadge({
     return (
       <span
         className={BADGE_CLASS}
-        title="Esse fundo pagou muito acima do normal. Costuma ser devolução de capital — ele te devolve teu próprio dinheiro e encolhe — ou venda de imóvel, que não se repete."
+        title="Distribuição muito acima da média histórica. Em geral corresponde a amortização de capital ou venda de ativo — eventos que não se repetem."
       >
         rendimento atípico
       </span>
@@ -1279,7 +1287,7 @@ function OutlierBadge({
     return (
       <span
         className={BADGE_CLASS}
-        title="O lucro dos últimos 12 meses está abaixo da metade do que essa empresa costuma dar. O teto sai baixo por causa disso — não porque a ação esteja cara."
+        title="Lucro dos últimos 12 meses abaixo da metade da mediana histórica. O preço teto sai reduzido por esse motivo, e não por sobrepreço da ação."
       >
         lucro abaixo do normal
       </span>
@@ -1291,8 +1299,8 @@ function OutlierBadge({
       className={BADGE_CLASS}
       title={
         deviation === 'high'
-          ? 'O lucro dos últimos 12 meses passa do dobro do que essa empresa costuma dar. Projetar dividendo em cima desse número infla o teto.'
-          : 'O lucro do balanço parece fora do normal — pode ter entrado alguma venda de ativo ou crédito de imposto que não se repete.'
+          ? 'Lucro dos últimos 12 meses acima do dobro da mediana histórica. Projetar dividendo sobre esse valor infla o preço teto.'
+          : 'Lucro do balanço fora do padrão histórico — pode conter venda de ativo ou crédito tributário não recorrente.'
       }
     >
       lucro atípico

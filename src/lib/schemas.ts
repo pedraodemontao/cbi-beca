@@ -6,9 +6,9 @@ export const loginSchema = z.object({
 });
 
 export const signupSchema = z.object({
-  displayName: z.string().trim().min(2, 'Diz aí como a gente te chama'),
+  displayName: z.string().trim().min(2, 'Informe o nome'),
   email: z.email('E-mail inválido'),
-  password: z.string().min(6, 'Senha precisa de pelo menos 6 caracteres'),
+  password: z.string().min(8, 'A senha precisa de pelo menos 8 caracteres'),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
@@ -20,9 +20,9 @@ export const positionFormSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z0-9]{4,10}$/, 'Ticker inválido'),
-  assetType: z.enum(['stock', 'fii'], { error: 'Escolha ação ou FII' }),
-  quantity: z.coerce.number().positive('Quantidade deve ser maior que zero'),
-  avgPrice: z.coerce.number().positive('Preço médio deve ser maior que zero'),
+  assetType: z.enum(['stock', 'fii'], { error: 'Selecione o tipo de ativo' }),
+  quantity: z.coerce.number().positive('A quantidade deve ser maior que zero'),
+  avgPrice: z.coerce.number().positive('O preço médio deve ser maior que zero'),
   purchaseDate: z
     .string()
     .trim()
@@ -48,7 +48,7 @@ export const ceilingOverrideSchema = z.object({
   payoutPercent: z.coerce
     .number()
     .min(1, 'O payout precisa ser de pelo menos 1%')
-    .max(200, 'Payout acima de 200% não faz sentido'),
+    .max(200, 'O payout não pode exceder 200%'),
   expectedEps: z
     .string()
     .trim()

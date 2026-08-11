@@ -1,4 +1,5 @@
 import 'server-only';
+import { fetchAllRows } from '@/lib/supabase/paginate';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssetType, PositionRow, UpcomingDividend } from '@/types/portfolio';
 
@@ -67,18 +68,19 @@ export async function fetchDividendPayments(
   const byTicker = new Map<string, StoredPayment[]>();
   if (tickers.length === 0) return byTicker;
 
-  const { data, error } = await supabase
-    .from('dividend_payments')
-    .select('ticker,ex_date,payment_date,type,value_per_share')
-    .in('ticker', tickers)
-    .order('ex_date', { ascending: true });
+  // Paginado: são ~33 pagamentos por ticker, então uma carteira com ~30 ativos
+  // já passava das 1.000 linhas que o PostgREST devolve por padrão. E como a
+  // ordem é ascendente, o que sumia eram os pagamentos mais recentes.
+  const data = await fetchAllRows<PaymentRow>((from, to) =>
+    supabase
+      .from('dividend_payments')
+      .select('ticker,ex_date,payment_date,type,value_per_share')
+      .in('ticker', tickers)
+      .order('ex_date', { ascending: true })
+      .range(from, to)
+  );
 
-  if (error) {
-    console.error('Falha ao ler proventos', error);
-    return byTicker;
-  }
-
-  for (const row of (data ?? []) as PaymentRow[]) {
+  for (const row of data) {
     const list = byTicker.get(row.ticker) ?? [];
     list.push(toStoredPayment(row));
     byTicker.set(row.ticker, list);

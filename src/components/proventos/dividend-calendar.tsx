@@ -19,11 +19,11 @@ export function DividendCalendar({ months }: DividendCalendarProps) {
     return (
       <section className="card-lg">
         <h2 className="text-lg font-extrabold tracking-tight">
-          O que já está marcado pra cair
+          Pagamentos anunciados
         </h2>
         <p className="micro-hint mt-1">
-          Nenhum dos teus ativos anunciou pagamento com data ainda. Assim que
-          anunciarem, aparece aqui antes de cair na conta.
+          Nenhum ativo em carteira possui pagamento anunciado com data
+          definida.
         </p>
       </section>
     );
@@ -34,7 +34,7 @@ export function DividendCalendar({ months }: DividendCalendarProps) {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        O que já está marcado pra cair
+        Pagamentos anunciados
       </h2>
       <p className="micro-hint">
         Isso não é projeção: são pagamentos que as empresas já anunciaram, com
@@ -83,9 +83,9 @@ export function DividendCalendar({ months }: DividendCalendarProps) {
       </ol>
 
       <p className="micro-hint mt-4 border-t border-border pt-3">
-        A conta usa a data-com — quem já tinha o ativo antes dela recebe, mesmo
-        que o dinheiro caia semanas depois. Comprar hoje não dá direito a
-        provento cuja data-com já passou.
+        O cálculo considera a data-com: tem direito ao provento quem detinha o
+        ativo até essa data, ainda que o crédito ocorra semanas depois. Compras
+        posteriores à data-com não geram direito ao pagamento.
       </p>
     </section>
   );

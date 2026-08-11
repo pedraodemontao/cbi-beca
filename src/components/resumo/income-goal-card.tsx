@@ -27,15 +27,15 @@ export function IncomeGoalCard({
   if (goal === null) {
     return (
       <section className="card-lg">
-        <h2 className="text-lg font-extrabold tracking-tight">Tua meta de renda</h2>
+        <h2 className="text-lg font-extrabold tracking-tight">Meta de renda mensal</h2>
         <p className="micro-hint">
-          Quanto você quer receber de provento por mês, um dia? Eu acompanho o
-          quanto falta usando o rendimento da tua carteira — não um número
-          genérico da internet.
+          Defina o valor mensal que pretende receber em proventos. O quanto
+          falta é calculado com o rendimento efetivo da sua carteira, não com
+          uma média de mercado.
         </p>
         <form action={saveIncomeGoal} className="mt-4 flex flex-wrap items-end gap-3">
           <label className="flex flex-1 flex-col gap-1.5">
-            <span className="text-sm font-bold">Quero receber por mês</span>
+            <span className="text-sm font-bold">Valor mensal desejado</span>
             <span className="flex items-center gap-2 rounded-panel border border-border bg-panel px-4 focus-within:border-primary">
               <span className="text-sm font-bold text-muted-foreground">R$</span>
               {/* `step` fica em "any" de propósito: com `min="1"` e `step="100"`
@@ -75,7 +75,7 @@ export function IncomeGoalCard({
   return (
     <section className="card-lg">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-extrabold tracking-tight">Tua meta de renda</h2>
+        <h2 className="text-lg font-extrabold tracking-tight">Meta de renda mensal</h2>
         <form action={clearIncomeGoal}>
           <button type="submit" className="text-xs font-bold text-muted-foreground hover:text-primary">
             Mudar meta
@@ -84,7 +84,7 @@ export function IncomeGoalCard({
       </div>
 
       <p className="micro-hint">
-        Você quer receber {formatBRL(goal)} por mês. Hoje tua carteira te paga{' '}
+        Você quer receber {formatBRL(goal)} por mês. Hoje a carteira rende{' '}
         {formatBRL(monthlyIncome)}.
       </p>
 
@@ -110,22 +110,22 @@ export function IncomeGoalCard({
       <p className="mt-4 border-t border-border pt-4 text-sm font-semibold">
         {reached ? (
           <>
-            Você <strong className="text-positive">chegou lá</strong>. A carteira
-            de hoje já paga a meta que você definiu — e continua pagando sem
-            você vender nada.
+            <strong className="text-positive">Meta atingida</strong>. A renda
+            projetada da carteira atual já cobre o valor definido, sem
+            necessidade de venda de ativos.
           </>
         ) : missing === null ? (
           <span className="text-muted-foreground">
-            Assim que teus ativos começarem a pagar, eu calculo quanto falta
-            usando o rendimento real deles.
+            O cálculo do quanto falta é feito assim que os ativos em carteira
+            registrarem distribuições.
           </span>
         ) : (
           <>
-            No ritmo que tua carteira rende hoje (
+            No rendimento atual da carteira (
             {((yearlyYield ?? 0) * 100).toFixed(1).replace('.', ',')}% ao ano),
             faltam{' '}
             <strong className="text-primary-deep">{formatBRL(missing)}</strong> de
-            patrimônio pra chegar em {formatBRL(goal)} por mês.
+            patrimônio para alcançar {formatBRL(goal)} por mês.
           </>
         )}
       </p>

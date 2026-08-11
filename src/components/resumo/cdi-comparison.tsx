@@ -31,17 +31,17 @@ export function CdiComparison({
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Tua carteira comparada com o CDI
+        Carteira comparada ao CDI
       </h2>
       <p className="micro-hint">
-        O CDI é o rendimento de quem deixa o dinheiro parado na renda fixa. É a
-        régua pra saber se valeu a pena correr risco.
+        O CDI é a taxa de referência da renda fixa e serve de parâmetro para
+        avaliar o retorno obtido em renda variável.
       </p>
 
       <div className="mt-5 flex flex-col gap-4">
         <div>
           <div className="flex items-baseline justify-between gap-3">
-            <span className="text-sm font-bold">Tua carteira</span>
+            <span className="text-sm font-bold">Carteira</span>
             <span
               className={`num font-extrabold ${
                 portfolioPercent >= 0 ? 'text-positive' : 'text-negative'
@@ -78,13 +78,13 @@ export function CdiComparison({
 
       <p className="mt-5 rounded-panel bg-primary-wash px-4 py-3 text-sm font-semibold text-primary-deep">
         {beatsCdi
-          ? `Tua carteira rendeu ${formatPercent(portfolioPercent - cdiPercent)} a mais que a renda fixa desde ${monthYear.format(since)}. O risco compensou até aqui.`
-          : `A renda fixa rendeu ${formatPercent(cdiPercent - portfolioPercent)} a mais que tua carteira desde ${monthYear.format(since)}. Acontece — carteira de bolsa oscila e se mede em anos, não em meses.`}
+          ? `A carteira rendeu ${formatPercent(portfolioPercent - cdiPercent)} acima da renda fixa desde ${monthYear.format(since)}.`
+          : `A renda fixa rendeu ${formatPercent(cdiPercent - portfolioPercent)} acima da carteira desde ${monthYear.format(since)}. Renda variável oscila no curto prazo; a comparação ganha significado em prazos maiores.`}
       </p>
 
       {cdiYearly !== null && (
         <p className="mt-2 text-xs font-medium text-muted-foreground">
-          Hoje o CDI está rendendo cerca de {formatPercent(cdiYearly)} ao ano.
+          O CDI está em aproximadamente {formatPercent(cdiYearly)} ao ano.
         </p>
       )}
     </section>

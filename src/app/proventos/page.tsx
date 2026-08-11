@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { buildDividendCalendar } from '@/lib/dividends';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import { DividendCalendar } from '@/components/proventos/dividend-calendar';
 import { IncomeSummary } from '@/components/proventos/income-summary';
 import { MonthlyIncomeChart } from '@/components/proventos/monthly-income-chart';
@@ -40,22 +40,23 @@ export default async function ProventosPage() {
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
         <header>
           <h1 className="text-[clamp(1.9rem,6.5vw,2.4rem)] font-extrabold tracking-tight">
-            Teus proventos
+            Proventos
           </h1>
           <p className="micro-hint">
-            O dinheiro que teus ativos te pagam só por você ser dona deles.
+            Dividendos e juros sobre capital próprio pagos pelos ativos em
+            carteira.
           </p>
         </header>
 
         {positions.length === 0 ? (
-          <BecaTip>
-            Cadastra teus ativos na{' '}
+          <InfoNote>
+            Cadastre seus ativos em{' '}
             <Link href="/carteira" className="font-bold underline">
-              Minha Carteira
+              Carteira
             </Link>{' '}
-            que eu vou atrás de tudo que eles já te pagaram — você não precisa
-            anotar nada.
-          </BecaTip>
+            para que a plataforma calcule os proventos recebidos. O lançamento é
+            automático, a partir da data de compra.
+          </InfoNote>
         ) : (
           <>
             <IncomeSummary report={report} />
@@ -66,12 +67,13 @@ export default async function ProventosPage() {
 
             <DividendCalendar months={calendar} />
 
-            <BecaTip title="Pra você entender">
-              Provento é a tua parte do lucro, sem vender nada. Empresa costuma
-              pagar de tempos em tempos; FII quase sempre paga todo mês. Quanto
-              mais cotas você junta, maior fica o pingado — e ele nunca some do
-              teu bolso quando o preço cai.
-            </BecaTip>
+            <InfoNote title="Como funciona">
+              Provento é a parcela do lucro distribuída aos acionistas e
+              cotistas, sem necessidade de vender o ativo. Ações costumam
+              distribuir em intervalos irregulares; fundos imobiliários, em
+              geral mensalmente. O valor recebido é proporcional à quantidade
+              em carteira na data-com e independe da variação de preço.
+            </InfoNote>
           </>
         )}
 

@@ -8,7 +8,7 @@ import { buildPortfolioSummary, buildSectorConcentration } from '@/lib/portfolio
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { formatBRL, formatPercent } from '@/lib/format';
 import { BottomNav } from '@/components/layout/bottom-nav';
-import { BecaTip } from '@/components/shared/beca-tip';
+import { InfoNote } from '@/components/shared/info-note';
 import { AllocationBar } from '@/components/resumo/allocation-bar';
 import { DividendsCard } from '@/components/resumo/dividends-card';
 import { EvolutionChart } from '@/components/resumo/evolution-chart';
@@ -78,21 +78,22 @@ export default async function ResumoPage() {
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
         <header>
           <h1 className="text-[clamp(1.9rem,6.5vw,2.4rem)] font-extrabold tracking-tight">
-            Teu resumo
+            Resumo
           </h1>
           <p className="micro-hint">
-            A visão geral do teu dinheiro, sem planilha e sem economês.
+            Visão consolidada da carteira: patrimônio, composição e renda
+            projetada.
           </p>
         </header>
 
         {positions.length === 0 ? (
-          <BecaTip>
-            Ainda não tem nada pra resumir. Cadastra teu primeiro ativo na{' '}
+          <InfoNote>
+            Nenhuma posição cadastrada. Registre seus ativos em{' '}
             <Link href="/carteira" className="font-bold underline">
-              Minha Carteira
+              Carteira
             </Link>{' '}
-            que eu monto esse painel pra você.
-          </BecaTip>
+            para gerar o painel.
+          </InfoNote>
         ) : (
           <>
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -101,7 +102,7 @@ export default async function ResumoPage() {
                 <p className="num mt-1.5 text-2xl font-extrabold">
                   {formatBRL(summary.totalValue)}
                 </p>
-                <p className="micro-hint mt-1">vale hoje, tudo somado</p>
+                <p className="micro-hint mt-1">valor de mercado atual</p>
               </div>
 
               <div className="card">
@@ -116,8 +117,8 @@ export default async function ResumoPage() {
                 </p>
                 <p className="micro-hint mt-1">
                   {summary.profitPercent !== null
-                    ? `${formatPercent(summary.profitPercent)} desde que você começou`
-                    : 'desde que você começou'}
+                    ? `${formatPercent(summary.profitPercent)} sobre o custo`
+                    : 'sobre o custo de aquisição'}
                 </p>
               </div>
 
@@ -126,7 +127,7 @@ export default async function ResumoPage() {
                 <p className="num mt-1.5 text-2xl font-extrabold">
                   {formatBRL(summary.investedValue)}
                 </p>
-                <p className="micro-hint mt-1">saiu do teu bolso</p>
+                <p className="micro-hint mt-1">custo de aquisição</p>
               </div>
             </section>
 
@@ -151,11 +152,12 @@ export default async function ResumoPage() {
 
             <DividendsCard dividends={upcomingDividends} />
 
-            <BecaTip title="Pra você entender">
-              Patrimônio é quanto teus ativos valem hoje. Resultado é a
-              diferença entre isso e o que você pagou — e ele só vira dinheiro
-              no bolso quando você vende. Beleza?
-            </BecaTip>
+            <InfoNote title="Como ler estes números">
+              Patrimônio é o valor de mercado das posições na cotação atual.
+              Resultado é a diferença entre esse valor e o custo de aquisição —
+              trata-se de ganho ou perda não realizado, que só se converte em
+              caixa na venda.
+            </InfoNote>
           </>
         )}
       </main>

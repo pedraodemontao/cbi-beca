@@ -36,12 +36,38 @@ import type {
 
 const CHAT_MODEL = 'claude-sonnet-5';
 
+/**
+ * O cliente só manda `user` e `assistant`.
+ *
+ * `system` estava na lista e o corpo vem do navegador: uma requisição com
+ * `{"role":"system"}` injetava instrução com o mesmo peso do `prompts/system.md`
+ * — e DEPOIS dele, o que sobrescreveria as regras de nunca recomendar compra e
+ * venda e de nunca inventar número. O SDK aceita esse papel sem reclamar
+ * (`convertToModelMessages` tem `case 'system'`), então quem tem que barrar é
+ * este schema.
+ */
 const bodySchema = z.object({
   messages: z
-    .array(z.looseObject({ role: z.enum(['user', 'assistant', 'system']) }))
+    .array(z.looseObject({ role: z.enum(['user', 'assistant']) }))
     .min(1)
-    .max(100),
+    .max(60),
 });
+
+/**
+ * Teto de perguntas por hora, por conta.
+ *
+ * Cada pergunta remonta a carteira inteira mais o preço teto do catálogo no
+ * prompt, e o histórico volta junto a cada turno — sem limite, uma conta grátis
+ * (o cadastro é aberto) consegue consumir a chave da Anthropic em laço. A
+ * contagem sai do próprio histórico gravado: não exige infraestrutura nova.
+ */
+const MAX_QUESTIONS_PER_HOUR = 40;
+
+/** Pergunta acima disso não é uso legítimo — é tentativa de inflar o prompt. */
+const MAX_QUESTION_CHARS = 4000;
+
+/** Sem teto, uma resposta longa consome tokens sem limite e pode ser cortada. */
+const MAX_OUTPUT_TOKENS = 1500;
 
 const ASSET_TYPE_LABEL: Record<AssetType, string> = { stock: 'Ação', fii: 'FII' };
 
@@ -134,7 +160,10 @@ function buildPortfolioContext(
   lines.push(
     '',
     'PROVENTOS JÁ RECEBIDOS (calculados a partir do histórico de pagamentos e da quantidade que ele tem):',
-    `- Total recebido desde as compras: ${formatBRL(income.totalReceived)}`,
+    `- Total recebido desde as compras (líquido de IR): ${formatBRL(income.netReceived)}`,
+    `- Total bruto distribuído: ${formatBRL(income.totalReceived)}${
+      income.taxWithheld > 0 ? ` (IR retido sobre JCP: ${formatBRL(income.taxWithheld)})` : ''
+    }`,
     `- Média mensal recebida: ${formatBRL(income.monthlyAverage)}`,
     `- Renda mensal estimada da carteira atual: ${formatBRL(income.estimatedMonthlyIncome)}`
   );
@@ -236,13 +265,12 @@ function buildCeilingContext(
             ? `; margem de segurança de ${formatPercent(margin * 100)} — ou seja, a cotação de hoje está esse tanto ABAIXO do teto`
             : `; SEM margem de segurança: a cotação está ACIMA do teto`
       }${
-        // Desde que o ajuste da Beca vale pra todo mundo, dizer "a usuária
-        // ajustou" seria falso pra quem nunca mexeu em nada — e a IA repetiria
-        // isso na cara dela.
+        // O ajuste global vale pra todo mundo: dizer "a usuária ajustou" seria
+        // falso pra quem nunca mexeu em nada, e o assistente repetiria isso.
         override
           ? override.isGlobal
-            ? ' — o payout ou o lucro dessa empresa foi ajustado por você, Beca, e vale pra todas as usuárias'
-            : ' — a usuária ajustou o payout ou o lucro dessa empresa'
+            ? ' — o payout ou o lucro desta empresa foi ajustado pela curadoria da plataforma e vale para todas as contas'
+            : ' — o usuário ajustou o payout ou o lucro desta empresa'
           : ''
       }`
     );
@@ -270,7 +298,7 @@ export async function POST(request: Request) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { error: 'Chat indisponível no momento. Tenta de novo daqui a pouco, beleza?' },
+      { error: 'Assistente indisponível no momento. Tente novamente em instantes.' },
       { status: 503 }
     );
   }
@@ -292,6 +320,30 @@ export async function POST(request: Request) {
     messages = await validateUIMessages({ messages: parsed.data.messages });
   } catch {
     return NextResponse.json({ error: 'Formato de mensagens inválido.' }, { status: 400 });
+  }
+
+  // `looseObject` não olha dentro de `parts`: sem este teto, uma pergunta de
+  // megabytes entra inteira no prompt.
+  const questionText = lastUserText(messages);
+  if (questionText !== null && questionText.length > MAX_QUESTION_CHARS) {
+    return NextResponse.json(
+      { error: 'Pergunta muito longa. Reduza o texto e tente novamente.' },
+      { status: 400 }
+    );
+  }
+
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count: recentQuestions } = await supabase
+    .from('chat_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('role', 'user')
+    .gte('created_at', oneHourAgo);
+
+  if ((recentQuestions ?? 0) >= MAX_QUESTIONS_PER_HOUR) {
+    return NextResponse.json(
+      { error: 'Limite de perguntas por hora atingido. Tente novamente mais tarde.' },
+      { status: 429 }
+    );
   }
 
   const systemPrompt = await readFile(
@@ -329,7 +381,7 @@ export async function POST(request: Request) {
 
   // A pergunta é gravada antes de responder: se a resposta falhar no meio, a
   // usuária pelo menos reencontra o que perguntou.
-  const question = lastUserText(messages);
+  const question = questionText;
   if (question) {
     await supabase
       .from('chat_messages')
@@ -338,6 +390,7 @@ export async function POST(request: Request) {
 
   const result = streamText({
     model: anthropic(CHAT_MODEL),
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
     system: [systemPrompt, contextBlock, ceilingBlock].filter(Boolean).join('\n\n'),
     messages: await convertToModelMessages(messages),
     async onFinish({ text }) {

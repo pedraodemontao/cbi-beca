@@ -23,13 +23,31 @@ const JCP_TAX = 0.15;
 // Quanto a carteira JÁ pingou: para cada pagamento anunciado depois da compra,
 // valor recebido = taxa por cota × quantidade. Nada é digitado pela usuária.
 
-/** Mês de referência no fuso de São Paulo, no formato YYYY-MM. */
-function monthKey(date: Date): string {
-  return date.toLocaleDateString('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-  }).slice(0, 7);
+/**
+ * Mês de referência no formato YYYY-MM.
+ *
+ * Data-com vem do banco como coluna `date`, ou seja a string "2026-08-01" —
+ * sem hora e sem fuso. `new Date` daquilo é meia-noite UTC, e converter para
+ * São Paulo (UTC-3) voltava um dia: agosto virava julho. Não era caso de
+ * borda: a bolsai usa a competência mensal como data-com dos fundos, então
+ * mais de 70% dos pagamentos gravados caem no dia 1 e iam todos para o mês
+ * anterior. O calendário de proventos já fatiava a string, o que deixava as
+ * duas metades da mesma tela discordando entre si.
+ *
+ * Data pura é fatiada. Só o que vem do Yahoo tem hora de verdade (ISO
+ * completo), e aí o fuso importa.
+ */
+function monthKey(date: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date.slice(0, 7);
+
+  const parsed = new Date(date);
+  return parsed
+    .toLocaleDateString('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+    })
+    .slice(0, 7);
 }
 
 function parsePaymentDate(dividend: DividendPayment): Date | null {
@@ -90,6 +108,7 @@ export async function buildDividendIncomeReport(
 ): Promise<DividendIncomeReport> {
   const empty: DividendIncomeReport = {
     totalReceived: 0,
+    netReceived: 0,
     monthlyAverage: 0,
     lastMonthReceived: 0,
     monthly: [],
@@ -107,7 +126,7 @@ export async function buildDividendIncomeReport(
 
   const now = new Date();
   const monthTotals = new Map<string, number>();
-  const tickerTotals = new Map<string, { total: number; payments: number }>();
+  const tickerTotals = new Map<string, { total: number; payments: Set<string> }>();
   let jcpReceived = 0;
 
   for (const position of positions) {
@@ -120,7 +139,7 @@ export async function buildDividendIncomeReport(
       if (typeof dividend.rate !== 'number') continue;
 
       const amount = dividend.rate * position.quantity;
-      const key = monthKey(paidOn);
+      const key = monthKey(dividend.date);
 
       // JCP entra na conta separada porque leva 15% de IR na fonte. Pagamento
       // sem tipo (o que vem do Yahoo) conta como dividendo comum: supor imposto
@@ -128,11 +147,16 @@ export async function buildDividendIncomeReport(
       if (dividend.type === 'JCP') jcpReceived += amount;
 
       monthTotals.set(key, (monthTotals.get(key) ?? 0) + amount);
-      const current = tickerTotals.get(position.ticker) ?? { total: 0, payments: 0 };
-      tickerTotals.set(position.ticker, {
-        total: current.total + amount,
-        payments: current.payments + 1,
-      });
+      const current = tickerTotals.get(position.ticker) ?? {
+        total: 0,
+        payments: new Set<string>(),
+      };
+      current.total += amount;
+      // Conta EVENTOS de pagamento, não linhas processadas: o laço externo é
+      // por lote, então duas compras do mesmo ticker contavam cada provento
+      // duas vezes. O valor em reais estava certo; só a contagem inflava.
+      current.payments.add(`${dividend.date}|${dividend.rate}`);
+      tickerTotals.set(position.ticker, current);
     }
   }
 
@@ -146,14 +170,20 @@ export async function buildDividendIncomeReport(
   const previousMonth = new Date(now);
   previousMonth.setMonth(previousMonth.getMonth() - 1);
   const lastMonthReceived =
-    monthly.find((entry) => entry.month === monthKey(previousMonth))?.amount ?? 0;
+    monthly.find((entry) => entry.month === monthKey(previousMonth.toISOString()))
+      ?.amount ?? 0;
 
   const byTicker: TickerIncome[] = [...tickerTotals.entries()]
-    .map(([ticker, { total, payments }]) => ({ ticker, total, payments }))
+    .map(([ticker, { total, payments }]) => ({ ticker, total, payments: payments.size }))
     .sort((a, b) => b.total - a.total);
+
+  const taxWithheld = jcpReceived * JCP_TAX;
 
   return {
     totalReceived,
+    // O que aparece em destaque na tela é este: o valor que a corretora
+    // creditou. O bruto continua disponível pra explicar a diferença.
+    netReceived: totalReceived - taxWithheld,
     monthlyAverage,
     lastMonthReceived,
     monthly,
@@ -162,7 +192,7 @@ export async function buildDividendIncomeReport(
     estimatedMonthlyIncome: estimateMonthlyIncome(positions, historyByTicker, now),
     hasMissingPurchaseDates: positions.some((position) => !position.purchase_date),
     jcpReceived,
-    taxWithheld: jcpReceived * JCP_TAX,
+    taxWithheld,
   };
 }
 

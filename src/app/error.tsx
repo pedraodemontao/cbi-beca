@@ -12,15 +12,15 @@ export default function GlobalError({
       <BrandMark size={56} />
       <div>
         <h1 className="text-xl font-extrabold tracking-tight">
-          Ops, deu ruim aqui do meu lado
+          Erro ao carregar a página
         </h1>
         <p className="mt-2 text-[0.95rem] font-medium text-muted-foreground">
-          Não foi culpa sua. Às vezes a cotação demora ou a conexão falha —
-          tenta de novo que costuma resolver.
+          Pode ter ocorrido uma falha de conexão ou indisponibilidade
+          temporária de uma fonte de dados. Tente novamente.
         </p>
       </div>
       <button type="button" onClick={reset} className="btn-primary">
-        Tentar de novo
+        Tentar novamente
       </button>
     </main>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { NumberField } from '@/components/calculadoras/number-field';
 import { formatBRL } from '@/lib/format';
 
 export function CompoundCalculator() {
@@ -23,29 +24,39 @@ export function CompoundCalculator() {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Quanto meu dinheiro vira com o tempo
+        Juros compostos
       </h2>
       <p className="micro-hint">
-        O juro composto é o teu dinheiro rendendo em cima do que já rendeu. É
-        devagar no começo e vira bola de neve depois.
+        Projeção do montante acumulado quando o rendimento incide também
+        sobre os rendimentos anteriores.
       </p>
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
-          label="Quanto você já tem hoje"
+        <NumberField
+          label="Valor inicial"
           prefix="R$"
           value={initial}
           onChange={setInitial}
         />
-        <Field
-          label="Quanto vai guardar por mês"
+        <NumberField
+          label="Aporte mensal"
           prefix="R$"
           value={monthly}
           onChange={setMonthly}
         />
-        <Field label="Por quantos anos" suffix="anos" value={years} onChange={setYears} />
-        <Field
-          label="Rendimento por ano"
+        <NumberField
+          label="Período"
+          suffix="anos"
+          value={years}
+          onChange={setYears}
+          step={1}
+          // O laço roda mês a mês, de forma síncrona, a cada tecla. Sem teto,
+          // um número grande trava a aba e o montante vira Infinity — que o
+          // formatador imprimia como "R$ ∞".
+          max={80}
+        />
+        <NumberField
+          label="Rendimento anual"
           suffix="%"
           value={yearlyRate}
           onChange={setYearlyRate}
@@ -54,20 +65,20 @@ export function CompoundCalculator() {
       </div>
 
       <div className="mt-6 rounded-panel bg-primary-wash p-5">
-        <p className="micro-label">No fim você teria</p>
+        <p className="micro-label">Montante final</p>
         <p className="num mt-1 text-[clamp(1.9rem,7vw,2.6rem)] font-extrabold leading-none text-primary-deep">
           {formatBRL(total)}
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-4 border-t border-primary-tint pt-4 text-sm">
           <div>
             <dt className="font-semibold text-muted-foreground">
-              Saiu do teu bolso
+              Total aportado
             </dt>
             <dd className="num font-extrabold">{formatBRL(invested)}</dd>
           </div>
           <div>
             <dt className="font-semibold text-muted-foreground">
-              Rendeu sozinho
+              Rendimento acumulado
             </dt>
             <dd className="num font-extrabold text-primary-deep">
               {formatBRL(earned)}
@@ -77,43 +88,11 @@ export function CompoundCalculator() {
       </div>
 
       <p className="mt-3 text-xs font-medium text-muted-foreground">
-        Simulação com rendimento constante — na vida real ele varia todo mês.
-        Serve pra você ter noção de grandeza, não é promessa de retorno.
+        A simulação assume rendimento constante; na prática ele varia a cada
+        período. Não constitui promessa de retorno.
       </p>
     </section>
   );
 }
 
-interface FieldProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  prefix?: string;
-  suffix?: string;
-  step?: number;
-}
 
-function Field({ label, value, onChange, prefix, suffix, step = 1 }: FieldProps) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-bold">{label}</span>
-      <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
-        {prefix && (
-          <span className="text-sm font-bold text-muted-foreground">{prefix}</span>
-        )}
-        <input
-          type="number"
-          min="0"
-          step={step}
-          inputMode="decimal"
-          value={value}
-          onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
-          className="num w-full bg-transparent py-3 text-base outline-none"
-        />
-        {suffix && (
-          <span className="text-sm font-bold text-muted-foreground">{suffix}</span>
-        )}
-      </span>
-    </label>
-  );
-}

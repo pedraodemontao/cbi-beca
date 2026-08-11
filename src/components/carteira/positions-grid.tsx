@@ -22,10 +22,10 @@ export function PositionsGrid({
   if (holdings.length === 0) {
     return (
       <section className="rounded-card border-2 border-dashed border-border bg-surface/50 px-6 py-14 text-center">
-        <p className="text-lg font-extrabold">Tua carteira começa aqui</p>
+        <p className="text-lg font-extrabold">Nenhuma posição cadastrada</p>
         <p className="mx-auto mt-2 max-w-sm text-[0.95rem] font-medium text-muted-foreground">
-          Cadastra teu primeiro ativo ali em cima. Pode ser uma ação ou um FII —
-          eu busco o preço de hoje e te mostro tudo mastigado.
+          Use o formulário acima para registrar ações ou fundos listados. A
+          cotação é consultada automaticamente.
         </p>
       </section>
     );
@@ -38,7 +38,7 @@ export function PositionsGrid({
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h2 className="text-xl font-extrabold tracking-tight">Teus ativos</h2>
+        <h2 className="text-xl font-extrabold tracking-tight">Ativos em carteira</h2>
         <p className="micro-hint">Um cartãozinho pra cada coisa que você tem.</p>
       </div>
 

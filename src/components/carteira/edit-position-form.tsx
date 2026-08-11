@@ -72,7 +72,7 @@ export function EditPositionForm({
           <input
             name="avgPrice"
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             inputMode="decimal"
             required
@@ -83,7 +83,7 @@ export function EditPositionForm({
 
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-bold">
-            Quando comprou?{' '}
+            Data de aquisição{' '}
             <span className="font-medium text-muted-foreground">(opcional)</span>
           </span>
           <input
@@ -100,7 +100,7 @@ export function EditPositionForm({
       )}
 
       <button type="submit" disabled={isPending} className="btn-primary self-start">
-        {isPending ? 'Salvando…' : 'Salvar alteração'}
+        {isPending ? 'Salvando…' : 'Salvar alterações'}
       </button>
     </form>
   );

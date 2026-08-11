@@ -21,10 +21,10 @@ export function AllocationBar({ allocation }: AllocationBarProps) {
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Como teu dinheiro tá dividido
+        Composição por tipo de ativo
       </h2>
       <p className="micro-hint">
-        Quanto de cada tipo de ativo você tem na carteira.
+        Participação de cada classe no valor total da carteira.
       </p>
 
       <div

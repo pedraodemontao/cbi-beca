@@ -378,7 +378,14 @@ interface BolsaiDividendsResponse {
  */
 const MAX_PLAUSIBLE_YIELD = 5;
 
-/** Mesma ideia pro R$/cota: `numeric(18,6)` não guarda valor astronômico. */
+/**
+ * Mesma ideia pro R$/cota: `numeric(18,6)` não guarda valor astronômico.
+ *
+ * Vale também pra CADA pagamento gravado, não só pro agregado: um único valor
+ * corrompido (a bolsai já devolveu 3,4e15) faz o PostgREST recusar o INSERT do
+ * bloco INTEIRO — e como `syncDividends` apaga antes de inserir, os tickers
+ * daquele bloco ficariam sem histórico nenhum até a próxima execução.
+ */
 const MAX_PLAUSIBLE_PER_SHARE = 100_000;
 
 function sane(value: number | null, limit: number): number | null {
@@ -429,7 +436,7 @@ function averageOfClosedYears(
 }
 
 function normalizePayment(raw: Record<string, unknown>): DividendPayment | null {
-  const value = toNumber(raw.value_per_share);
+  const value = sane(toNumber(raw.value_per_share), MAX_PLAUSIBLE_PER_SHARE);
   if (value === null || value <= 0) return null;
 
   const asDate = (key: string): string | null =>

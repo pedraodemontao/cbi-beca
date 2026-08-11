@@ -17,7 +17,7 @@ export function LoginForm({ confirmError }: LoginFormProps) {
     <div className="flex flex-col gap-5">
       {confirmError && (
         <p className="rounded-panel bg-accent px-4 py-3 text-sm font-medium text-accent-text">
-          Não conseguimos confirmar teu e-mail. Tenta entrar — se não rolar,
+          Não foi possível confirmar o e-mail. Tente fazer login; se o acesso
           cria a conta de novo.
         </p>
       )}
@@ -55,7 +55,7 @@ export function LoginForm({ confirmError }: LoginFormProps) {
       </form>
 
       <p className="text-center text-sm font-medium text-muted-foreground">
-        Ainda não tem conta?{' '}
+        Não tem conta?{' '}
         <Link href="/cadastro" className="font-bold text-primary underline">
           Criar conta
         </Link>

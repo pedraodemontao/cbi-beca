@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { NumberField } from '@/components/calculadoras/number-field';
 import { formatBRL } from '@/lib/format';
 import { AssetLogo } from '@/components/shared/asset-logo';
 import type { StockOption } from '@/lib/ceiling-data';
@@ -79,12 +80,17 @@ export function StockIncomeCalculator({
     jcpShare === null ? null : grossYearly * (1 - jcpShare * JCP_TAX);
 
   const tier = DY_TIERS.find((item) => dy < item.max) ?? DY_TIERS[DY_TIERS.length - 1];
-  // Os dois em pontos percentuais, pra diferença sair em p.p.
-  const cdiGap = cdiYearlyPercent === null ? null : dyPercent - cdiYearlyPercent;
 
   // As barras mostram o MESMO líquido do número grande. Misturar bruto no
   // gráfico com líquido no destaque faria a usuária achar que errou a conta.
   const netFactor = jcpShare === null ? 1 : 1 - jcpShare * JCP_TAX;
+
+  // O selo do CDI também sai do líquido, pelo mesmo motivo. Enquanto comparava
+  // o DY bruto, uma ação 100% JCP com 14,5% aparecia "acima do CDI" de 14,15%
+  // quando o que de fato cai na conta é 12,3% — abaixo. Os dois em pontos
+  // percentuais, pra diferença sair em p.p.
+  const netDyPercent = dyPercent * netFactor;
+  const cdiGap = cdiYearlyPercent === null ? null : netDyPercent - cdiYearlyPercent;
   const bars = PRESETS.map((preset) => ({
     preset,
     income: price > 0 ? Math.floor(preset / price) * price * dy * netFactor : 0,
@@ -101,15 +107,15 @@ export function StockIncomeCalculator({
   return (
     <section className="card-lg">
       <h2 className="text-lg font-extrabold tracking-tight">
-        Quanto uma ação me paga de dividendo
+        Renda em proventos de uma ação
       </h2>
       <p className="micro-hint">
-        Escolhe a empresa e diz quanto você pensa em investir. Eu mostro quantas
-        ações dá pra comprar e quanto elas te pagariam por ano.
+        Informe a empresa e o valor a investir para estimar a quantidade de
+        ações e a renda anual em proventos.
       </p>
 
       <label className="mt-5 flex flex-col gap-1.5">
-        <span className="text-sm font-bold">Qual empresa</span>
+        <span className="text-sm font-bold">Empresa</span>
         <input
           list="stock-options"
           value={ticker}
@@ -140,22 +146,22 @@ export function StockIncomeCalculator({
         </div>
       ) : (
         <p className="mt-2 text-xs font-medium text-muted-foreground">
-          {stocks.length} empresas disponíveis. Se a tua não estiver aqui,
-          preenche cotação e dividend yield na mão.
+          {stocks.length} empresas disponíveis. Para empresas fora da lista,
+          informe cotação e dividend yield manualmente.
         </p>
       )}
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Cotação" prefix="R$" value={price} onChange={setPrice} step={0.01} />
-        <Field
+        <NumberField label="Cotação" prefix="R$" value={price} onChange={setPrice} step={0.01} />
+        <NumberField
           label="Dividend yield (12m)"
           suffix="%"
           value={dyPercent}
           onChange={setDyPercent}
           step={0.1}
         />
-        <Field
-          label="Quanto vou investir"
+        <NumberField
+          label="Valor a investir"
           prefix="R$"
           value={amount}
           onChange={setAmount}
@@ -197,17 +203,17 @@ export function StockIncomeCalculator({
 
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-panel bg-panel p-4">
-              <p className="micro-label">Ações que dá pra comprar</p>
+              <p className="micro-label">Ações adquiridas</p>
               <p className="num mt-1 text-2xl font-extrabold">
                 {shares.toLocaleString('pt-BR')}
               </p>
               <p className="micro-hint mt-1">
-                {formatBRL(investedForReal)} investidos de verdade — ação não se
-                compra pela metade.
+                {formatBRL(investedForReal)} efetivamente aplicados — a
+                negociação ocorre em ações inteiras.
               </p>
             </div>
             <div className="rounded-panel bg-primary-wash p-4">
-              <p className="micro-label">Te paga por ano</p>
+              <p className="micro-label">Renda anual estimada</p>
               <p className="num mt-1 text-[clamp(1.7rem,6vw,2.2rem)] font-extrabold leading-none text-primary-deep">
                 {formatBRL(netYearly ?? grossYearly)}
               </p>
@@ -223,9 +229,9 @@ export function StockIncomeCalculator({
                 {Math.round(jcpShare * 100)}% do que a {selected!.ticker} pagou no
                 último ano foi JCP
               </strong>
-              , e o JCP leva 15% de imposto na fonte — dividendo comum não leva.
-              Por isso o valor acima já está líquido: o bruto seria{' '}
-              {formatBRL(grossYearly)}.
+. O JCP sofre retenção de 15% de imposto de renda na
+              fonte, ao contrário do dividendo. O valor acima já está líquido; o
+              bruto seria {formatBRL(grossYearly)}.
             </p>
           )}
 
@@ -254,7 +260,7 @@ export function StockIncomeCalculator({
 
           <div className="mt-6 rounded-panel border border-border bg-panel p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="micro-label">Se você reinvestir tudo</p>
+              <p className="micro-label">Com reinvestimento integral</p>
               <div className="flex gap-2">
                 {HORIZONS.map((horizon) => (
                   <button
@@ -288,17 +294,17 @@ export function StockIncomeCalculator({
               </div>
             </div>
             <p className="mt-3 text-xs font-medium text-muted-foreground">
-              Supõe que você reinveste todo dividendo no mesmo rendimento e que o
-              preço não muda em {years} anos. Nenhuma das duas coisas acontece na
-              vida real — serve pra mostrar a força do reinvestimento, não pra
-              prever saldo.
+              A projeção supõe reinvestimento integral dos proventos ao mesmo
+              rendimento e cotação constante por {years} anos. Nenhuma das duas
+              condições se verifica na prática: o resultado dimensiona o efeito
+              do reinvestimento, não prevê saldo.
             </p>
           </div>
         </>
       ) : (
         <p className="mt-6 rounded-panel bg-panel p-4 text-sm font-medium text-muted-foreground">
-          Escolhe uma empresa ali em cima — ou preenche a cotação e o dividend
-          yield na mão — que eu faço a conta.
+          Selecione uma empresa acima ou informe cotação e dividend yield
+          manualmente.
         </p>
       )}
 
@@ -327,36 +333,4 @@ function Badge({
   return <span className={`chip ${style} text-xs`}>{children}</span>;
 }
 
-interface FieldProps {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  prefix?: string;
-  suffix?: string;
-  step?: number;
-}
 
-function Field({ label, value, onChange, prefix, suffix, step = 1 }: FieldProps) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-bold">{label}</span>
-      <span className="flex items-center gap-2 rounded-panel border border-border bg-panel px-4 focus-within:border-primary">
-        {prefix && (
-          <span className="text-sm font-bold text-muted-foreground">{prefix}</span>
-        )}
-        <input
-          type="number"
-          min="0"
-          step={step}
-          inputMode="decimal"
-          value={value}
-          onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
-          className="num w-full bg-transparent py-3 text-base outline-none"
-        />
-        {suffix && (
-          <span className="text-sm font-bold text-muted-foreground">{suffix}</span>
-        )}
-      </span>
-    </label>
-  );
-}

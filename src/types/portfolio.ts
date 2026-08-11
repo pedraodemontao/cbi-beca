@@ -98,7 +98,10 @@ export interface TickerIncome {
 
 /** Proventos já recebidos, calculados a partir do histórico da brapi. */
 export interface DividendIncomeReport {
+  /** Soma bruta dos proventos, antes do IR retido sobre a parte de JCP. */
   totalReceived: number;
+  /** O que de fato foi creditado: bruto menos o IR retido na fonte. */
+  netReceived: number;
   monthlyAverage: number;
   lastMonthReceived: number;
   monthly: MonthlyIncome[];
