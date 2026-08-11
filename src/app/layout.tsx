@@ -1,6 +1,22 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { THEME_COLOR, THEME_STORAGE_KEY } from "@/lib/theme";
+
+/**
+ * Aplica o tema salvo antes do primeiro paint.
+ *
+ * Sem isso a página nasce no tema do aparelho e só corrige depois que o React
+ * hidrata — quem escolheu claro num celular no escuro veria a tela piscar
+ * preta. Fica inline e síncrono de propósito: qualquer coisa assíncrona chega
+ * tarde demais.
+ *
+ * As constantes vêm de `lib/theme` e NÃO do componente do botão: ele é
+ * `'use client'`, e o que o servidor recebe de lá é uma referência que vira
+ * texto de erro dentro desta string.
+ */
+const THEME_BOOTSTRAP = `try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;var c=t==='light'?'${THEME_COLOR.light}':'${THEME_COLOR.dark}';document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute('content',c)})}}catch(e){}`;
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -15,7 +31,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#08080a',
+  // Duas cores em vez de uma: a barra do navegador acompanha o tema do
+  // aparelho de saída, e o botão iguala as duas quando a pessoa escolhe.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#faf8f3' },
+    { media: '(prefers-color-scheme: dark)', color: '#08080a' },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -44,8 +65,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${jakarta.variable} h-full antialiased`}>
+    // `suppressHydrationWarning` cobre o `data-theme` que o script acima
+    // escreve antes da hidratação: o servidor não tem como saber o tema salvo,
+    // então o atributo SEMPRE difere. Vale só pra este elemento — nada dentro
+    // dele deixa de ser conferido.
+    <html
+      lang="pt-BR"
+      className={`${jakarta.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="flex min-h-full flex-col">
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+        <ThemeToggle />
         {children}
         <footer className="px-5 py-6 text-center text-xs text-muted-foreground">
           ⚠️ Conteúdo educacional — não é recomendação de compra ou venda de

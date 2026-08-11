@@ -2,10 +2,15 @@
 
 /* ═══ Camada 1 — Primitivos (direção "Central CBI": preto, ouro, verde) ═══
  *
+ * Duas paletas completas, cada uma com nomes honestos: `--cbi-black` é preto
+ * nos dois temas, e o claro tem os `--cbi-paper-*`. Quem troca de tema é a
+ * camada 2 — assim nenhum primitivo mente sobre a própria cor.
+ *
  * Todos os pares foram medidos: nenhum texto abaixo de 4,5:1 sobre o fundo em
  * que ele aparece. No escuro a separação entre superfícies não vem da luz — a
- * diferença entre o preto e o card é de só 1,09:1 — e sim da BORDA. Por isso
- * `.card` tem borda, coisa que a direção clara não precisava.
+ * diferença entre o preto e o card é de só 1,09:1 — e sim da BORDA. No claro a
+ * borda continua sendo quem desenha o card, agora acompanhada de sombra de
+ * verdade (no escuro sombra quase não aparece).
  */
 :root {
   --cbi-black: #08080a;
@@ -31,34 +36,92 @@
   --cbi-ink: #f4f1e8;
   --cbi-ink-soft: #a8a69e;
 
-  /* ═══ Camada 2 — Semânticos ═══ */
-  --background: var(--cbi-black);
-  --surface: var(--cbi-surface);
-  --panel: var(--cbi-panel);
-  --foreground: var(--cbi-ink);
-  --muted-fg: var(--cbi-ink-soft);
-  --border-subtle: var(--cbi-line);
+  /* ─── Paleta clara ───
+   *
+   * O ouro do tema escuro NÃO sobrevive aqui: #d6a93c sobre branco dá 1,9:1 —
+   * um rótulo nessa cor some, e uma barra de gráfico idem. O ouro do claro é
+   * escurecido até 5,4:1 sobre o papel. Isso vale pra `--primary` inteiro
+   * porque o token é fundo de botão E cor de texto em 100 lugares; separar os
+   * dois papéis agora seria mexer em 29 arquivos pra ganhar nada.
+   */
+  --cbi-paper: #faf8f3;
+  --cbi-paper-surface: #ffffff;
+  --cbi-paper-panel: #f1ece0;
+  --cbi-paper-line: #d2c8b2;
 
-  --primary: var(--cbi-gold);
-  --primary-deep: var(--cbi-gold-soft);
-  --primary-tint: var(--cbi-gold-tint);
-  --primary-wash: var(--cbi-gold-tint);
-  /* Texto que vai EM CIMA do ouro. Branco sobre ouro reprova em contraste;
-   * preto dá 9,15:1. */
-  --primary-fg: var(--cbi-black);
+  --cbi-gold-ink: #83600f;
+  --cbi-gold-ink-strong: #6e5210;
+  --cbi-gold-glow: #f7ecd2;
 
-  --accent: var(--cbi-gold-tint);
-  --accent-fg: var(--cbi-gold-soft);
-  --accent-text: var(--cbi-gold-soft);
+  --cbi-green-ink: #15795a;
+  --cbi-green-ink-strong: #0f5f47;
+  --cbi-green-glow: #dcf1e7;
+
+  --cbi-coral-ink: #b4342a;
+  --cbi-coral-ink-strong: #8f2820;
+  --cbi-coral-glow: #fbe3df;
+
+  --cbi-graphite: #17171b;
+  --cbi-graphite-soft: #56534b;
+
+  /* ═══ Camada 2 — Semânticos ═══
+   *
+   * `light-dark()` lê o `color-scheme` do html: sem escolha salva ele vale
+   * `light dark` e segue o aparelho; o botão de tema grava `data-theme` e
+   * trava um dos dois. Uma definição por token, sem paleta duplicada em media
+   * query.
+   */
+  color-scheme: light dark;
+
+  --background: light-dark(var(--cbi-paper), var(--cbi-black));
+  --surface: light-dark(var(--cbi-paper-surface), var(--cbi-surface));
+  --panel: light-dark(var(--cbi-paper-panel), var(--cbi-panel));
+  --foreground: light-dark(var(--cbi-graphite), var(--cbi-ink));
+  --muted-fg: light-dark(var(--cbi-graphite-soft), var(--cbi-ink-soft));
+  --border-subtle: light-dark(var(--cbi-paper-line), var(--cbi-line));
+
+  --primary: light-dark(var(--cbi-gold-ink), var(--cbi-gold));
+  /* "deep" é o ouro MAIS FORTE, não o mais escuro: no preto ele clareia, no
+   * papel ele escurece. Quem consome quer destaque, não luminância. */
+  --primary-deep: light-dark(var(--cbi-gold-ink-strong), var(--cbi-gold-soft));
+  --primary-tint: light-dark(var(--cbi-gold-glow), var(--cbi-gold-tint));
+  --primary-wash: light-dark(var(--cbi-gold-glow), var(--cbi-gold-tint));
+  /* Texto que vai EM CIMA do ouro. No escuro o ouro é claro e pede preto
+   * (9,15:1); no claro ele é escuro e pede branco (5,76:1). */
+  --primary-fg: light-dark(var(--cbi-paper-surface), var(--cbi-black));
+
+  --accent: light-dark(var(--cbi-gold-glow), var(--cbi-gold-tint));
+  --accent-fg: light-dark(var(--cbi-gold-ink-strong), var(--cbi-gold-soft));
+  --accent-text: light-dark(var(--cbi-gold-ink-strong), var(--cbi-gold-soft));
 
   /* Mercado. Desacoplado da marca de propósito: quando o ouro virou primária,
    * `chip-up` herdando `primary` teria pintado "alta" de dourado. */
-  --positive: var(--cbi-green);
-  --positive-deep: var(--cbi-green-soft);
-  --positive-tint: var(--cbi-green-tint);
-  --negative: var(--cbi-coral);
-  --negative-tint: var(--cbi-coral-tint);
-  --negative-deep: var(--cbi-coral-soft);
+  --positive: light-dark(var(--cbi-green-ink), var(--cbi-green));
+  --positive-deep: light-dark(var(--cbi-green-ink-strong), var(--cbi-green-soft));
+  --positive-tint: light-dark(var(--cbi-green-glow), var(--cbi-green-tint));
+  --negative: light-dark(var(--cbi-coral-ink), var(--cbi-coral));
+  --negative-tint: light-dark(var(--cbi-coral-glow), var(--cbi-coral-tint));
+  --negative-deep: light-dark(var(--cbi-coral-ink-strong), var(--cbi-coral-soft));
+
+  /* Sombra é cor, e cor muda com o tema: preto puro sobre papel suja. */
+  --shadow-tone: light-dark(rgb(84 70 38 / 0.13), rgb(0 0 0 / 0.5));
+  --shadow-tone-near: light-dark(rgb(84 70 38 / 0.09), rgb(0 0 0 / 0.4));
+  --shadow-tone-lift: light-dark(rgb(84 70 38 / 0.18), rgb(0 0 0 / 0.6));
+  --shadow-tone-lift-near: light-dark(rgb(84 70 38 / 0.11), rgb(0 0 0 / 0.45));
+
+  --focus-ring: light-dark(rgb(131 96 15 / 0.75), rgb(214 169 60 / 0.65));
+  --glow-gold: light-dark(rgb(214 169 60 / 0.1), rgb(214 169 60 / 0.14));
+  --glow-green: light-dark(rgb(21 121 90 / 0.05), rgb(63 191 135 / 0.07));
+}
+
+/* A escolha no botão de tema vira `data-theme` e trava o `color-scheme`; sem
+ * ela o `light dark` acima deixa o aparelho decidir. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 /* ═══ Camada 3 — Utilities Tailwind ═══ */
@@ -89,13 +152,14 @@
   --radius-card: 24px;
   --radius-panel: 18px;
   /* Sombra no escuro quase não aparece; quem separa o card é a borda. Ela fica
-   * só pra dar profundidade nos elementos que flutuam. */
-  --shadow-soft: 0 12px 32px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
-  --shadow-lift: 0 20px 48px rgb(0 0 0 / 0.6), 0 4px 12px rgb(0 0 0 / 0.45);
+   * só pra dar profundidade nos elementos que flutuam. No claro ela volta a
+   * delimitar de verdade — daí o tom vir de variável, não fixo em preto. */
+  --shadow-soft: 0 12px 32px var(--shadow-tone), 0 2px 8px var(--shadow-tone-near);
+  --shadow-lift: 0 20px 48px var(--shadow-tone-lift), 0 4px 12px
+    var(--shadow-tone-lift-near);
 }
 
 html {
-  color-scheme: dark;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -108,7 +172,8 @@ body {
   position: relative;
 }
 
-/* Brilho quente ao fundo — assinatura da direção, agora em ouro sobre preto. */
+/* Brilho quente ao fundo — assinatura da direção. No claro ele afina: a mesma
+ * opacidade que dá calor sobre preto vira mancha suja sobre papel. */
 body::before {
   content: "";
   position: fixed;
@@ -116,12 +181,12 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(620px 340px at 88% -60px, rgb(214 169 60 / 0.14), transparent 70%),
-    radial-gradient(680px 400px at -10% 140px, rgb(63 191 135 / 0.07), transparent 70%);
+    radial-gradient(620px 340px at 88% -60px, var(--glow-gold), transparent 70%),
+    radial-gradient(680px 400px at -10% 140px, var(--glow-green), transparent 70%);
 }
 
 :focus-visible {
-  outline: 3px solid rgb(214 169 60 / 0.65);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
   border-radius: 8px;
 }
@@ -182,4 +247,32 @@ body::before {
   .micro-hint {
     @apply text-sm font-medium text-muted-foreground;
   }
+}
+
+/* Qual ícone o botão de tema mostra é decidido em CSS, não em React.
+ *
+ * O servidor não tem como saber o tema do aparelho, então um ícone escolhido
+ * em JS só poderia aparecer depois da hidratação — e piscaria o ícone errado
+ * até lá. Os dois vão pro HTML e o CSS esconde um. Nome pela AÇÃO: o sol
+ * ("ir pro claro") aparece quando está escuro. */
+.theme-icon-to-light {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-icon-to-light {
+    display: block;
+  }
+
+  :root:not([data-theme="light"]) .theme-icon-to-dark {
+    display: none;
+  }
+}
+
+:root[data-theme="dark"] .theme-icon-to-light {
+  display: block;
+}
+
+:root[data-theme="dark"] .theme-icon-to-dark {
+  display: none;
 }

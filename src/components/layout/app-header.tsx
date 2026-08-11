@@ -7,7 +7,9 @@ interface AppHeaderProps {
 
 export function AppHeader({ greeting, subtitle }: AppHeaderProps) {
   return (
-    <header className="flex items-start justify-between gap-4">
+    // `pr-14` reserva a faixa do botão de tema, que é fixo no canto superior
+    // direito da janela — sem isso ele cai em cima do "Sair".
+    <header className="flex items-start justify-between gap-4 pr-14">
       {/* `min-w-0` + `break-words`: nome comprido tem que quebrar dentro da
           coluna, não empurrar o botão Sair pra fora da tela. */}
       <div className="min-w-0">

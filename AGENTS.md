@@ -32,7 +32,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 - **Persona do chat** em `prompts/system.md` — derivada das seções VOZ + PROIBIDO de `beca-painel/api/_beca.js` (sem o FORMATO de Reels). Regra inegociável: IA nunca recomenda comprar/vender/manter; nunca calcula números (recebe prontos via `CONTEXTO_CARTEIRA`).
 - **Formulários via Server Actions + `useActionState`** (validação Zod nos dois lados). React Hook Form entra só se algum form crescer em complexidade.
 - **O produto se chama CENTRAL CBI** (rebrand de 2026-08-06, era "Carteira da Beca"). A **Beca continua sendo a voz** — chat, dicas e tom são dela; CBI é a marca do sistema. Por isso existem dois símbolos: `BrandMark` (contorno em ouro com "CBI", institucional) e `BecaAvatar` (disco cheio com "B", pessoa).
-- **Direção visual: preto, ouro e verde de detalhe.** Fundo `#08080A`, card `#141419`, ouro `#D6A93C` (marca), verde `#3FBF87` (alta), coral `#F0705F` (queda), texto `#F4F1E8`. Fonte **Plus Jakarta Sans** (mantida: serifa de luxo prejudica leitura de número). Tema escuro único — sem `light:` variants.
+- **Direção visual: preto, ouro e verde de detalhe.** Fundo `#08080A`, card `#141419`, ouro `#D6A93C` (marca), verde `#3FBF87` (alta), coral `#F0705F` (queda), texto `#F4F1E8`. Fonte **Plus Jakarta Sans** (mantida: serifa de luxo prejudica leitura de número). O escuro é a direção de origem; desde 2026-08-11 existe tema claro por escolha da usuária — mas **sem `light:`/`dark:` variants**, a troca é toda na camada semântica.
 - **No escuro a separação de superfície NÃO vem da luz.** Preto e card diferem só 1,09:1 — abaixo do que o olho separa. Quem desenha o card é a **borda** (`#2E2E38`), e é por isso que `.card` e `.card-lg` ganharam `border` nesta direção. Sombra vira profundidade, não delimitação.
 - **Contraste medido, não estimado:** todo texto sobre o fundo em que aparece está em 4,5:1 no mínimo, a maioria acima de 7:1. Ouro sobre preto 9,15:1; preto sobre ouro 9,15:1; verde 8,59:1; coral 6,85:1.
 - **Design system em 3 camadas no `globals.css`**: primitivos `--cbi-*` → semânticos (`--background`, `--primary`…) → utilities via `@theme inline` do Tailwind v4. **Nunca usar hex solto em componente** — sempre classe de token (`bg-surface`, `text-positive`, `border-border`…).
@@ -430,6 +430,63 @@ linha com nulo, então a Beca ajustando pela tela salvava algo que só ela via.
   índice `unique nulls not distinct` e atualiza em vez de duplicar; usuária
   comum lê o global, mas insert global e delete do global são barrados pela RLS.
 
+## Tema claro (2026-08-11)
+
+Botão fixo no canto superior direito, em todas as telas. Na primeira visita o
+tema **segue o aparelho**; a partir do primeiro clique, a escolha dela manda e
+fica salva (`localStorage`, chave `cbi-theme`).
+
+- **Nenhum componente mudou.** Foi o design system em 3 camadas que pagou por
+  si: como não havia hex solto em componente, trocar o tema é redefinir a
+  camada 2. As duas paletas moram inteiras no `:root`, com nomes honestos
+  (`--cbi-black` continua preto, o claro tem `--cbi-paper-*`).
+- **`light-dark()` em vez de media query duplicada:** `color-scheme: light dark`
+  no `:root` faz o CSS seguir o aparelho sozinho, e `[data-theme]` trava um dos
+  dois. Uma definição por token.
+- **Mas `light-dark()` tem um limite medido no Chrome:** dentro de custom
+  property herdada ele é resolvido UMA vez no `:root` e não recalcula quando só
+  o `color-scheme` muda (testado: `color-scheme: light` no root com o valor já
+  computado continua devolvendo preto; `light-dark()` direto no elemento
+  funciona). Mudança de ATRIBUTO recalcula — por isso o `ThemeToggle` espelha a
+  preferência do aparelho em `data-theme` e escuta `matchMedia`. Sem isso, quem
+  troca o tema do celular com o app aberto ficaria na cor antiga (navegar pelo
+  app não bastaria: o App Router não repinta o CSS).
+- **O ouro do escuro NÃO sobrevive no claro:** `#D6A93C` sobre branco dá 1,9:1 —
+  rótulo some, barra de gráfico some. No claro ele vira `#83600F` (5,4:1 sobre o
+  papel). Isso vale pro `--primary` inteiro porque o token é fundo de botão E
+  cor de texto: `text-primary` aparece em 79 lugares e `bg-primary` em 23 —
+  separar os papéis seria mexer em 29 arquivos pra ganhar nada.
+- **`--primary-fg` inverte junto:** preto sobre ouro claro (9,15:1) no escuro,
+  branco sobre ouro escuro (5,76:1) no claro.
+- **"deep" quer dizer MAIS FORTE, não mais escuro.** No preto o ouro forte
+  clareia; no papel, escurece. Quem consome o token quer destaque.
+- **Contraste do claro medido, não estimado** (mesma régua do escuro): 22 pares
+  conferidos, nenhum texto abaixo de 4,5:1. Texto 16,8:1 sobre o papel; muted
+  7,2:1; ouro 5,4:1; verde 5,1:1; coral 5,7:1.
+- **Sombra virou variável de cor.** No escuro ela quase não aparece e a borda
+  desenha o card; no claro ela volta a delimitar — mas preto puro suja o papel,
+  daí o tom quente (`--shadow-tone`).
+- **O ícone do botão é decidido em CSS** (`.theme-icon-to-*`), não em React: o
+  servidor não tem como saber o tema do aparelho, e um ícone escolhido em JS
+  piscaria o errado até a hidratação.
+- **`suppressHydrationWarning` no `<html>`** é obrigatório: o script inline
+  escreve `data-theme` antes do React, então o atributo SEMPRE difere do
+  servidor.
+- **Armadilha que custou o primeiro teste:** constante exportada de módulo
+  `'use client'` **não chega ao servidor como valor**. `THEME_STORAGE_KEY` vivia
+  no `theme-toggle.tsx`, e o script inline do layout saiu com
+  `localStorage.getItem('function() { throw new Error("Attempted to call
+  THEME_STORAGE_KEY() from the server…") }')` — procurando a mensagem de erro
+  inteira como chave, sem erro no console. Por isso `lib/theme.ts` é um módulo
+  neutro.
+- **`meta[name=theme-color]`: o `media` atrapalha depois da escolha.** O Next
+  emite duas (claro e escuro) e a hidratação reinsere uma terceira; sobrava uma
+  escura casando com o aparelho e a barra do navegador ficava preta num app
+  claro. `apply()` remove o `media` e iguala o `content` de todas, e reafirma a
+  cada rota (a navegação client-side reinsere as metas).
+- **`AppHeader` ganhou `pr-14`** pra reservar a faixa do botão fixo — sem isso
+  ele cai em cima do "Sair" da carteira.
+
 ## App instalável (PWA, 2026-08-07)
 
 `src/app/manifest.ts` + ícones em `public/`. A usuária adiciona à tela de início
@@ -459,6 +516,14 @@ navegador, com a URL comendo uma faixa da tela.
 
 ## Pendências conhecidas
 
+- **O PWA instalado continua com casca escura no tema claro.** `manifest.ts`
+  tem `theme_color`/`background_color` fixos (a splash) e o
+  `appleWebApp.statusBarStyle` é `black-translucent`, lido só na instalação —
+  nenhum dos dois acompanha a escolha da usuária. Quem instalar e usar no claro
+  vê a splash preta e, no iPhone, texto claro na barra de status. Não foi
+  testado em aparelho real.
+- **Tema claro não foi visto em aparelho de verdade** — o QA foi Chrome
+  desktop, com iframe de 375px pro mobile.
 - **3 ações não têm fundamento na bolsai**: SMTO3, RAIZ4 e JALL3 devolvem 404
   com `"Insufficient data for calculation"`. As três são sucroenergéticas com
   exercício social fechando em março — provável causa. São 3 em 380.
