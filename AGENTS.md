@@ -56,6 +56,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 
 8. ✅ Calculadoras (`/calculadoras`: juros compostos, renda passiva, renda de ação e renda de FII)
 9. ✅ Proventos (`/proventos`: total já recebido, mês a mês, quem mais paga)
+10. ✅ Notícias (`/noticias`: manchetes de 8 portais via RSS, filtro por carteira)
 
 ## Tese do produto (definida em 2026-08-03)
 
@@ -445,8 +446,11 @@ objetiva, não traduzido por analogia.
 - **`InfoNote` substituiu `BecaTip`**: mesma informação, sem avatar e sem
   assinatura. A barra em ouro à esquerda é o que sobrou de marca — identifica
   sem personificar.
-- **O ajuste global virou "ajuste da curadoria"** na interface. No banco e nos
-  comentários continua sendo o que é: a Beca publicando.
+- **O ajuste global virou "ajuste da curadoria" na interface** — e **voltou a
+  ser "ajuste da Beca" em 2026-08-12**, a pedido dela. Foi a única parte da
+  despersonalização revertida: o selo diz de quem é o palpite, e "curadoria"
+  não tem cara nem responsável. No banco e no código o papel continua sendo
+  `is_curator`/`curator` (código em inglês).
 - **`AppHeader.greeting` virou `title`.** A carteira não cumprimenta mais pelo
   nome, então o cálculo do primeiro nome saiu junto.
 
@@ -658,7 +662,147 @@ navegador, com a URL comendo uma faixa da tela.
   mostrar nada. Se um dia entrar, tem que ser só pro casco da interface, nunca
   pros dados.
 
+## Notícias do mercado (2026-08-12)
+
+Aba `/noticias`: manchetes de oito portais, com filtro "meus ativos" que casa a
+matéria com os papéis da carteira. Referências que a Beca mandou: `arevista.com.br`,
+`infomoney.com.br` e `bloomberglinea.com.br`.
+
+- **Nenhuma das duas fontes pagas tem notícia.** A brapi v2 já era 404
+  documentado; a bolsai também (`/news`, `/news/{ticker}`, `/market/news`,
+  conferidos em 2026-08-12). Sobrou RSS — grátis, sem chave, sem limite.
+- **Não vai pro banco, e não por preferência:** o Hobby dá 2 crons e os 2 estão
+  ocupados (`market` e `snapshot`). Sem cron sobrando, ingerir notícia exigiria
+  escrever na renderização. Fica em `fetch` com `next: { revalidate: 900 }` —
+  mesma regra do preço, dado de fora vive no cache.
+- **Parser de RSS escrito à mão, sem dependência nova.** É RSS 2.0 de
+  WordPress mais o Arc da Bloomberg; regex resolve. `sharp` já tinha aberto
+  esse precedente na logo.
+- **A regra que decidiu a lista de fontes: feed de SEÇÃO sempre que existir.**
+  A capa de um portal é o portal inteiro, e portal de economia publica loteria,
+  vinho e casamento de jogador.
+- **O caso que provou a regra foi a referência dela.** A capa da A Revista
+  devolveu 10 de 10 itens sobre automóvel ("Honda WN7 tem 67 cv"), tudo na
+  categoria "Mercados" — que lá é guarda-chuva de 2.841 posts. Pelas categorias
+  reais (`/acoes`, `/fiis`, `/dividendos`, `/bolsa-hoje`) ela vira a **melhor
+  fonte do conjunto**: 10/10, 10/10, 9/10 e 4/10 com ticker. Seu Dinheiro fez o
+  mesmo caminho — `/empresas` dá 10/10 contra 5/10 da capa.
+- **InfoMoney e E-Investidor não têm feed de seção que funcione:** as URLs de
+  categoria respondem 200 com zero item e `?cat=…&feed=rss2` devolve a capa
+  ignorando o filtro. Entram inteiros, podados por allowlist de seção.
+- **Allowlist, não blocklist.** Com blocklist a aba abria com "Cristiano
+  Ronaldo e Georgina se casam" e o E-Investidor entregava 3 loterias em 8
+  itens: não dá pra enumerar tudo que um portal publica fora de economia, dá
+  pra enumerar o que interessa. Custo assumido: cai "política" (o presidente do
+  BC falando de precatórios) e "mundo" (Irã mexendo na projeção de petróleo).
+- **A seção sai da primeira `<category>` OU do primeiro trecho da URL**, e
+  basta uma casar — a Bloomberg não manda categoria nenhuma, e no E-Investidor
+  a categoria de uma matéria é "Citibank" enquanto o caminho é "ultimas".
+- **O filtro não é curadoria:** o InfoMoney carimbou uma matéria sobre o PCC
+  como "Mercados" e ela passa. Limpa o óbvio, e só.
+- **`[A-Z]{4}\d{1,2}` PERDE A B3SA3** — a própria bolsa tem dígito no meio do
+  código. Dos 1.463 ativos listados, 368 não casam com a versão de quatro
+  letras; fora BDR sobram B3SA3, B1003, as classes especiais da MRS e a EQMA3B.
+  O padrão é `[A-Z][A-Z0-9]{3}\d{1,2}`, sempre conferido contra `companies` —
+  casar o formato nunca basta, e é a conferência que impede código inventado de
+  virar link pra página que não existe.
+- **O texto que casa ticker é maior que o exibido** (leva as tags do item) e
+  morre no servidor: `fetchMarketNews` recebe o catálogo e devolve os tickers
+  já carimbados, em vez de mandar o texto extra dentro de cada card.
+- **`Date.now()` no corpo de um Server Component é reprovado pelo
+  `react-hooks/purity`.** O rótulo "há 2 h" nasce dentro de `lib/news.ts`, que
+  não é componente — e de quebra a lista inteira usa um instante só.
+- **Sem imagem, de propósito.** Os feeds trazem foto, mas cada portal serve de
+  um host diferente: liberar todos em `remotePatterns` abriria o otimizador pra
+  domínio de terceiro, e servir sem otimizar torraria a cota do Hobby.
+- **O rodapé do WordPress vazava pro card.** Todo `description` termina em "The
+  post {título} appeared first on {portal}", então o resumo repetia a manchete
+  logo acima dele. `stripFeedBoilerplate` exige a frase inteira pra cortar —
+  só "The post" derrubaria uma matéria que comece com essas palavras.
+- **Dedupe por título normalizado**: matéria de agência sai igual em vários
+  portais no mesmo minuto.
+- Medido ao vivo em 2026-08-12: 122 coletadas → 13 cortadas por seção → **44%
+  com ticker**, 46 kB de payload.
+
+### O feed: 15 do dia, em colunas (referência: biblioteca de anúncios do Meta)
+
+- **A tela mostra 15, não a lista inteira.** Feed curto é feed que se lê até o
+  fim; o pool maior (`MAX_ITEMS`) continua existindo só pra sustentar o filtro
+  por carteira.
+- **"Vira todo dia": o corte é por DIA CIVIL de Brasília**, com piso. O pedido
+  era "só as de hoje, o de ontem sai", e a medição mostrou por que não pode ser
+  regra pura: em 2026-08-12 o dia corrente tinha 41 matérias, mas o sábado e o
+  domingo anteriores tinham **2 cada** — bolsa fechada, portal não publica. Sem
+  o piso a tela abriria vazia no fim de semana, que é quando sobra tempo pra
+  ler. `selectDailyFeed` completa com as anteriores e a UI diz quantas são de
+  hoje; card de outro dia troca "há 2 h" pela data.
+- **`toDayKey` usa `en-CA` e `timeZone: America/Sao_Paulo`** — é o único locale
+  que já imprime `AAAA-MM-DD`. Comparar dia por `toISOString` daria o dia em
+  UTC, e depois das 21h em São Paulo o dia UTC já virou.
+- **O filtro "meus ativos" olha 7 dias, o feed olha 1.** É filtro, não a mesma
+  lista cortada: 13 das 41 matérias do dia citavam ALGUM papel, e o recorte da
+  carteira dela é bem menor. Aba que abre vazia todo dia ensina a não clicar.
+- **A grade é `columns` do CSS, não `grid`.** Com `grid` toda célula de uma
+  linha assume a altura da mais alta, e manchete tem tamanho irregular — cada
+  card curto abriria um buraco embaixo. `columns` deixa o card seguinte subir e
+  encostar, que é o que a referência faz. Custo: a leitura desce uma coluna
+  antes de ir pra próxima. Em quinze itens isso é leitura de jornal.
+  `gap` não vale em coluna — o respiro é `mb-4` em cada card, com
+  `break-inside-avoid` pra ninguém ser cortado na virada.
+- **A faixa de topo com o portal é estrutura, não enfeite**: é o primeiro dado
+  que decide se vale ler (o papel que a URL do anunciante tem na referência) e
+  é a âncora visual que impede a coluna de virar parede de texto.
+- **A foto é opcional em dois níveis.** Metade das fontes não manda nenhuma
+  (A Revista, Suno e E-Investidor: 0 de 10; InfoMoney, Bloomberg e Valor: 10 de
+  10), e parte das que manda aponta pra host que não serve —
+  `s2-valorinveste.glbimg.com` devolve **NXDOMAIN**. É o layout de coluna que
+  torna isso viável: altura já é livre, card sem foto não desalinha ninguém.
+- **`onError` sozinho NÃO remove a imagem quebrada.** Medido: duas
+  continuavam no DOM com `naturalWidth === 0`. A `<img>` vai no HTML do
+  servidor e começa a carregar antes de o React hidratar; falhando nessa
+  janela, o evento acontece sem ninguém escutando. `NewsImage` fecha isso com
+  um ref que, na montagem, trata `complete && naturalWidth === 0` como falha.
+- **`<img>` nativo, não `next/image`**: cada portal é um host diferente, e
+  liberar todos em `remotePatterns` abriria o otimizador pra domínio de
+  terceiro — além de queimar a cota do Hobby com foto de matéria.
+  `referrerPolicy="no-referrer"` porque parte dos portais recusa requisição de
+  fora.
+- QA a 375, 820 e 1470px: 1, 2 e 3 colunas, `scrollWidth === clientWidth` nos
+  três, zero imagem quebrada no DOM.
+
+### A barra de navegação virou fixa (mesma leva)
+
+- **No desktop ela era `static` e ia embora no scroll** — navegar exigia rolar
+  até o fim da página. Hoje é `fixed` em toda largura: o `nav` é a faixa, e
+  quem desenha a cápsula é o `ul`.
+- **A cápsula tem `w-fit`, não `max-w-3xl`.** Com o sétimo destino o conteúdo
+  passou dos 768px e vazava pra fora do arredondado — o "Chat" ficava do lado
+  de fora e o item ativo estourava pela esquerda.
+- **Os rótulos do desktop são curtos por requisito, não por estilo:** como a
+  pílula cresce com o conteúdo, "Preço Teto" e "Calculadoras" empurravam a
+  largura além da tela. "Teto" e "Contas" já eram as abreviações de antes.
+- **`short` é o rótulo do celular**: a 375px sobram ~51px por item e
+  "Carteira"/"Proventos" não cabem em uma linha — um rótulo quebrando desalinha
+  a barra inteira. Conferido em iframe de 375px: sete rótulos em uma linha,
+  `scrollWidth === clientWidth`.
+- **A folga da barra mora no `<footer>` do layout**, não em cada página: o
+  rodapé é o último elemento do documento em todas elas, e sem o `pb-28` o
+  aviso educacional nascia embaixo da barra.
+
 ## Pendências conhecidas
+
+- **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
+  desktop mais iframe de 375px, nos dois temas.
+- **O casamento de ticker é só pelo CÓDIGO, nunca pelo nome da empresa.**
+  Matéria que diz "Petrobras" sem escrever PETR4 não entra no filtro "meus
+  ativos". Casar por nome exigiria derivar a marca da razão social da CVM
+  ("PETROLEO BRASILEIRO S.A. PETROBRAS", "BCO BRADESCO S.A."), e o token mais
+  longo dela é "BRASILEIRO" — que casaria com "mercado brasileiro". Falso
+  positivo aqui é pior que ausência.
+- **Nenhuma fonte de notícia tem contrato.** São feeds RSS públicos, e um
+  portal pode fechar, mudar de caminho ou parar de responder sem aviso. A tela
+  degrada (o feed some da rodada, os outros seguem), mas ninguém é avisado —
+  não há alerta, só `console.error`.
 
 - **O PWA instalado continua com casca escura no tema claro.** `manifest.ts`
   tem `theme_color`/`background_color` fixos (a splash) e o

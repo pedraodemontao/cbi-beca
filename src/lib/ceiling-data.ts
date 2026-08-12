@@ -16,7 +16,8 @@ import type {
  */
 const STALE_LISTING_DAYS = 10;
 
-function listedSince(): string {
+/** Exportada porque o casamento de ticker das notícias usa a mesma régua. */
+export function listedSince(): string {
   const threshold = new Date();
   threshold.setDate(threshold.getDate() - STALE_LISTING_DAYS);
   return threshold.toISOString();

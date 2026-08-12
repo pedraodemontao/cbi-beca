@@ -55,3 +55,62 @@ export function formatRatioSigned(value: number): string {
 export function formatQuantity(value: number): string {
   return quantityFormatter.format(value);
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
+
+const dayKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/**
+ * `AAAA-MM-DD` do instante, no fuso de Brasília.
+ *
+ * O `en-CA` é o atalho: é o único locale do `Intl` que já imprime nessa ordem,
+ * o que evita remontar a data a partir das partes. Serve pra comparar dias sem
+ * passar por `toISOString`, que devolveria o dia em UTC — e depois das 21h em
+ * São Paulo o dia UTC já virou.
+ */
+export function toDayKey(value: string | number | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return dayKeyFormatter.format(date);
+}
+
+/** Data e hora completas, no fuso de Brasília. */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+  return dateTimeFormatter.format(date);
+}
+
+/**
+ * "há 2 h", "há 3 d" — para lista de notícia, onde o que importa é a idade da
+ * matéria, não o carimbo exato.
+ *
+ * Recebe o instante de referência em vez de chamar `Date.now()` porque quem
+ * calcula é o servidor: se o client recalculasse na hidratação, o texto
+ * divergiria do que veio no HTML.
+ */
+export function formatRelativeTime(iso: string, now: number): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  const minutes = Math.round((now - date.getTime()) / 60_000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `há ${minutes} min`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+
+  const days = Math.round(hours / 24);
+  if (days < 7) return `há ${days} d`;
+
+  return formatDateTime(iso).split(',')[0];
+}

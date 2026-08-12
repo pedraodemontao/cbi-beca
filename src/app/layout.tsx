@@ -78,7 +78,11 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         <AppTopBar />
         {children}
-        <footer className="px-5 py-6 text-center text-xs text-muted-foreground">
+        {/* O `pb-28` é a folga da barra de navegação, que é fixa em toda
+            largura de tela: sem ele o aviso nasce embaixo dela. Fica aqui, e
+            não em cada página, porque o rodapé é o último elemento do
+            documento em todas elas. */}
+        <footer className="px-5 pb-28 pt-6 text-center text-xs text-muted-foreground">
           ⚠️ Conteúdo educacional. Não constitui recomendação de compra ou
           venda de ativos.
         </footer>

@@ -9,6 +9,7 @@ import {
   type HistoricalRange,
 } from '@/lib/brapi';
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
+import { fetchAssetNews } from '@/lib/news';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { InfoNote } from '@/components/shared/info-note';
 import { AssetLogo } from '@/components/shared/asset-logo';
@@ -17,6 +18,7 @@ import { PriceChart } from '@/components/ativo/price-chart';
 import { CeilingCard } from '@/components/ativo/ceiling-card';
 import { Fundamentals } from '@/components/ativo/fundamentals';
 import { DividendsHistory } from '@/components/ativo/dividends-history';
+import { AssetNews } from '@/components/ativo/asset-news';
 import type { AssetType, PositionRow } from '@/types/portfolio';
 
 const RANGE: HistoricalRange = '3mo';
@@ -49,15 +51,23 @@ export default async function AtivoPage({
   const positions = (rows ?? []) as PositionRow[];
   const assetType: AssetType = positions[0]?.asset_type ?? 'stock';
 
-  const [quotes, statistics, history, dividends, ceilingAssets, overrides] =
-    await Promise.all([
-      getQuote([ticker]),
-      getStatistics(ticker),
-      getHistorical(ticker, RANGE),
-      getDividends(ticker, assetType),
-      fetchCeilingAssets(supabase, { tickers: [ticker] }),
-      fetchAppliedOverrides(supabase),
-    ]);
+  const [
+    quotes,
+    statistics,
+    history,
+    dividends,
+    ceilingAssets,
+    overrides,
+    news,
+  ] = await Promise.all([
+    getQuote([ticker]),
+    getStatistics(ticker),
+    getHistorical(ticker, RANGE),
+    getDividends(ticker, assetType),
+    fetchCeilingAssets(supabase, { tickers: [ticker] }),
+    fetchAppliedOverrides(supabase),
+    fetchAssetNews(ticker),
+  ]);
 
   const ceilingAsset = ceilingAssets[0] ?? null;
 
@@ -200,6 +210,8 @@ export default async function AtivoPage({
         <Fundamentals statistics={statistics} />
 
         <DividendsHistory dividends={dividends} />
+
+        <AssetNews ticker={ticker} items={news} />
 
         <InfoNote title="Aviso">
           Os indicadores desta página descrevem resultados passados e a situação
