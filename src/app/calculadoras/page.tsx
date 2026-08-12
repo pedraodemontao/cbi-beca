@@ -30,7 +30,7 @@ export default async function CalculadorasPage() {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-5 pb-28 pt-8 sm:pb-8">
         <header>
           <h1 className="text-[clamp(1.9rem,6.5vw,2.4rem)] font-extrabold tracking-tight">
             Calculadoras
@@ -40,13 +40,20 @@ export default async function CalculadorasPage() {
           </p>
         </header>
 
-        <CompoundCalculator />
+        {/* Duas colunas a partir do desktop. Só alargar o container deixaria
+            quatro cartões empilhados com os campos esticados no meio de muito
+            branco — o que preenche a tela é pôr duas calculadoras lado a lado.
+            `items-start` impede que a mais curta da linha estique até a altura
+            da vizinha; elas têm alturas bem diferentes. */}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+          <CompoundCalculator />
 
-        <PassiveIncomeCalculator />
+          <PassiveIncomeCalculator />
 
-        <StockIncomeCalculator stocks={stocks} cdiYearlyPercent={cdiYearly} />
+          <StockIncomeCalculator stocks={stocks} cdiYearlyPercent={cdiYearly} />
 
-        <FiiIncomeCalculator funds={funds} />
+          <FiiIncomeCalculator funds={funds} />
+        </div>
 
         <InfoNote>
           As projeções assumem que as condições informadas se mantêm ao longo de

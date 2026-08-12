@@ -37,7 +37,7 @@ export default async function ChatPage() {
 
   return (
     <>
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 pb-28 pt-8 sm:pb-8">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-5 pb-28 pt-8 sm:pb-8">
         <header>
           <h1 className="text-[clamp(1.7rem,5.5vw,2.1rem)] font-extrabold tracking-tight">
             Assistente

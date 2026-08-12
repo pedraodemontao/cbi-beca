@@ -343,6 +343,21 @@ catálogo, 376 ações com balanço, 261 com provento, 280 FIIs com rendimento.
   colunas num container de 1024px a coluna de margem — que é a que decide tudo —
   ficava escondida no scroll horizontal.
 
+  **Corrigido em 2026-08-12:** esta linha estava certa na intenção e errada no
+  código — as outras telas eram todas `max-w-3xl` (768px), e num monitor de
+  1455px sobrava mais espaço vazio do que conteúdo. A Beca reclamou disso na
+  tela de calculadoras. Larguras hoje: `/preco-teto` 7xl; `/noticias` e
+  `/calculadoras` 6xl (as duas que são grade de coisas); o resto 5xl.
+- **Alargar o container não basta — o conteúdo precisa de mais colunas.** Nas
+  calculadoras, só esticar deixaria quatro cartões empilhados com os campos
+  largos no meio de muito branco; o que preenche a tela é a grade de duas
+  colunas a partir do `lg`, com `items-start` pra cartão curto não esticar até
+  a altura do vizinho. Nas notícias, o masonry ganhou uma quarta coluna no
+  `xl`. Carteira e resumo já tinham grade própria e só precisaram do espaço.
+- **O chat cresceu por fora e não por dentro.** O container foi pra 5xl junto
+  com o resto, mas o balão ganhou `sm:max-w-[38rem]`: 85% de 1024px daria
+  linha de ~140 caracteres. Interface acompanha a tela, texto para onde se lê.
+
 ### Feito além do roadmap (para a demo)
 
 - **Preço teto na página do ativo** (`components/ativo/ceiling-card.tsx`): os
@@ -895,8 +910,13 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
 - **Código:** `github.com/pedraodemontao/cbi-beca` (branch `main`). O repositório
   antigo `beca-carteira` tem só o commit inicial e ficou como `origin-antigo` —
   não é mais o lugar do projeto.
-- **Produção:** `beca-carteira.vercel.app`. O projeto na Vercel ainda se chama
-  `beca-carteira` por dentro; só o produto virou Central CBI.
+- **Produção:** `centralcbi.site` (domínio próprio, em uso desde 2026-08-12);
+  `beca-carteira.vercel.app` continua respondendo. O projeto na Vercel ainda se
+  chama `beca-carteira` por dentro; só o produto virou Central CBI.
+- **Produção e desenvolvimento apontam para o MESMO Supabase.** Não existe
+  banco de teste: o que a `.env.local` acessa é o banco de verdade, com os
+  dados de quem está usando o app. Antes de qualquer escrita fora da
+  interface, lembrar disso.
 - **Deploy sai de push na `main`.** Durante a construção os deploys foram por
   upload da CLI (`vercel deploy --prod`), o que deixou o repositório 17 commits
   atrás do que estava no ar. Com o Git conectado isso não acontece mais — mas se

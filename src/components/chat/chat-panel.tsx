@@ -85,7 +85,12 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
               className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] whitespace-pre-wrap rounded-card px-4 py-3 text-[0.97rem] shadow-soft ${
+                // O balão tem teto próprio porque a tela ficou mais larga e o
+                // texto não acompanha: 85% de 1024px daria linha de ~140
+                // caracteres, o dobro do que se lê sem perder a linha. O
+                // container cresce pra caber a interface; o texto para no
+                // ponto em que já estava.
+                className={`max-w-[85%] whitespace-pre-wrap rounded-card px-4 py-3 text-[0.97rem] shadow-soft sm:max-w-[38rem] ${
                   isUser
                     ? 'bg-primary font-medium text-primary-foreground'
                     : 'bg-surface font-medium text-foreground'

@@ -103,7 +103,7 @@ export function NewsFeed({
         // `gap-*` não vale em layout de colunas: o respiro entre cards é a
         // margem de cada um, e `break-inside-avoid` é o que impede um card de
         // ser cortado ao meio na virada da coluna.
-        <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 [column-fill:balance]">
+        <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4 [column-fill:balance]">
           {visible.map((item) => (
             <div key={item.id} className="mb-4 break-inside-avoid">
               <NewsCard
