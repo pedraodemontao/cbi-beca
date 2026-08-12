@@ -529,9 +529,17 @@ e o que foi feito:
 
 - **Rotacionar o `SUPABASE_ACCESS_TOKEN`**: ele está exportado no ambiente do
   shell, legível por qualquer processo local. É token de CONTA, não de projeto.
-- **`.mcp.json` está versionado com `read_only=false` e feature `account`.**
-  Token de conta mais escrita habilitada significa que qualquer coisa rodando
-  na máquina administra o projeto.
+- ~~**`.mcp.json` está versionado com `read_only=false` e feature `account`.**~~
+  Fechado em 2026-08-12: `read_only=true` e as features reduzidas a
+  `docs,database,debugging,development`. Saíram `account` (administração da
+  conta inteira, não só deste projeto), `branching` (cria e destrói branch de
+  banco, e custa) e `functions` — o projeto nunca teve edge function nem
+  branch, só as migrations em `supabase/migrations`. Aplicar migration passa a
+  ser pelo SQL Editor ou pela CLI, que é onde já estava documentado.
+  **Isso NÃO fecha o risco de verdade:** quem dá o poder é o
+  `SUPABASE_ACCESS_TOKEN` no ambiente do shell, e ele continua sendo token de
+  conta. A mudança limita o que ESTE servidor MCP pode fazer, não o que outro
+  processo na máquina consegue com o mesmo token.
 - **Proteção contra senha vazada** (HaveIBeenPwned) está desligada no Supabase.
   O mínimo do Zod subiu para 8 caracteres, mas a checagem é do painel.
 - **`syncDividends` continua apagando antes de inserir**, sem transação. O
