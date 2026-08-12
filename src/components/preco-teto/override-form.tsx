@@ -75,7 +75,7 @@ export function OverrideForm({
             <div className="flex flex-wrap gap-2">
               <ScopeOption
                 label="Todas as contas"
-                hint="publicado pela curadoria"
+                hint="publicado pela Beca"
                 checked={scope === 'global'}
                 onSelect={() => setScope('global')}
               />
@@ -132,9 +132,9 @@ export function OverrideForm({
         {isPublishing && (
           <p className="micro-hint">
             Ao salvar, este passa a ser o preço teto de {asset.ticker} exibido
-            em <strong>todas as contas</strong>, com o selo “ajuste da
-            curadoria”. Contas que já definiram ajuste próprio para esta empresa
-            mantêm o delas.
+            em <strong>todas as contas</strong>, com o selo “ajuste da Beca”.
+            Contas que já definiram ajuste próprio para esta empresa mantêm o
+            delas.
           </p>
         )}
 

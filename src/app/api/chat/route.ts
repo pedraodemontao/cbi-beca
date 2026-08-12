@@ -269,7 +269,7 @@ function buildCeilingContext(
         // falso pra quem nunca mexeu em nada, e o assistente repetiria isso.
         override
           ? override.isGlobal
-            ? ' — o payout ou o lucro desta empresa foi ajustado pela curadoria da plataforma e vale para todas as contas'
+            ? ' — o payout ou o lucro desta empresa foi ajustado pela Beca e vale para todas as contas'
             : ' — o usuário ajustou o payout ou o lucro desta empresa'
           : ''
       }`

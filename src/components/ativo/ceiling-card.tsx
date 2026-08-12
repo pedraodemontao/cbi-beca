@@ -76,11 +76,11 @@ export function CeilingCard({ asset, override, livePrice }: CeilingCardProps) {
       <p className="micro-hint">
         Preço máximo de compra para o rendimento anual desejado, considerando
         distribuição de {Math.round(payout * 100)}% do lucro
-        {/* O payout fora do padrão precisa de dono: com o ajuste da curadoria
+        {/* O payout fora do padrão precisa de dono: com o ajuste da Beca
             valendo pra todo mundo, a usuária vê um número diferente do de
             ontem sem ter mexido em nada. */}
         {override &&
-          (override.isGlobal ? ' — ajuste da curadoria' : ' — ajuste definido por você')}.
+          (override.isGlobal ? ' — ajuste da Beca' : ' — ajuste definido por você')}.
       </p>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 rounded-panel bg-primary-wash px-5 py-4">

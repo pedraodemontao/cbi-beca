@@ -1233,11 +1233,11 @@ function OverrideBadge({ isGlobal }: { isGlobal: boolean }) {
       className="inline-block rounded-full bg-primary-tint px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-primary-deep"
       title={
         isGlobal
-          ? 'A curadoria da plataforma ajustou o payout ou o lucro desta empresa para todas as contas.'
+          ? 'A Beca ajustou o payout ou o lucro desta empresa para todas as contas.'
           : 'Esta linha usa o payout e o lucro que você definiu.'
       }
     >
-      {isGlobal ? 'ajuste da curadoria' : 'seu ajuste'}
+      {isGlobal ? 'ajuste da Beca' : 'seu ajuste'}
     </span>
   );
 }

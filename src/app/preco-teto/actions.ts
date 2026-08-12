@@ -10,7 +10,7 @@ export interface CeilingOverrideActionState {
   success?: boolean;
 }
 
-const NOT_CURATOR = 'Apenas a curadoria pode publicar ajustes para todas as contas.';
+const NOT_CURATOR = 'Apenas a Beca pode publicar ajustes para todas as contas.';
 
 /**
  * Grava o payout e o lucro que se espera de uma empresa específica.
