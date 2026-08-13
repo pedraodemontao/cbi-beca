@@ -18,13 +18,24 @@
  *   3. É reversível sem perder nada — restaurar é uma chamada, e a carteira
  *      continua exatamente como estava.
  *
+ * Também redefine senha, que é o caminho de quem esqueceu a dela enquanto não
+ * houver SMTP próprio: o "Esqueci minha senha" depende de e-mail e o remetente
+ * embutido do Supabase manda 2 por hora.
+ *
  * Uso:
  *   node scripts/acesso.mjs listar
  *   node scripts/acesso.mjs revogar maria@exemplo.com [outra@exemplo.com ...]
  *   node scripts/acesso.mjs restaurar maria@exemplo.com
+ *   node scripts/acesso.mjs senha maria@exemplo.com              # gera uma nova
+ *   node scripts/acesso.mjs senha --nova <senha> maria@... [...] # define uma
  */
 
-import { adminRequest, findUserByEmail, listUsers } from './supabase-admin.mjs';
+import {
+  adminRequest,
+  findUserByEmail,
+  generatePassword,
+  listUsers,
+} from './supabase-admin.mjs';
 
 /**
  * Cem anos. O Supabase não tem banimento permanente — só duração —, então
@@ -101,17 +112,88 @@ async function alterarAcesso(emails, { revogar }) {
   }
 }
 
+/** Mínimo que o Supabase passou a exigir em 2026-08-13. */
+const MIN_SENHA = 8;
+
+/**
+ * Redefine a senha.
+ *
+ * Sem `--nova`, gera uma diferente para cada conta — é o comportamento certo
+ * para "esqueci a senha". Com `--nova`, todas recebem a MESMA, e aí o script
+ * avisa: quem tem a senha e conhece o e-mail da outra pessoa entra na conta
+ * dela, e os e-mails de uma turma são conhecidos entre si.
+ */
+async function comandoSenha(args) {
+  const flagIndex = args.indexOf('--nova');
+  const senhaFixa = flagIndex >= 0 ? args[flagIndex + 1] : null;
+  const emails = args.filter(
+    (arg, index) => index !== flagIndex && index !== flagIndex + 1 && !arg.startsWith('--')
+  );
+
+  if (flagIndex >= 0 && !senhaFixa) {
+    console.error('--nova precisa vir seguido da senha.');
+    process.exit(1);
+  }
+  if (senhaFixa && senhaFixa.length < MIN_SENHA) {
+    console.error(`A senha precisa de pelo menos ${MIN_SENHA} caracteres — o banco recusa menos que isso.`);
+    process.exit(1);
+  }
+  if (emails.length === 0) {
+    console.error('Informe pelo menos um e-mail.');
+    process.exit(1);
+  }
+
+  const definidas = [];
+
+  for (const email of emails) {
+    const user = await findUserByEmail(email);
+    if (!user) {
+      console.error(`  não encontrada  ${email}`);
+      continue;
+    }
+
+    const senha = senhaFixa ?? generatePassword();
+    const { ok, body } = await adminRequest(`admin/users/${user.id}`, {
+      method: 'PUT',
+      body: { password: senha },
+    });
+
+    if (ok) {
+      definidas.push({ email: user.email, senha });
+      console.log(`  senha trocada   ${user.email}`);
+    } else {
+      console.error(`  ERRO            ${email}: ${body.msg ?? body.message ?? 'falhou'}`);
+    }
+  }
+
+  if (definidas.length === 0) return;
+
+  if (senhaFixa) {
+    console.log(`\n${definidas.length} conta(s) com a MESMA senha.`);
+    console.log('Enquanto ninguém trocar, quem souber essa senha entra em qualquer');
+    console.log('uma dessas contas — basta saber o e-mail. Peça a troca em /conta.');
+  } else {
+    console.log('\nSenhas geradas (entregue e não guarde):');
+    for (const item of definidas) console.log(`  ${item.email.padEnd(38)} ${item.senha}`);
+  }
+
+  console.log('\nA senha anterior para de valer imediatamente.');
+}
+
 async function main() {
   const [comando, ...args] = process.argv.slice(2);
 
   if (comando === 'listar') return comandoListar();
   if (comando === 'revogar') return alterarAcesso(args, { revogar: true });
   if (comando === 'restaurar') return alterarAcesso(args, { revogar: false });
+  if (comando === 'senha') return comandoSenha(args);
 
   console.error('Uso:');
   console.error('  node scripts/acesso.mjs listar');
   console.error('  node scripts/acesso.mjs revogar <email> [email ...]');
   console.error('  node scripts/acesso.mjs restaurar <email> [email ...]');
+  console.error('  node scripts/acesso.mjs senha <email> [email ...]');
+  console.error('  node scripts/acesso.mjs senha --nova <senha> <email> [email ...]');
   process.exit(1);
 }
 

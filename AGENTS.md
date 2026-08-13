@@ -1193,7 +1193,17 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
   node scripts/acesso.mjs listar                      # quem tem acesso, quem foi revogada
   node scripts/acesso.mjs revogar maria@exemplo.com   # derruba a sessão na hora
   node scripts/acesso.mjs restaurar maria@exemplo.com
+  node scripts/acesso.mjs senha maria@exemplo.com     # gera e imprime uma nova
+  node scripts/acesso.mjs senha --nova <senha> a@x b@x  # define a MESMA em várias
   ```
+
+  `senha` é o caminho de quem esqueceu a dela enquanto não houver SMTP: o
+  "Esqueci minha senha" depende de e-mail, e o remetente embutido manda 2 por
+  hora. Sem `--nova` cada conta recebe uma senha diferente, que é o certo para
+  esse caso. **`--nova` dá a MESMA senha para todas**, e aí o script avisa: quem
+  souber a senha entra em qualquer uma dessas contas, bastando saber o e-mail —
+  e numa turma os e-mails são conhecidos entre si. Só faz sentido como senha de
+  primeiro acesso, com a troca em `/conta` pedida junto.
 
   `turma.txt` é `email` ou `email,Nome Sobrenome` por linha. O CSV de senhas
   sai com modo 0600 e está no `.gitignore`: entregar e apagar.

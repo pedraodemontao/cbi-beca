@@ -25,24 +25,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { randomInt } from 'node:crypto';
-import { adminRequest } from './supabase-admin.mjs';
-
-/**
- * Alfabeto sem os caracteres que se confundem lidos em voz alta ou copiados de
- * um print: O/0, I/l/1. A senha provisória vai ser digitada à mão por alguém
- * lendo de outra tela.
- */
-const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-const PASSWORD_LENGTH = 12;
-
-function generatePassword() {
-  let password = '';
-  for (let index = 0; index < PASSWORD_LENGTH; index++) {
-    password += ALPHABET[randomInt(ALPHABET.length)];
-  }
-  return password;
-}
+import { adminRequest, generatePassword } from './supabase-admin.mjs';
 
 function parseRoster(path) {
   const lines = readFileSync(path, 'utf8').split('\n');

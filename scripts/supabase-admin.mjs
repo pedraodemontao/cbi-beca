@@ -10,6 +10,23 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { randomInt } from 'node:crypto';
+
+/**
+ * Alfabeto sem os caracteres que se confundem lidos em voz alta ou copiados de
+ * um print: O/0, I/l/1. A senha provisória vai ser digitada à mão por alguém
+ * lendo de outra tela.
+ */
+const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+const PASSWORD_LENGTH = 12;
+
+export function generatePassword() {
+  let password = '';
+  for (let index = 0; index < PASSWORD_LENGTH; index++) {
+    password += ALPHABET[randomInt(ALPHABET.length)];
+  }
+  return password;
+}
 
 export function requireEnv(name) {
   const value = process.env[name];
