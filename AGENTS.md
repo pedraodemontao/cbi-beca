@@ -546,6 +546,20 @@ e o que foi feito:
 
 - **Rotacionar o `SUPABASE_ACCESS_TOKEN`**: ele está exportado no ambiente do
   shell, legível por qualquer processo local. É token de CONTA, não de projeto.
+  Foi usado em 2026-08-13 para corrigir `site_url` pela Management API — o que
+  reforça o ponto, não o enfraquece: qualquer processo na máquina consegue
+  reconfigurar a autenticação do projeto inteiro.
+- **SMTP próprio é o que falta para o acesso ficar autossuficiente.** Sem ele:
+  cadastro por conta própria não escala (2 e-mails/hora), recuperação de senha
+  é frágil pelo mesmo motivo, e os e-mails continuam em inglês (o plano free
+  recusa editar template sem SMTP). Enquanto isso, quem cria conta é o script.
+- **Não existe suspensão de acesso.** Só criar conta e apagar conta. Quando o
+  webhook da Kiwify entrar, reembolso e chargeback precisam de um caminho de
+  revogar — e apagar a conta leva junto a carteira e os ajustes da aluna, o que
+  é destrutivo demais para um estorno. Provavelmente pede uma coluna de estado
+  em `profiles` mais checagem no proxy.
+- **O webhook da Kiwify ainda não existe.** Enquanto isso, quem cria conta é
+  `scripts/criar-alunos.mjs`, rodado à mão.
 - ~~**`.mcp.json` está versionado com `read_only=false` e feature `account`.**~~
   Fechado em 2026-08-12: `read_only=true` e as features reduzidas a
   `docs,database,debugging,development`. Saíram `account` (administração da
@@ -940,6 +954,90 @@ aporte em cada um. Referência foi outro HTML avulso da Beca.
 - **Entra pelas calculadoras, não pela barra de navegação.** Com oito destinos
   sobram ~45px por item a 375px e um nono deixaria menos do que o rótulo
   "Notícias" ocupa. `/calculadoras` é a tela de ferramentas, que é o que ele é.
+
+## Caminho de acesso, para receber alunas (2026-08-13)
+
+Auditoria antes de abrir a plataforma. **O login estava quebrado para qualquer
+conta nova**, e a causa não estava no código: `site_url` do projeto Supabase era
+`http://localhost:3000`, então o link de confirmação de todo e-mail mandava a
+pessoa para a máquina dela. `uri_allow_list` estava vazia. Ninguém tinha
+percebido porque só existia uma conta, criada antes de a confirmação importar.
+
+- **Config aplicada pela Management API em 2026-08-13:** `site_url` →
+  `https://centralcbi.site`, `uri_allow_list` → os três domínios que respondem
+  (produção, vercel.app e localhost), `password_min_length` 6 → 8. O mínimo de 8
+  já era o do Zod; com o banco em 6, senha aceita pelo painel era recusada pelo
+  formulário sem explicação.
+- **O plano gratuito recusa duas coisas que foram tentadas:** traduzir os
+  templates de e-mail (HTTP 400 — exige SMTP próprio) e ligar a proteção contra
+  senha vazada (HTTP 402 — exige Pro). Os e-mails continuam em inglês.
+- **`rate_limit_email_sent` é 2 POR HORA e `smtp_host` é nulo.** O remetente
+  embutido do Supabase é declaradamente de teste. É por isso que cadastro por
+  conta própria não escala para turma: da terceira aluna da hora em diante o
+  e-mail não sai.
+- **`scripts/criar-alunos.mjs` é a saída disso.** Cria as contas em lote pelo
+  admin API já com `email_confirm: true` — nenhum e-mail é disparado e a aluna
+  entra na hora com uma senha provisória de 12 caracteres. Reexecutar é seguro:
+  quem já existe é PULADA, nunca sobrescrita, senão rodar de novo trocaria a
+  senha de quem já escolheu a dela. O alfabeto da senha não tem `O/0` nem
+  `I/l/1` — ela vai ser lida de uma tela e digitada em outra.
+- **O CSV de senhas sai com modo 0600 e entrou no `.gitignore`.** É credencial
+  em texto puro: entregar e apagar.
+- **`/conta` existe por causa da senha provisória.** É o único caminho de troca
+  que NÃO depende de e-mail, e é o que fecha o ciclo do onboarding em lote. O
+  link mora ao lado de "Sair" no `AppHeader` porque a aluna não pode precisar
+  adivinhar a URL.
+- **`/recuperar` + `/nova-senha` fecham o fluxo por e-mail**, mas dependem do
+  limite de 2/hora enquanto não houver SMTP. O pedido responde a MESMA coisa
+  para e-mail existente e inexistente — resposta diferente transformaria o
+  formulário em consulta de quem tem conta.
+- **`/auth/confirm` ganhou `next`**, que é o que separa confirmação de cadastro
+  (vai pra carteira) de redefinição de senha (vai pro formulário). O valor é
+  validado: só caminho relativo com uma barra. Sem isso, `?next=https://…`
+  faria a rota virar redirecionador aberto, levando pra fora alguém que acabou
+  de se autenticar — e a partir de um domínio confiável.
+- **`/recuperar` entrou na allowlist do proxy; `/nova-senha` NÃO.** Quem chega
+  na segunda vem do link, que passa antes por `/auth/confirm` e já sai com
+  sessão. Deixá-la pública abriria um formulário de trocar senha pra quem não
+  provou ser dona da conta.
+- **A mensagem de erro de confirmação estava truncada** desde sempre: "Tente
+  fazer login; se o acesso cria a conta de novo." Faltava pedaço, e ela aparece
+  exatamente na tela em que a aluna cai quando o link falha.
+### A plataforma é fechada: acesso só por autorização
+
+Decisão da mesma data. Não existe cadastro aberto — só entram os e-mails que nós
+liberamos. Hoje pelo script; o plano é liberar pelo **webhook da Kiwify**, com a
+compra virando conta.
+
+- **`disable_signup: true` no projeto Supabase.** É o servidor que fecha a
+  porta, não a interface: `POST /auth/v1/signup` responde 422 "Signups not
+  allowed for this instance" mesmo chamado direto, sem passar pela tela.
+- **O admin API NÃO é afetado por isso**, e é o que faz o modelo funcionar:
+  verificado em 2026-08-13 que `POST /auth/v1/admin/users` continua criando
+  conta com `disable_signup` ligado, e que a conta criada loga normalmente. É
+  por aí que o script entra, e é por aí que o webhook vai entrar.
+- **A action de cadastro e o `signupSchema` foram REMOVIDOS**, não desativados.
+  Com o servidor recusando `signUp()` por definição, deixá-los seria um caminho
+  que só produz erro em inglês depois de a pessoa preencher o formulário.
+- **`/cadastro` continua existindo, sem formulário.** A URL já circulou; quem
+  chegar por link antigo precisa entender por que não consegue se cadastrar, em
+  vez de bater num 404. O link no login virou "Ainda não tem acesso? Como
+  conseguir".
+- **Quando o webhook da Kiwify entrar**, o que ele precisa fazer é o que o
+  script já faz: `admin/users` com `email_confirm: true`, senha gerada,
+  `display_name` no `user_metadata` (o gatilho de perfil lê de lá). O que ele
+  precisa a MAIS e o script não tem: validar a assinatura do webhook, ser
+  idempotente (a Kiwify reenvia), e tratar reembolso/chargeback — que é o
+  caminho inverso e ainda não existe no app (não há como suspender acesso hoje,
+  só apagar a conta).
+
+- **Verificado ponta a ponta em 2026-08-13** com uma conta descartável, depois
+  apagada: login com a provisória, troca em `/conta`, senha antiga recusada
+  (HTTP 400), senha nova aceita, senha de 7 caracteres recusada pelo BANCO
+  (HTTP 422, "Password should be at least 8 characters") — ou seja, o novo
+  mínimo está valendo do lado do servidor, não só no formulário. O gatilho de
+  perfil preenche `display_name` a partir do `user_metadata` e nasce com
+  `is_curator` false.
 
 ## Pendências conhecidas
 

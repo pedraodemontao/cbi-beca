@@ -5,14 +5,36 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Informe a senha'),
 });
 
-export const signupSchema = z.object({
-  displayName: z.string().trim().min(2, 'Informe o nome'),
+/*
+ * Não há schema de cadastro: a plataforma não tem cadastro aberto. Nome e
+ * e-mail da aluna entram pelo admin API, e a senha provisória é gerada, nunca
+ * digitada — ver `scripts/criar-alunos.mjs`.
+ */
+
+export const passwordResetRequestSchema = z.object({
   email: z.email('E-mail inválido'),
-  password: z.string().min(8, 'A senha precisa de pelo menos 8 caracteres'),
 });
 
+/**
+ * Nova senha, com confirmação.
+ *
+ * O mínimo de 8 é o mesmo do cadastro E o mesmo que o Supabase passou a exigir
+ * em 2026-08-13 (`password_min_length`, que estava em 6). Os dois lados
+ * precisam concordar: com o banco em 6 e o formulário em 8, uma senha aceita
+ * pelo painel era recusada aqui sem explicação.
+ */
+export const newPasswordSchema = z
+  .object({
+    password: z.string().min(8, 'A senha precisa de pelo menos 8 caracteres'),
+    passwordConfirmation: z.string(),
+  })
+  .refine((data) => data.password === data.passwordConfirmation, {
+    message: 'As senhas não são iguais',
+    path: ['passwordConfirmation'],
+  });
+
 export type LoginFormData = z.infer<typeof loginSchema>;
-export type SignupFormData = z.infer<typeof signupSchema>;
+export type NewPasswordFormData = z.infer<typeof newPasswordSchema>;
 
 export const positionFormSchema = z.object({
   ticker: z

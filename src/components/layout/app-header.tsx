@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { signOut } from '@/app/(auth)/actions';
 
 interface AppHeaderProps {
@@ -18,11 +19,19 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
           {subtitle}
         </p>
       </div>
-      <form action={signOut}>
-        <button type="submit" className="btn-ghost mt-1 flex-none">
-          Sair
-        </button>
-      </form>
+      {/* "Conta" mora ao lado de "Sair" porque é o único caminho para trocar a
+          senha provisória do primeiro acesso, e ele não pode depender de a
+          aluna adivinhar a URL. */}
+      <div className="mt-1 flex flex-none items-center gap-2">
+        <Link href="/conta" className="btn-ghost">
+          Conta
+        </Link>
+        <form action={signOut}>
+          <button type="submit" className="btn-ghost">
+            Sair
+          </button>
+        </form>
+      </div>
     </header>
   );
 }

@@ -17,8 +17,9 @@ export function LoginForm({ confirmError }: LoginFormProps) {
     <div className="flex flex-col gap-5">
       {confirmError && (
         <p className="rounded-panel bg-accent px-4 py-3 text-sm font-medium text-accent-text">
-          Não foi possível confirmar o e-mail. Tente fazer login; se o acesso
-          cria a conta de novo.
+          Não foi possível confirmar o e-mail — o link pode ter expirado ou já
+          ter sido usado. Tente entrar abaixo; se não funcionar, peça um novo
+          link em &quot;Esqueci minha senha&quot;.
         </p>
       )}
 
@@ -55,9 +56,18 @@ export function LoginForm({ confirmError }: LoginFormProps) {
       </form>
 
       <p className="text-center text-sm font-medium text-muted-foreground">
-        Não tem conta?{' '}
+        <Link href="/recuperar" className="font-bold text-primary underline">
+          Esqueci minha senha
+        </Link>
+      </p>
+
+      {/* Não existe "Criar conta": o acesso é liberado por autorização. O link
+          leva à explicação de como conseguir, não a um formulário que o
+          servidor recusaria. */}
+      <p className="text-center text-sm font-medium text-muted-foreground">
+        Ainda não tem acesso?{' '}
         <Link href="/cadastro" className="font-bold text-primary underline">
-          Criar conta
+          Como conseguir
         </Link>
       </p>
     </div>

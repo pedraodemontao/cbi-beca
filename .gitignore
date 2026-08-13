@@ -42,3 +42,6 @@ next-env.d.ts
 
 # scripts temporários de manutenção (podem conter service role key)
 .tmp-*
+
+# senhas provisórias das alunas, geradas por scripts/criar-alunos.mjs
+senhas-provisorias-*.csv

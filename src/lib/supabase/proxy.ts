@@ -44,8 +44,15 @@ export async function updateSession(request: NextRequest) {
   return supabaseResponse;
 }
 
-/** Rotas que existem justamente para quem ainda não tem sessão. */
-const PUBLIC_PREFIXES = ['/login', '/cadastro', '/auth', '/api/cron'];
+/**
+ * Rotas que existem justamente para quem ainda não tem sessão.
+ *
+ * `/nova-senha` NÃO entra aqui de propósito: quem chega nela vem do link do
+ * e-mail, que passa antes por `/auth/confirm` e já sai de lá com sessão. Deixá-la
+ * pública abriria um formulário de trocar senha para quem não provou ser dona
+ * da conta.
+ */
+const PUBLIC_PREFIXES = ['/login', '/cadastro', '/recuperar', '/auth', '/api/cron'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(
