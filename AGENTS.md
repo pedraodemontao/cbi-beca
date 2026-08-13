@@ -867,6 +867,26 @@ régua de 0 a 100. Referência que a Beca mandou foi um HTML avulso chamado
   um app de investimento abrindo com sinal de compra inventado, atrás de um selo
   discreto de "demonstração". Aqui a fonte falha em `null` e a tela diz que o
   dado está indisponível.
+- **Esse dado falso já gerou um "nosso radar está errado", e vai gerar de
+  novo.** Em 13/08/2026 a referência mostrava "✅ Boa Oportunidade" em verde
+  enquanto a nossa tela dizia 50,9% · Condição Neutra, e a conclusão natural foi
+  que a nossa estava quebrada. **Estava certa.** O `CSV_URL` do HTML continua
+  vazio, então ele roda `generateDemoSeries()` e sorteia o resultado entre 15% e
+  23% a cada carregamento — seis reloads seguidos deram 21,5 / 22,7 / 22,2 /
+  22,1 / 19,8 / 21,2%, com o "IBOV" variando de 150.426 a 166.342 no mesmo dia.
+  **Como conferir em 5 segundos, sem abrir código:** recarregar a página; se o
+  número muda, é sorteio. A janela dela é a MESMA (`LOOKBACK_DAYS: 252`) e a
+  fórmula é idêntica — com planilha conectada ela daria exatamente o nosso
+  número. Nunca calibrar o radar por comparação com ela.
+- **A régua de 252 pregões foi reconfirmada em 2026-08-13**, com o número de
+  cada alternativa medido: 6 meses dava 0,0% (Extrema Oportunidade), 9 meses
+  34,2% (Boa Oportunidade), 12 meses 50,9% (Neutra). O caso é instrutivo porque
+  as três leituras são honestas e a intuição de mercado estava certa — o índice
+  fechou o dia na mínima de 6 meses, caindo 4,81% em 5 pregões. O que segurava o
+  número no meio era a mínima de **19/08/2025** (134.432 pts), ainda dentro da
+  janela por 6 pregões. **Janela curta satura nos extremos** (bate 0% e 100% o
+  tempo todo, porque o fechamento do dia vira a própria mínima ou máxima), e é
+  isso que a de 52 semanas evita.
 - **Rótulos e cores seguem a referência, e o radar é a ÚNICA tela onde verde
   não quer dizer "subiu"** (decidido em 2026-08-13, revertendo a direção de
   origem). As faixas são 🔥 Extrema Oportunidade, ✅ Boa Oportunidade,
