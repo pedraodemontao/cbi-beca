@@ -965,10 +965,23 @@ pessoa para a máquina dela. `uri_allow_list` estava vazia. Ninguém tinha
 percebido porque só existia uma conta, criada antes de a confirmação importar.
 
 - **Config aplicada pela Management API em 2026-08-13:** `site_url` →
-  `https://centralcbi.site`, `uri_allow_list` → os três domínios que respondem
-  (produção, vercel.app e localhost), `password_min_length` 6 → 8. O mínimo de 8
-  já era o do Zod; com o banco em 6, senha aceita pelo painel era recusada pelo
-  formulário sem explicação.
+  `https://www.centralcbi.site`, `uri_allow_list` → os domínios que respondem
+  (www, apex, vercel.app e localhost), `password_min_length` 6 → 8. O mínimo de
+  8 já era o do Zod; com o banco em 6, senha aceita pelo painel era recusada
+  pelo formulário sem explicação.
+- **O domínio canônico é `www.centralcbi.site`, não o apex.** O apex responde
+  308 pro www, e isso quebrava a recuperação de senha em silêncio: o
+  `redirectTo` que a action monta a partir do cabeçalho `Host` saía como
+  `https://www.centralcbi.site/auth/confirm?next=/nova-senha`, o Supabase não
+  achava esse domínio na allow list e **substituía pelo `site_url` sem avisar**
+  — o link do e-mail levava pra home, sem o `/auth/confirm` e sem o `next`. A
+  aluna clicaria em "redefinir senha" e cairia numa tela qualquer.
+- **`POST /auth/v1/admin/generate_link` é como se testa isso sem enviar
+  e-mail**: devolve o link que iria na mensagem, com o `redirect_to` já
+  resolvido. Foi assim que o defeito acima apareceu, e assim que a correção foi
+  conferida. Confirmado no mesmo teste que destino fora da allow list é
+  recusado e cai no `site_url` — a lista é o que impede o link de um domínio
+  confiável apontar pra fora.
 - **O plano gratuito recusa duas coisas que foram tentadas:** traduzir os
   templates de e-mail (HTTP 400 — exige SMTP próprio) e ligar a proteção contra
   senha vazada (HTTP 402 — exige Pro). Os e-mails continuam em inglês.
