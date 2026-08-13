@@ -126,8 +126,14 @@ const MIN_SENHA = 8;
 async function comandoSenha(args) {
   const flagIndex = args.indexOf('--nova');
   const senhaFixa = flagIndex >= 0 ? args[flagIndex + 1] : null;
+  // O guarda `flagIndex >= 0` não é decoração: sem `--nova` o índice é -1, e
+  // `index !== flagIndex + 1` vira `index !== 0` — que descartava o primeiro
+  // e-mail da lista. Com um e-mail só sobrava zero, e o script recusava dizendo
+  // que nenhum foi informado; com vários, comia o primeiro sem avisar.
   const emails = args.filter(
-    (arg, index) => index !== flagIndex && index !== flagIndex + 1 && !arg.startsWith('--')
+    (arg, index) =>
+      !arg.startsWith('--') &&
+      (flagIndex < 0 || (index !== flagIndex && index !== flagIndex + 1))
   );
 
   if (flagIndex >= 0 && !senhaFixa) {
