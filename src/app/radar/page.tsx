@@ -98,7 +98,9 @@ export default async function RadarPage() {
                     <span className="num text-xs font-bold text-muted-foreground">
                       {band.range}
                     </span>
-                    <p className="text-sm font-extrabold">{band.label}</p>
+                    <p className="text-sm font-extrabold">
+                      <span aria-hidden="true">{band.emoji}</span> {band.label}
+                    </p>
                     <p className="mt-1 text-xs font-medium text-muted-foreground">
                       {band.hint}
                     </p>
@@ -132,10 +134,11 @@ export default async function RadarPage() {
             </section>
 
             <InfoNote title="Aviso">
-              A posição na faixa descreve o que já aconteceu com o preço e não
-              antecipa o que vem depois. Índice perto da mínima ou da máxima não
-              é indicação de compra nem de venda: a plataforma não recomenda
-              operações.
+              Os rótulos das faixas nomeiam onde o preço fechou dentro da
+              própria faixa de 12 meses — nada além disso entra na conta. Eles
+              descrevem o que já aconteceu e não antecipam o que vem depois, nem
+              constituem recomendação de compra ou venda: a decisão é sempre de
+              quem investe.
             </InfoNote>
           </>
         )}
@@ -162,7 +165,9 @@ function CurrentReading({
       <p className="num text-4xl font-extrabold tracking-tight">
         {reading.current.position.toFixed(1)}%
       </p>
-      <p className="text-base font-extrabold">{band.label}</p>
+      <p className="text-base font-extrabold">
+        <span aria-hidden="true">{band.emoji}</span> {band.label}
+      </p>
       <p className="micro-hint mt-1">{band.hint}</p>
 
       <dl className="num mt-4 flex flex-col gap-2 rounded-panel bg-panel px-4 py-3 text-sm">

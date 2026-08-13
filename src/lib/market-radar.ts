@@ -7,7 +7,9 @@
  *
  * Isso é POSIÇÃO DE PREÇO, não previsão e não avaliação: não entra lucro,
  * múltiplo nem fundamento. Serve pra situar o índice na própria história
- * recente, e é por isso que a tela nunca traduz um extremo em ação.
+ * recente. Os rótulos das faixas nomeiam essa posição em linguagem de
+ * oportunidade (ver `RADAR_BANDS`), mas o número por trás continua sendo só o
+ * fechamento medido contra a faixa — nenhum deles é ordem de compra ou venda.
  *
  * 100% função pura — sem rede e sem banco, como `ceiling-price.ts`. Quem busca
  * o dado é `lib/yahoo.ts`.
@@ -31,6 +33,12 @@ export interface RadarBand {
   /** Limite superior EXCLUSIVO da faixa, em 0-100. */
   max: number;
   label: string;
+  /**
+   * Ícone do rótulo. Vive separado do `label` porque o `label` também alimenta
+   * o `aria-label` do gauge, e leitor de tela anunciando "fogo" antes do nome
+   * da faixa atrapalha. Na tela ele entra como decoração (`aria-hidden`).
+   */
+  emoji: string;
   hint: string;
   /**
    * Token de cor, nunca hex: a tela tem tema claro e escuro, e um verde que
@@ -41,41 +49,43 @@ export interface RadarBand {
 }
 
 /**
- * As cores seguem a semântica de mercado que o resto do app já ensina: verde é
- * alta, coral é queda.
+ * A escala é de OPORTUNIDADE, e por isso corre ao contrário da semântica de
+ * alta e queda do resto do app: verde no fundo da faixa, vermelho no topo.
  *
- * A referência que originou esta tela fazia o contrário — pintava a mínima de
- * verde, porque lia "perto do fundo" como oportunidade de compra. Duas coisas
- * impedem isso aqui. A primeira é que o produto não recomenda comprar nem
- * vender, e uma cor de aprovação sobre a mínima é uma recomendação sem texto.
- * A segunda é que verde já significa "subiu" em toda posição da carteira:
- * pintar de verde um índice na mínima do ano ensinaria a usuária o oposto do
- * que ela lê nas outras telas.
+ * Isso foi decidido em 2026-08-13, seguindo a referência que originou a tela, e
+ * REVERTE a direção anterior (rótulos que só descreviam posição — "Fundo da
+ * faixa", "Topo da faixa" — pintados com verde = subiu). O custo é conhecido e
+ * assumido: verde aqui significa "índice barato dentro da própria faixa",
+ * enquanto verde em toda posição da carteira significa "subiu". As duas
+ * leituras convivem no mesmo app.
  *
- * Estar no topo da faixa não é bom nem ruim — é o fato de ter subido. O
- * julgamento fica fora, que é onde ele tem que ficar.
+ * O que a inversão NÃO muda: o `hint` de cada faixa continua sendo o fato
+ * medido, e não o juízo. É ele que ancora o rótulo no dado.
  */
 export const RADAR_BANDS: RadarBand[] = [
   {
     key: 'bottom',
     max: 20,
-    label: 'Fundo da faixa',
+    label: 'Extrema Oportunidade',
+    emoji: '🔥',
     range: '0–20%',
-    color: 'var(--negative-deep)',
+    color: 'var(--positive-deep)',
     hint: 'O índice fechou perto da mínima dos últimos 12 meses.',
   },
   {
     key: 'low',
     max: 40,
-    label: 'Parte baixa',
+    label: 'Boa Oportunidade',
+    emoji: '✅',
     range: '20–40%',
-    color: 'var(--negative)',
+    color: 'var(--positive)',
     hint: 'Fechamento na metade inferior da faixa de 12 meses.',
   },
   {
     key: 'middle',
     max: 60,
-    label: 'Centro da faixa',
+    label: 'Condição Neutra',
+    emoji: '⚖️',
     range: '40–60%',
     color: 'var(--muted-fg)',
     hint: 'Fechamento próximo ao meio da faixa de 12 meses.',
@@ -83,17 +93,19 @@ export const RADAR_BANDS: RadarBand[] = [
   {
     key: 'high',
     max: 80,
-    label: 'Parte alta',
+    label: 'Momento de Cautela',
+    emoji: '⚠️',
     range: '60–80%',
-    color: 'var(--positive)',
+    color: 'var(--negative)',
     hint: 'Fechamento na metade superior da faixa de 12 meses.',
   },
   {
     key: 'top',
     max: Infinity,
-    label: 'Topo da faixa',
+    label: 'Risco Máximo',
+    emoji: '💀',
     range: '80–100%',
-    color: 'var(--positive-deep)',
+    color: 'var(--negative-deep)',
     hint: 'O índice fechou perto da máxima dos últimos 12 meses.',
   },
 ];

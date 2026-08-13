@@ -867,16 +867,27 @@ régua de 0 a 100. Referência que a Beca mandou foi um HTML avulso chamado
   um app de investimento abrindo com sinal de compra inventado, atrás de um selo
   discreto de "demonstração". Aqui a fonte falha em `null` e a tela diz que o
   dado está indisponível.
-- **As cores seguem a semântica do app: verde é alta, coral é queda** — o
-  INVERSO da referência, que pintava a mínima de verde por ler fundo de faixa
-  como oportunidade de compra. Duas razões: o produto não recomenda operação, e
-  cor de aprovação sobre a mínima é recomendação sem texto; e verde já significa
-  "subiu" em toda posição da carteira, então verde na mínima do ano ensinaria o
-  oposto das outras telas. Estar no topo não é bom nem ruim — é ter subido.
-- **Os rótulos das faixas descrevem posição, não ação:** "Fundo da faixa",
-  "Parte baixa", "Centro da faixa", "Parte alta", "Topo da faixa". A referência
-  usava "Extrema Oportunidade" e "💀 Risco Máximo", que são compra e venda
-  escritas por extenso.
+- **Rótulos e cores seguem a referência, e o radar é a ÚNICA tela onde verde
+  não quer dizer "subiu"** (decidido em 2026-08-13, revertendo a direção de
+  origem). As faixas são 🔥 Extrema Oportunidade, ✅ Boa Oportunidade,
+  ⚖️ Condição Neutra, ⚠️ Momento de Cautela e 💀 Risco Máximo, com verde no
+  fundo e vermelho no topo. A direção anterior descrevia só posição ("Fundo da
+  faixa", "Topo da faixa") pintada com verde = alta, por dois motivos que
+  continuam verdadeiros e viraram custo assumido: cor de aprovação sobre a
+  mínima é recomendação sem texto, e verde significa "subiu" em toda posição da
+  carteira. **Trocar um sem o outro produz o pior dos dois** — rótulo de
+  oportunidade em cima de cor de queda —, então rótulo e cor andam juntos.
+- **A troca é de uma constante só.** `RADAR_BANDS` em `lib/market-radar.ts`
+  alimenta a legenda de 5 cards, os arcos do gauge, a cor da linha do gráfico e
+  o rótulo embaixo do número em destaque. Não há segunda lista em lugar nenhum.
+- **`emoji` é campo separado de `label`** porque `label` também monta o
+  `aria-label` do gauge: leitor de tela anunciando "fogo" antes do nome da
+  faixa atrapalha. Na tela o emoji entra com `aria-hidden`.
+- **O aviso do rodapé teve de ser reescrito junto.** Ele dizia "não é indicação
+  de compra nem de venda" a três dedos de um rótulo escrito "Extrema
+  Oportunidade" — contradição literal na mesma dobra. Hoje diz que os rótulos
+  nomeiam onde o preço fechou na faixa e que a decisão é de quem investe, o que
+  mantém a proteção sem desmentir a tela.
 - **O número em destaque fica no `foreground`, não na cor da faixa.** A faixa do
   meio é `--muted-fg`, a mesma cor de texto secundário: o número principal da
   tela pintado nela lia como campo desabilitado. A cor vive no ponteiro, na
