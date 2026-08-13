@@ -553,13 +553,14 @@ e o que foi feito:
   cadastro por conta própria não escala (2 e-mails/hora), recuperação de senha
   é frágil pelo mesmo motivo, e os e-mails continuam em inglês (o plano free
   recusa editar template sem SMTP). Enquanto isso, quem cria conta é o script.
-- **Não existe suspensão de acesso.** Só criar conta e apagar conta. Quando o
-  webhook da Kiwify entrar, reembolso e chargeback precisam de um caminho de
-  revogar — e apagar a conta leva junto a carteira e os ajustes da aluna, o que
-  é destrutivo demais para um estorno. Provavelmente pede uma coluna de estado
-  em `profiles` mais checagem no proxy.
-- **O webhook da Kiwify ainda não existe.** Enquanto isso, quem cria conta é
-  `scripts/criar-alunos.mjs`, rodado à mão.
+- **O webhook da Kiwify ainda não existe.** Enquanto isso, criar e revogar
+  acesso é `scripts/criar-alunos.mjs` e `scripts/acesso.mjs`, rodados à mão.
+- **A revogação não tem trilha de auditoria nem motivo.** `banned_until` diz
+  que a conta está bloqueada, não por quê nem quem bloqueou. Com o webhook
+  isso passa a importar (reembolso × chargeback × cancelamento).
+- **A aluna revogada não vê explicação nenhuma:** o login recusa com a mesma
+  mensagem de senha errada. Enquanto é você quem revoga à mão isso é aceitável,
+  porque você avisa; vindo de webhook, ela vai tentar entrar sem saber por quê.
 - ~~**`.mcp.json` está versionado com `read_only=false` e feature `account`.**~~
   Fechado em 2026-08-12: `read_only=true` e as features reduzidas a
   `docs,database,debugging,development`. Saíram `account` (administração da
@@ -1023,13 +1024,26 @@ compra virando conta.
   chegar por link antigo precisa entender por que não consegue se cadastrar, em
   vez de bater num 404. O link no login virou "Ainda não tem acesso? Como
   conseguir".
-- **Quando o webhook da Kiwify entrar**, o que ele precisa fazer é o que o
-  script já faz: `admin/users` com `email_confirm: true`, senha gerada,
-  `display_name` no `user_metadata` (o gatilho de perfil lê de lá). O que ele
-  precisa a MAIS e o script não tem: validar a assinatura do webhook, ser
-  idempotente (a Kiwify reenvia), e tratar reembolso/chargeback — que é o
-  caminho inverso e ainda não existe no app (não há como suspender acesso hoje,
-  só apagar a conta).
+- **Revogar acesso é `scripts/acesso.mjs`, e usa o banimento nativo do
+  Supabase (`ban_duration`), não uma coluna nossa.** Medido em 2026-08-13: o
+  login passa a responder "User is banned" E **o token já emitido passa a
+  responder 403** — a sessão aberta cai na hora, em vez de valer até expirar.
+  Revogação que só vale na próxima hora não é revogação. De quebra não precisa
+  de migration nem de consulta ao banco em toda requisição, que é o que uma
+  coluna própria obrigaria o proxy a fazer.
+- **Revogar NÃO apaga nada.** Carteira, proventos e ajustes ficam intactos, e
+  restaurar é uma chamada. Era esse o problema de usar "apagar a conta" como
+  revogação: estorno pode ser revertido, exclusão não.
+- **`scripts/supabase-admin.mjs` existe porque os dois scripts liam as chaves
+  do mesmo jeito.** Duas cópias de código que carrega credencial saem caras: se
+  uma errar o nome da variável, o sintoma aparece como "não achei a aluna" em
+  vez de "falta a chave". O `listUsers` de lá pagina — o admin API devolve 50
+  por página e não avisa que cortou, então a turma passar de 50 faria a busca
+  por e-mail não achar quem está na página 2.
+- **Quando o webhook da Kiwify entrar**, o que ele precisa fazer já existe nos
+  dois scripts: `admin/users` com `email_confirm: true` na compra,
+  `ban_duration` no reembolso. O que ele precisa a MAIS: validar a assinatura
+  do webhook e ser idempotente (a Kiwify reenvia o evento).
 
 - **Verificado ponta a ponta em 2026-08-13** com uma conta descartável, depois
   apagada: login com a provisória, troca em `/conta`, senha antiga recusada
@@ -1171,6 +1185,18 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
 
 - `npm run dev` / `npm run build` / `npm run lint`
 - Migrations: aplicar os `supabase/migrations/*.sql` em ordem no SQL Editor do projeto Supabase (ou `supabase db push` se CLI vinculada).
+- **Acesso das alunas** (a plataforma é fechada — ver "Caminho de acesso"):
+
+  ```
+  node scripts/criar-alunos.mjs turma.txt --simular   # confere o arquivo
+  node scripts/criar-alunos.mjs turma.txt             # cria e gera o CSV de senhas
+  node scripts/acesso.mjs listar                      # quem tem acesso, quem foi revogada
+  node scripts/acesso.mjs revogar maria@exemplo.com   # derruba a sessão na hora
+  node scripts/acesso.mjs restaurar maria@exemplo.com
+  ```
+
+  `turma.txt` é `email` ou `email,Nome Sobrenome` por linha. O CSV de senhas
+  sai com modo 0600 e está no `.gitignore`: entregar e apagar.
 - **Carga completa do zero, nesta ordem** (leva uns 2 minutos com a chave Pro):
 
   ```

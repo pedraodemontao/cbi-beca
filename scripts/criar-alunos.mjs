@@ -26,9 +26,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { randomInt } from 'node:crypto';
-
-const SUPABASE_URL = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
-const SERVICE_ROLE = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+import { adminRequest } from './supabase-admin.mjs';
 
 /**
  * Alfabeto sem os caracteres que se confundem lidos em voz alta ou copiados de
@@ -37,24 +35,6 @@ const SERVICE_ROLE = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
  */
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
 const PASSWORD_LENGTH = 12;
-
-function requireEnv(name) {
-  const value = process.env[name];
-  if (value) return value;
-
-  // Sem variável no ambiente, lê do .env.local — é onde elas moram no projeto.
-  try {
-    const env = readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
-    const line = env.split('\n').find((row) => row.startsWith(`${name}=`));
-    const parsed = line?.slice(name.length + 1).trim().replace(/^["']|["']$/g, '');
-    if (parsed) return parsed;
-  } catch {
-    // cai no erro abaixo
-  }
-
-  console.error(`Falta ${name} no ambiente ou no .env.local.`);
-  process.exit(1);
-}
 
 function generatePassword() {
   let password = '';
@@ -98,32 +78,26 @@ function parseRoster(path) {
 async function createStudent({ email, displayName }) {
   const password = generatePassword();
 
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+  const { ok, status, body } = await adminRequest('admin/users', {
     method: 'POST',
-    headers: {
-      apikey: SERVICE_ROLE,
-      Authorization: `Bearer ${SERVICE_ROLE}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+    body: {
       email,
       password,
       // Nasce confirmada: nenhum e-mail é enviado e a aluna entra na hora.
       email_confirm: true,
       // O gatilho de signup lê daqui para preencher `profiles.display_name`.
       user_metadata: { display_name: displayName },
-    }),
+    },
   });
 
-  if (response.ok) return { status: 'criada', password };
+  if (ok) return { status: 'criada', password };
 
-  const body = await response.json().catch(() => ({}));
   const message = body.msg ?? body.message ?? body.error_description ?? '';
 
-  if (response.status === 422 || /already|registered|exists/i.test(message)) {
+  if (status === 422 || /already|registered|exists/i.test(message)) {
     return { status: 'ja-existia' };
   }
-  return { status: 'erro', message: message || `HTTP ${response.status}` };
+  return { status: 'erro', message: message || `HTTP ${status}` };
 }
 
 async function main() {
