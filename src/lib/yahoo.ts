@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { toDayKey } from '@/lib/format';
+import type { DailyClose } from '@/lib/market-radar';
+
 /**
  * Dividendos pagos, via API pública de gráficos do Yahoo Finance.
  *
@@ -55,6 +58,8 @@ interface YahooChartResponse {
   chart?: {
     result?: Array<{
       meta?: { regularMarketPrice?: number };
+      /** Em SEGUNDOS, e alinhado posição a posição com `indicators.quote[0]`. */
+      timestamp?: number[];
       events?: { dividends?: Record<string, { amount?: number; date?: number }> };
       indicators?: { quote?: Array<{ close?: Array<number | null> }> };
     }>;
@@ -170,6 +175,67 @@ export async function getPriceHistory(ticker: string): Promise<number[] | null> 
   if (!raw || raw.closes.length === 0) return null;
   // O range mínimo com granularidade diária é 1 ano; o gráfico quer o último mês.
   return raw.closes.slice(-30);
+}
+
+/**
+ * Símbolo do Ibovespa no Yahoo.
+ *
+ * NÃO leva o sufixo `.SA` que as ações levam: o `^` já marca índice, e
+ * `^BVSP.SA` devolve 404.
+ */
+const IBOV_SYMBOL = '^BVSP';
+
+/** O índice fecha uma vez por dia — mesmo carimbo do histórico de preço. */
+const INDEX_REVALIDATE_SECONDS = 3600;
+
+/**
+ * Fechamento diário do Ibovespa nos últimos 2 anos (~500 pregões, medido em
+ * 2026-08-13).
+ *
+ * São DOIS anos porque o radar mede a posição do índice dentro de uma janela de
+ * 252 pregões: com um ano de dado só o último pregão teria a janela cheia.
+ *
+ * O dia sai de `toDayKey`, no fuso de Brasília. O Yahoo carimba o pregão às
+ * 13:00 UTC (abertura da B3), então converter em UTC daria o dia certo por
+ * sorte — e deixaria de dar no primeiro horário de verão que aparecer.
+ */
+export async function getIbovHistory(): Promise<DailyClose[] | null> {
+  try {
+    const res = await fetch(
+      `${BASE_URL}/${encodeURIComponent(IBOV_SYMBOL)}?interval=1d&range=2y`,
+      { next: { revalidate: INDEX_REVALIDATE_SECONDS } }
+    );
+
+    if (!res.ok) {
+      console.error(`Yahoo ${IBOV_SYMBOL} respondeu ${res.status}`);
+      return null;
+    }
+
+    const data = (await res.json()) as YahooChartResponse;
+    const result = data.chart?.result?.[0];
+    const stamps = result?.timestamp;
+    const closes = result?.indicators?.quote?.[0]?.close;
+    if (!stamps || !closes) return null;
+
+    // Chave por dia em vez de array: com o pregão em curso o Yahoo já devolve a
+    // linha de hoje, e uma segunda leitura no mesmo dia repetiria a data. O
+    // último valor do dia é o que vale.
+    const byDay = new Map<string, number>();
+    stamps.forEach((stamp, index) => {
+      const close = closes[index];
+      if (typeof close !== 'number' || !Number.isFinite(close)) return;
+      byDay.set(toDayKey(stamp * 1000), close);
+    });
+
+    const history = [...byDay.entries()]
+      .map(([day, close]) => ({ day, close }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+
+    return history.length > 0 ? history : null;
+  } catch (error) {
+    console.error(`Yahoo ${IBOV_SYMBOL} falhou`, error);
+    return null;
+  }
 }
 
 /**

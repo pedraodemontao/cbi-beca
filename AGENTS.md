@@ -57,6 +57,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 8. ✅ Calculadoras (`/calculadoras`: juros compostos, renda passiva, renda de ação e renda de FII)
 9. ✅ Proventos (`/proventos`: total já recebido, mês a mês, quem mais paga)
 10. ✅ Notícias (`/noticias`: manchetes de 8 portais via RSS, filtro por carteira)
+11. ✅ Radar (`/radar`: posição do Ibovespa na faixa de 252 pregões, gráfico e ponteiro)
 
 ## Tese do produto (definida em 2026-08-03)
 
@@ -812,10 +813,75 @@ matéria com os papéis da carteira. Referências que a Beca mandou: `arevista.c
   rodapé é o último elemento do documento em todas elas, e sem o `pb-28` o
   aviso educacional nascia embaixo da barra.
 
+## Radar do Ibovespa (2026-08-13)
+
+Aba `/radar`: onde o índice fechou dentro da própria faixa de 252 pregões, numa
+régua de 0 a 100. Referência que a Beca mandou foi um HTML avulso chamado
+"Radar de Sentimento", que serviu de briefing visual — a implementação é nova.
+
+- **A conta é o Estocástico %K com janela de 252**, não um índice de sentimento.
+  Fear & Greed mistura volatilidade, amplitude e put/call; aqui só entra preço.
+  O nome da tela e o texto dizem "posição de preço" por isso.
+- **`lib/market-radar.ts` é 100% função pura**, como `ceiling-price.ts`. Quem
+  busca o dado é `lib/yahoo.ts`.
+- **O gráfico só mostra pregão com janela CHEIA.** A referência calculava com
+  janela crescente (`start = max(0, i − 252 + 1)`), o que mede o primeiro ano
+  contra uma régua menor: um ponto com 40 pregões de histórico disputa a mínima
+  com 40 candidatos, não com 252, e os dois trechos ficam lado a lado parecendo
+  comparáveis. Buscar 2 anos e exibir 1 resolve sem nota de rodapé — dos 500
+  pregões que o Yahoo devolve, 249 vão pra tela.
+- **A fonte é o Yahoo (`^BVSP`), sem sufixo `.SA`** — o `^` já marca índice. A
+  brapi não serve: `historical` do plano free para em `3mo` e a conta precisa de
+  252 pregões. Medido em 2026-08-13: 500 pontos, zero nulo, 2 anos.
+  **`curl` leva 429 nesse endpoint e o `fetch` do runtime volta 200** — é a
+  mesma pegadinha de User-Agent já registrada, e vale pro UA do curl também.
+- **O fallback de dado falso da referência foi removido, e era o problema mais
+  grave dela.** Sem planilha configurada o HTML gerava um random walk calibrado
+  pra cair em "Extrema Oportunidade" (`targetScore = 15 + Math.random()*8`):
+  um app de investimento abrindo com sinal de compra inventado, atrás de um selo
+  discreto de "demonstração". Aqui a fonte falha em `null` e a tela diz que o
+  dado está indisponível.
+- **As cores seguem a semântica do app: verde é alta, coral é queda** — o
+  INVERSO da referência, que pintava a mínima de verde por ler fundo de faixa
+  como oportunidade de compra. Duas razões: o produto não recomenda operação, e
+  cor de aprovação sobre a mínima é recomendação sem texto; e verde já significa
+  "subiu" em toda posição da carteira, então verde na mínima do ano ensinaria o
+  oposto das outras telas. Estar no topo não é bom nem ruim — é ter subido.
+- **Os rótulos das faixas descrevem posição, não ação:** "Fundo da faixa",
+  "Parte baixa", "Centro da faixa", "Parte alta", "Topo da faixa". A referência
+  usava "Extrema Oportunidade" e "💀 Risco Máximo", que são compra e venda
+  escritas por extenso.
+- **O número em destaque fica no `foreground`, não na cor da faixa.** A faixa do
+  meio é `--muted-fg`, a mesma cor de texto secundário: o número principal da
+  tela pintado nela lia como campo desabilitado. A cor vive no ponteiro, na
+  legenda e na linha.
+- **O SVG da linha não tem texto nenhum.** Com `preserveAspectRatio="none"` a
+  caixa estica na horizontal e letra esticada fica torta — os rótulos são HTML
+  em volta, como no gráfico de evolução. De quebra, sem recuo lateral a posição
+  do cursor vira a fração exata do índice do ponto, e o hover não mede `rect`.
+  O ponto e o balão também são HTML: dentro do SVG esticado o círculo viraria
+  elipse.
+- **O gauge é o oposto**: `preserveAspectRatio` padrão, porque meia-lua não pode
+  esticar — e é por isso que os números do eixo podem viver dentro dele.
+- **Pregões consecutivos da mesma faixa viram uma `polyline` só** (20 no dado de
+  hoje, contra as 248 `<line>` que a referência desenhava). Cada segmento novo
+  começa no ponto ANTERIOR à virada, senão a troca de cor abre um buraco.
+- **A 375px as três legendas do eixo se encostavam** ("15/08/2025134.432"). A
+  faixa desce pra própria linha no celular e volta pro meio a partir do `sm`.
+
 ## Pendências conhecidas
 
 - **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
   desktop mais iframe de 375px, nos dois temas.
+- **O radar também não foi visto em aparelho real** — mesmo QA: Chrome desktop
+  a 1470px, iframe a 375, 690 e 768px, nos dois temas. Falta conferir o toque de
+  verdade no gráfico: o scrub por `pointermove` funciona no mouse, e o
+  `touch-pan-y` deixa o scroll vertical passar, mas isso não foi testado em
+  tela sensível.
+- **O radar tem uma fonte só, sem rede de segurança.** Se o Yahoo parar de
+  responder o `^BVSP`, a tela inteira cai pro estado "dado indisponível" — não
+  há segunda fonte, porque nem a brapi nem a bolsai servem 252 pregões de
+  índice no plano contratado.
 - **O casamento de ticker é só pelo CÓDIGO, nunca pelo nome da empresa.**
   Matéria que diz "Petrobras" sem escrever PETR4 não entra no filtro "meus
   ativos". Casar por nome exigiria derivar a marca da razão social da CVM

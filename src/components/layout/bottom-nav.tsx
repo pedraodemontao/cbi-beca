@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation';
 /**
  * `short` é o rótulo do celular.
  *
- * Com sete destinos sobram ~51px por item a 375px, e "Carteira" e "Proventos"
+ * Com oito destinos sobram ~45px por item a 375px, e "Carteira" e "Proventos"
  * não cabem em uma linha nessa largura — um único rótulo quebrando em duas
- * linhas desalinha a barra inteira.
+ * linhas desalinha a barra inteira. É também por isso que "Radar" entrou com o
+ * nome curto que já tinha: qualquer coisa maior estouraria os dois lados.
  *
  * No desktop os rótulos também são curtos, e isso é requisito e não estilo:
  * a pill bar cresce com o conteúdo, então "Preço Teto" e "Calculadoras"
@@ -21,6 +22,7 @@ const ITEMS = [
   { href: '/carteira', label: 'Carteira', short: 'Ativos', icon: WalletIcon },
   { href: '/proventos', label: 'Proventos', short: 'Renda', icon: CoinsIcon },
   { href: '/resumo', label: 'Resumo', short: 'Resumo', icon: ChartIcon },
+  { href: '/radar', label: 'Radar', short: 'Radar', icon: RadarIcon },
   { href: '/noticias', label: 'Notícias', short: 'Notícias', icon: NewsIcon },
   { href: '/calculadoras', label: 'Contas', short: 'Contas', icon: CalculatorIcon },
   { href: '/chat', label: 'Chat', short: 'Chat', icon: ChatIcon },
@@ -114,6 +116,16 @@ function CoinsIcon() {
       <ellipse cx="12" cy="6" rx="8" ry="3" />
       <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
       <path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+    </svg>
+  );
+}
+
+function RadarIcon() {
+  return (
+    <svg {...iconProps} aria-hidden>
+      <path d="M12 4a8 8 0 1 0 8 8" />
+      <path d="M12 8a4 4 0 1 0 4 4" />
+      <path d="M12 12 20 4" />
     </svg>
   );
 }

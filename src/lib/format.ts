@@ -56,6 +56,26 @@ export function formatQuantity(value: number): string {
   return quantityFormatter.format(value);
 }
 
+const indexPointsFormatter = new Intl.NumberFormat('pt-BR', {
+  maximumFractionDigits: 0,
+});
+
+/**
+ * Índice em pontos — o Ibovespa não é dinheiro, e imprimir "R$ 166.745" faria a
+ * usuária achar que aquilo é o preço de alguma coisa.
+ */
+export function formatIndexPoints(value: number): string {
+  if (!Number.isFinite(value)) return '—';
+  return indexPointsFormatter.format(value);
+}
+
+/** `AAAA-MM-DD` puro em `dd/mm/aaaa`, sem passar por fuso. */
+export function formatPlainDay(day: string): string {
+  const [year, month, date] = day.split('-');
+  if (!year || !month || !date) return '—';
+  return `${date}/${month}/${year}`;
+}
+
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeZone: 'America/Sao_Paulo',
   dateStyle: 'short',
