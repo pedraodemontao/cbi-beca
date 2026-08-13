@@ -56,6 +56,21 @@ export function formatQuantity(value: number): string {
   return quantityFormatter.format(value);
 }
 
+const multipleFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Múltiplo de mercado — P/VP, P/L. Não é dinheiro nem percentual, mas continua
+ * precisando da vírgula: `toFixed(2)` imprime "1.20", que em português se lê
+ * como mil e duzentos.
+ */
+export function formatMultiple(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—';
+  return multipleFormatter.format(value);
+}
+
 const indexPointsFormatter = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 0,
 });

@@ -58,6 +58,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 9. ✅ Proventos (`/proventos`: total já recebido, mês a mês, quem mais paga)
 10. ✅ Notícias (`/noticias`: manchetes de 8 portais via RSS, filtro por carteira)
 11. ✅ Radar (`/radar`: posição do Ibovespa na faixa de 252 pregões, gráfico e ponteiro)
+12. ✅ Comparador (`/comparar`: 2 a 4 ativos lado a lado + simulação do mesmo aporte)
 
 ## Tese do produto (definida em 2026-08-03)
 
@@ -869,6 +870,67 @@ régua de 0 a 100. Referência que a Beca mandou foi um HTML avulso chamado
 - **A 375px as três legendas do eixo se encostavam** ("15/08/2025134.432"). A
   faixa desce pra própria linha no celular e volta pro meio a partir do `sm`.
 
+## Comparador de ativos (2026-08-13)
+
+Rota `/comparar`: de dois a quatro tickers lado a lado — cotação, preço teto,
+margem de segurança, rendimento líquido e P/VP — mais a simulação do mesmo
+aporte em cada um. Referência foi outro HTML avulso da Beca.
+
+- **A referência buscava tudo na brapi e caía em campo manual; aqui não existe
+  nada pra digitar além do aporte.** Os cinco números já estão no banco, e o
+  teto já é calculado com o ajuste da Beca aplicado. Mais que desnecessária, a
+  busca dela não funcionaria: `defaultKeyStatistics` é 403 fora do sandbox no
+  nosso plano, então DY e P/VP falhariam em tudo que não fosse PETR4, VALE3,
+  ITUB4 ou MGLU3 — como o próprio aviso do arquivo admitia.
+- **P/VP é recalculado (`preço ÷ VPA`), nunca copiado.** Copiar de API é
+  exatamente a armadilha que a escala inconsistente da bolsai já criou uma vez.
+- **O teto sai do MESMO método que manda no resto do app**: yield de 6% pra ação
+  (o que `headlineMargin` usa e por onde `/preco-teto` ordena) e
+  `DEFAULT_FII_YIELD` pra fundo. Escolher outro método aqui faria o comparador
+  discordar da tabela sobre o mesmo ticker.
+- **O rendimento exibido é LÍQUIDO.** `fetchJcpShares` traz a proporção de JCP
+  dos tickers escolhidos e o comparador desconta os 15%. Mostrar bruto
+  contradiria `/calculadoras` e `/proventos`, que já mostram líquido — BBAS3
+  aparece com 2,5% aqui contra 2,9% de DY bruto, porque 99% do que ela pagou em
+  12 meses foi JCP.
+- **Não existe "melhor" nem troféu, e a ausência é o ponto.** A referência
+  pintava de verde a melhor célula de cada linha e coroava um vencedor com 🏆.
+  Isso é recomendação de compra em forma de cor: o produto não recomenda, e
+  "maior rendimento" não é "melhor ativo" — o próprio app exclui do ranking de
+  proventos quem pagou mais de 15% em 12 meses, porque quase sempre aquilo é
+  devolução de capital. Ficou o extremo marcado e NOMEADO: o selo diz "maior" e
+  "menor", que são fatos, e não "melhor", que é conselho.
+- **`extremeIndex` devolve -1 no empate.** Com duas colunas no mesmo valor,
+  apontar uma delas seria escolha arbitrária apresentada como resultado. Com um
+  valor só também não marca: comparar um número com nada não compara.
+- **A simulação divide pelo INVESTIDO, não pelo digitado** — o defeito que a
+  calculadora de FII já teve e que a referência repete (`valor × dy`). Medido:
+  dois ativos com DY idêntico de 10% e aporte de R$ 5.000, um com cota de
+  R$ 1.200 e outro de R$ 10, rendem R$ 480 e R$ 500. Pela conta ingênua os dois
+  dariam R$ 500 e pareceriam iguais — escondendo justamente a diferença que a
+  tela existe pra mostrar. O troco aparece como "sobra parada" porque é ele que
+  explica o número.
+- **A seleção vive na URL (`?ativos=PETR4,VALE3`), não em estado.** Assim o
+  servidor busca só os dois a quatro escolhidos — contra os ~690 que
+  `/preco-teto` embarca por pageview — e a comparação montada vira link. O
+  parser sanitiza formato, remove repetido e corta no limite: o valor vem da
+  URL, que qualquer um edita.
+- **Ticker fora do catálogo é barrado no seletor.** Aceitar produziria uma
+  coluna vazia, que se lê como "esse ativo não tem dado" em vez de "esse código
+  não existe".
+- **A largura mínima da tabela acompanha o número de colunas.** Com o piso fixo
+  de 34rem que a referência usa, comparar DOIS ativos num celular já obrigava a
+  rolar de lado pra ver a segunda coluna — e comparação em que só um lado
+  aparece não compara. O que impedia as duas colunas de caberem não eram os
+  valores: era o selo "maior" INLINE, que somava ~55px. Selo e nota foram pra
+  baixo do número e o caso de dois ativos passou a caber inteiro a 375px.
+- **`formatMultiple` nasceu aqui**: `toFixed(2)` imprime "1.20", que em
+  português se lê como mil e duzentos. `/preco-teto` não exibe P/VP, então não
+  havia formatador de múltiplo no projeto.
+- **Entra pelas calculadoras, não pela barra de navegação.** Com oito destinos
+  sobram ~45px por item a 375px e um nono deixaria menos do que o rótulo
+  "Notícias" ocupa. `/calculadoras` é a tela de ferramentas, que é o que ele é.
+
 ## Pendências conhecidas
 
 - **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
@@ -878,6 +940,13 @@ régua de 0 a 100. Referência que a Beca mandou foi um HTML avulso chamado
   verdade no gráfico: o scrub por `pointermove` funciona no mouse, e o
   `touch-pan-y` deixa o scroll vertical passar, mas isso não foi testado em
   tela sensível.
+- **O comparador não foi visto em aparelho real** — QA em Chrome desktop a
+  1568px e iframe a 375px, nos dois temas. Com três ou quatro ativos a tabela
+  rola de lado no celular, e a única pista disso é a barra de rolagem: não há
+  aviso de "arraste para ver mais".
+- **O `<datalist>` do seletor carrega o catálogo inteiro** (~690 ativos, só
+  ticker e nome). É leve perto dos 469 kB de `/preco-teto`, mas ainda é a maior
+  parte do payload da tela. Se incomodar, o corte é uma rota de busca.
 - **O radar tem uma fonte só, sem rede de segurança.** Se o Yahoo parar de
   responder o `^BVSP`, a tela inteira cai pro estado "dado indisponível" — não
   há segunda fonte, porque nem a brapi nem a bolsai servem 252 pregões de

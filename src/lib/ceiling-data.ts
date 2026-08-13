@@ -299,6 +299,81 @@ export async function fetchStockOptions(
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 }
 
+/** O mínimo pra preencher o seletor do comparador. */
+export interface ComparableOption {
+  ticker: string;
+  name: string;
+  assetType: 'stock' | 'fii';
+}
+
+/**
+ * Catálogo enxuto pro seletor: só ticker, nome e tipo.
+ *
+ * Existe separado de `fetchStockOptions` porque aquele carrega preço, dividendo
+ * e a proporção de JCP de TODO o catálogo — ~3.500 pagamentos paginados — pra
+ * preencher uma lista de sugestão. Aqui a página só precisa dos nomes; os
+ * números vêm depois, e só dos dois a quatro tickers que a usuária escolheu.
+ */
+export async function fetchComparableOptions(
+  supabase: SupabaseClient
+): Promise<ComparableOption[]> {
+  const { data } = await supabase
+    .from('companies')
+    .select('ticker,name,asset_type')
+    .in('asset_type', ['stock', 'fii'])
+    .gt('price', 0)
+    .gte('last_seen_at', listedSince())
+    .order('ticker');
+
+  return ((data ?? []) as { ticker: string; name: string; asset_type: 'stock' | 'fii' }[]).map(
+    (row) => ({ ticker: row.ticker, name: row.name, assetType: row.asset_type })
+  );
+}
+
+/**
+ * Quanto dos proventos de 12 meses de cada ticker veio como JCP, em razão 0-1.
+ *
+ * É o que separa o rendimento BRUTO do líquido: JCP leva 15% de IR na fonte e
+ * dividendo comum não. Ticker sem pagamento no período não entra no mapa, e
+ * quem consome trata a ausência como zero — o que está certo, porque sem
+ * pagamento não há imposto a descontar.
+ *
+ * Diferente de `fetchStockOptions`, aqui a consulta é filtrada por ticker: com
+ * quatro ativos são dezenas de linhas, bem abaixo do corte de 1.000 do
+ * PostgREST, e a paginação não faz falta.
+ */
+export async function fetchJcpShares(
+  supabase: SupabaseClient,
+  tickers: string[]
+): Promise<Map<string, number>> {
+  if (tickers.length === 0) return new Map();
+
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+
+  const { data } = await supabase
+    .from('dividend_payments')
+    .select('ticker,type,value_per_share')
+    .in('ticker', tickers)
+    .gte('ex_date', twelveMonthsAgo.toLocaleDateString('en-CA'));
+
+  const totals = new Map<string, { all: number; jcp: number }>();
+  for (const row of (data ?? []) as PaymentTypeRow[]) {
+    const value = Number(row.value_per_share);
+    if (!Number.isFinite(value)) continue;
+    const current = totals.get(row.ticker) ?? { all: 0, jcp: 0 };
+    current.all += value;
+    if (row.type === 'JCP') current.jcp += value;
+    totals.set(row.ticker, current);
+  }
+
+  const shares = new Map<string, number>();
+  for (const [ticker, paid] of totals) {
+    if (paid.all > 0) shares.set(ticker, paid.jcp / paid.all);
+  }
+  return shares;
+}
+
 export interface TopPayer {
   ticker: string;
   name: string;

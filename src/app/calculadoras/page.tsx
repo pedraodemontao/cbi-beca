@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { BottomNav } from '@/components/layout/bottom-nav';
@@ -39,6 +40,30 @@ export default async function CalculadorasPage() {
             Simulações de rendimento. Os valores informados não são gravados.
           </p>
         </header>
+
+        {/*
+          O comparador entra por aqui, e não pela barra de navegação: com oito
+          destinos sobram ~45px por item a 375px, e um nono deixaria menos que o
+          rótulo "Notícias" ocupa. Esta é a tela de ferramentas, que é o que ele
+          é.
+        */}
+        <Link
+          href="/comparar"
+          className="card flex items-center justify-between gap-4 transition-colors hover:border-primary"
+        >
+          <span>
+            <span className="block text-base font-extrabold">
+              Comparador de ativos
+            </span>
+            <span className="micro-hint">
+              Até quatro ações ou fundos lado a lado: preço teto, margem,
+              rendimento líquido e P/VP.
+            </span>
+          </span>
+          <span aria-hidden className="text-xl font-extrabold text-primary">
+            →
+          </span>
+        </Link>
 
         {/* Duas colunas a partir do desktop. Só alargar o container deixaria
             quatro cartões empilhados com os campos esticados no meio de muito
