@@ -813,6 +813,16 @@ matéria com os papéis da carteira. Referências que a Beca mandou: `arevista.c
 - **A folga da barra mora no `<footer>` do layout**, não em cada página: o
   rodapé é o último elemento do documento em todas elas, e sem o `pb-28` o
   aviso educacional nascia embaixo da barra.
+- **A cápsula só aparece a partir de `lg` (1024px), não de `sm` (640px)** —
+  corrigido em 2026-08-13, junto com o radar. Com os rótulos longos a pílula
+  precisa de ~825px de conteúdo, então entre 640 e 880px ela estourava o
+  `max-w-[calc(100vw-2rem)]` e os últimos destinos ficavam fora do arredondado.
+  **O defeito não veio do oitavo destino:** medido no iframe, com sete a barra
+  já estourava de 640 a ~800px, e o iPad em retrato (768px) pegava em cheio —
+  o radar só empurrou o ponto de quebra. Quem cobre a faixa do meio agora é a
+  barra de largura inteira, que distribui em `justify-around` e aguenta oito
+  rótulos até a 375px. O `pb-28` do rodapé é incondicional, então nenhuma
+  página precisou mudar.
 
 ## Radar do Ibovespa (2026-08-13)
 

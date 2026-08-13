@@ -34,36 +34,43 @@ export function BottomNav() {
   return (
     // Fixa em toda largura de tela. No desktop ela era `static` e ia embora no
     // scroll — navegar exigia rolar até o fim da página. Aqui o `nav` é só a
-    // faixa fixa; quem desenha a cápsula é o `ul`, e é isso que resolve o
-    // vazamento: a pílula tem a largura do conteúdo (`w-fit`), em vez de um
-    // `max-w` fixo que os sete destinos estouravam.
+    // faixa fixa; quem desenha a cápsula é o `ul`, e a pílula tem a largura do
+    // conteúdo (`w-fit`) em vez de um `max-w` fixo.
+    //
+    // A troca pra cápsula acontece em `lg` (1024px) e não em `sm` (640px), e a
+    // razão é medida: com os rótulos longos a pílula precisa de ~825px, então
+    // entre 640 e 880px ela estourava o `max-w-[calc(100vw-2rem)]` e os últimos
+    // destinos ficavam pra fora do arredondado. Isso já acontecia com sete
+    // destinos a partir de 640px — o iPad em retrato (768px) pegava o defeito
+    // em cheio. A barra de baixo, que distribui os itens em `justify-around`,
+    // aguenta oito rótulos até a 375px, então ela é quem cobre a faixa do meio.
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur sm:bottom-5 sm:border-none sm:bg-transparent sm:backdrop-blur-none"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur lg:bottom-5 lg:border-none lg:bg-transparent lg:backdrop-blur-none"
     >
       {/* O respiro de baixo acompanha o home indicator do iPhone; em aparelho
           sem entalhe `env()` devolve 0 e nada muda. */}
       <ul
-        className="mx-auto flex max-w-3xl items-center justify-around px-2 py-2 sm:w-fit sm:max-w-[calc(100vw-2rem)] sm:justify-center sm:gap-1 sm:rounded-full sm:border sm:border-border sm:bg-surface/95 sm:py-2 sm:shadow-soft sm:backdrop-blur"
+        className="mx-auto flex max-w-3xl items-center justify-around px-2 py-2 lg:w-fit lg:max-w-[calc(100vw-2rem)] lg:justify-center lg:gap-1 lg:rounded-full lg:border lg:border-border lg:bg-surface/95 lg:py-2 lg:shadow-soft lg:backdrop-blur"
         style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
       >
         {ITEMS.map(({ href, label, short, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
-            <li key={href} className="flex-1 sm:flex-none">
+            <li key={href} className="flex-1 lg:flex-none">
               <Link
                 href={href}
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={label}
-                className={`flex flex-col items-center gap-0.5 rounded-2xl px-0.5 py-2 text-[0.62rem] font-bold transition-colors sm:flex-row sm:gap-2 sm:rounded-full sm:px-3.5 sm:text-sm ${
+                className={`flex flex-col items-center gap-0.5 rounded-2xl px-0.5 py-2 text-[0.62rem] font-bold transition-colors lg:flex-row lg:gap-2 lg:rounded-full lg:px-3.5 lg:text-sm ${
                   isActive
                     ? 'bg-primary-wash text-primary-deep'
                     : 'text-muted-foreground hover:text-primary'
                 }`}
               >
                 <Icon />
-                <span className="sm:hidden">{short}</span>
-                <span className="hidden sm:inline">{label}</span>
+                <span className="lg:hidden">{short}</span>
+                <span className="hidden lg:inline">{label}</span>
               </Link>
             </li>
           );
