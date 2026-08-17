@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { login, type AuthFormState } from '@/app/(auth)/actions';
 
@@ -12,6 +12,11 @@ interface LoginFormProps {
 
 export function LoginForm({ confirmError }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(login, initialState);
+  // A senha do primeiro acesso é provisória, tem 12 caracteres e sai de um
+  // CSV — é lida numa tela e digitada em outra. Sem poder conferir o que
+  // digitou, a aluna erra e recebe "e-mail ou senha inválidos" sem saber se o
+  // problema foi a senha ou o acesso.
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="flex flex-col gap-5">
@@ -30,6 +35,10 @@ export function LoginForm({ confirmError }: LoginFormProps) {
             name="email"
             type="email"
             autoComplete="email"
+            placeholder="voce@exemplo.com"
+            // Primeiro campo da primeira tela: não há nada antes dele pra
+            // atrapalhar, e no celular economiza um toque.
+            autoFocus
             required
             className="field"
           />
@@ -37,13 +46,30 @@ export function LoginForm({ confirmError }: LoginFormProps) {
 
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-bold text-foreground">Senha</span>
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            className="field"
-          />
+          <span className="relative flex items-center">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              placeholder="Sua senha"
+              required
+              // Espaço à direita pro botão de exibir, senão o texto passa por
+              // baixo dele nas senhas longas. Medido com o rótulo maior
+              // ("Ocultar"): a caixa do botão ocupa 68px, então 64px de recuo
+              // encostava.
+              className="field pr-20"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-pressed={showPassword}
+              // `py-2.5` põe o alvo em 36px de altura, que é o piso que o
+              // resto do app usa desde o QA de celular.
+              className="absolute right-2 rounded-full px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:text-primary"
+            >
+              {showPassword ? 'Ocultar' : 'Exibir'}
+            </button>
+          </span>
         </label>
 
         {state.error && (

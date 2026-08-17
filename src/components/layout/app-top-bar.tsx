@@ -24,7 +24,15 @@ export function AppTopBar() {
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur"
+      // Sem marca não há faixa: o que sobra é o botão de tema flutuando no
+      // canto. Enquanto a barra pintava fundo e borda em toda rota, o login
+      // abria com 56px de nada e uma linha divisória cortando o degradê do
+      // fundo — chrome de aplicativo numa tela que ainda não é aplicativo.
+      className={`sticky top-0 z-40 ${
+        showMark
+          ? 'border-b border-border/70 bg-background/85 backdrop-blur'
+          : 'pointer-events-none bg-transparent'
+      }`}
       // O respiro de cima acompanha a barra de status do iPhone: o app abre em
       // `black-translucent`, então sem isso a marca fica embaixo do relógio.
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -47,7 +55,11 @@ export function AppTopBar() {
         ) : (
           <span />
         )}
-        <ThemeToggle />
+        {/* O `pointer-events-none` da faixa transparente cobriria o botão
+            junto; ele volta a receber clique aqui. */}
+        <span className="pointer-events-auto">
+          <ThemeToggle />
+        </span>
       </div>
     </header>
   );

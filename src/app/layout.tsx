@@ -83,8 +83,14 @@ export default function RootLayout({
             não em cada página, porque o rodapé é o último elemento do
             documento em todas elas. */}
         <footer className="px-5 pb-28 pt-6 text-center text-xs text-muted-foreground">
-          ⚠️ Conteúdo educacional. Não constitui recomendação de compra ou
-          venda de ativos.
+          {/* O emoji fica em `span` com margem própria: colado no texto o
+              glifo não abria respiro nenhum, e `aria-hidden` evita que o
+              leitor de tela anuncie "sinal de aviso" antes da frase. */}
+          <span aria-hidden="true" className="mr-1.5">
+            ⚠️
+          </span>
+          Conteúdo educacional. Não constitui recomendação de compra ou venda
+          de ativos.
         </footer>
       </body>
     </html>

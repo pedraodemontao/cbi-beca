@@ -43,8 +43,11 @@ export default async function ChatPage() {
             Assistente
           </h1>
           <p className="micro-hint">
-            ⚠️ Conteúdo educacional. O assistente explica os dados da
-            plataforma e não emite recomendação de compra ou venda.
+            <span aria-hidden="true" className="mr-1.5">
+              ⚠️
+            </span>
+            Conteúdo educacional. O assistente explica os dados da plataforma e
+            não emite recomendação de compra ou venda.
           </p>
         </header>
 
