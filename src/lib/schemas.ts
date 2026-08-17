@@ -36,6 +36,30 @@ export const newPasswordSchema = z
 export type LoginFormData = z.infer<typeof loginSchema>;
 export type NewPasswordFormData = z.infer<typeof newPasswordSchema>;
 
+/**
+ * Campo numérico OPCIONAL vindo de formulário.
+ *
+ * `z.string()` recebendo `undefined` estoura com "expected string, received
+ * undefined" — em inglês, e na cara da usuária. E `undefined` é exatamente o
+ * que chega quando o campo NÃO É RENDERIZADO: os formulários de preço teto e
+ * de renda fixa trocam de campo conforme o tipo do ativo, então metade das
+ * chaves simplesmente não existe no `FormData`.
+ *
+ * `.optional()` antes do transform é o que faz a chave ausente virar
+ * `undefined` em silêncio, em vez de erro.
+ */
+function optionalNumber(message: string, check: (value: number) => boolean) {
+  return z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? undefined : Number(value)))
+    .refine(
+      (value) => value === undefined || (Number.isFinite(value) && check(value)),
+      message
+    );
+}
+
 export const positionFormSchema = z.object({
   ticker: z
     .string()
@@ -50,7 +74,8 @@ export const positionFormSchema = z.object({
   purchaseDate: z
     .string()
     .trim()
-    .transform((value) => (value === '' ? undefined : value))
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? undefined : value))
     .pipe(z.iso.date('Data inválida').optional()),
 });
 
@@ -82,25 +107,18 @@ export const fixedIncomeFormSchema = z
     maturesOn: z
       .string()
       .trim()
-      .transform((value) => (value === '' ? undefined : value))
+      .optional()
+      .transform((value) => (value === undefined || value === '' ? undefined : value))
       .pipe(z.iso.date('Data de vencimento inválida').optional()),
     indexKind: z.enum(['cdi', 'prefixado'], { error: 'Selecione o indexador' }),
-    indexPercent: z
-      .string()
-      .trim()
-      .transform((value) => (value === '' ? undefined : Number(value)))
-      .refine(
-        (value) => value === undefined || (Number.isFinite(value) && value > 0 && value <= 500),
-        'O percentual do CDI precisa ficar entre 0 e 500'
-      ),
-    ratePercent: z
-      .string()
-      .trim()
-      .transform((value) => (value === '' ? undefined : Number(value)))
-      .refine(
-        (value) => value === undefined || (Number.isFinite(value) && value > 0 && value <= 100),
-        'A taxa precisa ficar entre 0 e 100% ao ano'
-      ),
+    indexPercent: optionalNumber(
+      'O percentual do CDI precisa ficar entre 0 e 500',
+      (value) => value > 0 && value <= 500
+    ),
+    ratePercent: optionalNumber(
+      'A taxa precisa ficar entre 0 e 100% ao ano',
+      (value) => value > 0 && value <= 100
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.indexKind === 'cdi' && data.indexPercent === undefined) {
@@ -146,35 +164,23 @@ export const ceilingOverrideSchema = z.object({
    * paga, não de uma parcela do lucro. O formulário de fundo não manda este
    * campo, e a action recusa se ele vier junto com o de distribuição.
    */
-  payoutPercent: z
-    .string()
-    .trim()
-    .transform((value) => (value === '' ? undefined : Number(value)))
-    .refine(
-      (value) => value === undefined || (Number.isFinite(value) && value >= 1 && value <= 200),
-      'O payout precisa ficar entre 1% e 200%'
-    ),
-  expectedEps: z
-    .string()
-    .trim()
-    .transform((value) => (value === '' ? undefined : Number(value)))
-    .refine(
-      (value) => value === undefined || (Number.isFinite(value) && value > 0),
-      'O lucro por ação precisa ser maior que zero'
-    ),
+  payoutPercent: optionalNumber(
+    'O payout precisa ficar entre 1% e 200%',
+    (value) => value >= 1 && value <= 200
+  ),
+  expectedEps: optionalNumber(
+    'O lucro por ação precisa ser maior que zero',
+    (value) => value > 0
+  ),
   /**
    * Distribuição MENSAL por cota, em reais — é como o mercado de fundo fala e
    * é o que a Beca pediu. A action multiplica por doze antes de gravar,
    * porque o banco e o cálculo do teto trabalham no anual.
    */
-  monthlyDistribution: z
-    .string()
-    .trim()
-    .transform((value) => (value === '' ? undefined : Number(value)))
-    .refine(
-      (value) => value === undefined || (Number.isFinite(value) && value > 0),
-      'A distribuição mensal precisa ser maior que zero'
-    ),
+  monthlyDistribution: optionalNumber(
+    'A distribuição mensal precisa ser maior que zero',
+    (value) => value > 0
+  ),
   /**
    * 'global' é o ajuste da Beca, que vale pra todas as usuárias. O padrão é
    * 'personal' porque o formulário só manda o campo pra quem é curadora — quem
