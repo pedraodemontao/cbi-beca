@@ -143,6 +143,27 @@
   --scale-caution: light-dark(var(--cbi-amber-ink), var(--cbi-amber));
   --scale-warn: light-dark(var(--cbi-ember-ink), var(--cbi-ember));
 
+  /* ─── Rampa CATEGÓRICA ───
+   *
+   * Cinco classes de ativo na composição da carteira, e cada uma precisa de
+   * uma cor que não signifique nada além de "esta é outra categoria".
+   *
+   * Nasceu porque emprestar token de mercado parou de escalar: com três
+   * classes deu pra usar ouro, cinza e verde; na quarta entrou coral, e a
+   * barra passou a ter verde e vermelho lado a lado parecendo alta e queda. Na
+   * quinta não havia mais o que emprestar.
+   *
+   * Azul e roxo são hues NOVOS na identidade, e entram só aqui — não viram
+   * cor de texto, de botão nem de estado. Medido em 2026-08-17: todas ≥3:1
+   * sobre o card (régua de forma cheia, WCAG 1.4.11) e ΔE ≥ 47 entre
+   * quaisquer duas, nos dois temas.
+   */
+  --cat-1: light-dark(#a87f22, #d6a93c);
+  --cat-2: light-dark(#15795a, #3fbf87);
+  --cat-3: light-dark(#1f6fa8, #5aa9e6);
+  --cat-4: light-dark(#7a3fa8, #c58af0);
+  --cat-5: light-dark(#b4342a, #f0705f);
+
   /* Sombra é cor, e cor muda com o tema: preto puro sobre papel suja. */
   --shadow-tone: light-dark(rgb(84 70 38 / 0.13), rgb(0 0 0 / 0.5));
   --shadow-tone-near: light-dark(rgb(84 70 38 / 0.09), rgb(0 0 0 / 0.4));
@@ -193,6 +214,11 @@
   --color-negative: var(--negative);
   --color-negative-tint: var(--negative-tint);
   --color-negative-deep: var(--negative-deep);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
   --color-ring: var(--primary);
   --font-sans: var(--font-jakarta);
   --radius-card: 24px;

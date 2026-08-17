@@ -1,3 +1,4 @@
+import type { AllocationClass } from '@/lib/asset-type';
 import type { BrapiQuote } from '@/lib/brapi';
 import type {
   AssetType,
@@ -200,4 +201,44 @@ export function buildSectorConcentration(
       : null;
 
   return { slices, dominant };
+}
+
+/**
+ * Uma fatia da composição, já somando as duas fontes de patrimônio.
+ *
+ * `class` em vez de `assetType` porque renda fixa não é um `AssetType`: ela
+ * mora em tabela própria, sem ticker e sem quantidade. Enquanto a composição
+ * só sabia de `positions`, quem tinha CDB via a barra fechar em 100% sem ele.
+ */
+export interface AllocationSlice {
+  class: AllocationClass;
+  value: number;
+  percentage: number;
+}
+
+/**
+ * Composição por classe, incluindo renda fixa.
+ *
+ * A renda fixa entra pelo valor LÍQUIDO, o mesmo que o card de patrimônio
+ * mostra: é o que a pessoa teria resgatando hoje. Usar o bruto aqui e o
+ * líquido lá faria as duas telas discordarem sobre o mesmo dinheiro.
+ */
+export function buildAllocation(
+  positionSlices: AssetTypeAllocation[],
+  fixedIncomeNet: number
+): AllocationSlice[] {
+  const values: { class: AllocationClass; value: number }[] = positionSlices.map(
+    (slice) => ({ class: slice.assetType, value: slice.value })
+  );
+
+  if (fixedIncomeNet > 0) {
+    values.push({ class: 'fixed_income', value: fixedIncomeNet });
+  }
+
+  const total = values.reduce((sum, item) => sum + item.value, 0);
+  if (total <= 0) return [];
+
+  return values
+    .map((item) => ({ ...item, percentage: (item.value / total) * 100 }))
+    .sort((a, b) => b.value - a.value);
 }

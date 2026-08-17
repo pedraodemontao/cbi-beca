@@ -61,6 +61,58 @@ export async function getAccumulatedCdi(
   return (factor - 1) * 100;
 }
 
+/** Um dia da série do CDI, com a data já em `AAAA-MM-DD`. */
+export interface CdiPoint {
+  day: string;
+  daily: number;
+}
+
+/**
+ * A série crua do CDI, para quem precisa avaliar MUITOS períodos diferentes.
+ *
+ * `getCdiAccrual` faz uma requisição por intervalo, o que é certo numa tela
+ * (poucas posições, e o `revalidate` de 6h cobre). No cron de snapshot seriam
+ * ~100 chamadas ao Banco Central numa rodada, uma por posição de cada
+ * usuária. Aqui a série vem inteira uma vez e cada período é fatiado em
+ * memória por `accrueBetween`.
+ */
+export async function getCdiSeries(
+  from: Date,
+  to: Date = new Date()
+): Promise<CdiPoint[] | null> {
+  const points = await fetchSeries(SERIES.cdi, from, to);
+  if (!points) return null;
+
+  return points
+    .map((point) => {
+      // O SGS devolve `dd/MM/yyyy`; vira `AAAA-MM-DD` pra comparar como texto,
+      // sem passar por `new Date` e sem risco de fuso.
+      const [d, m, y] = point.data.split('/');
+      return { day: `${y}-${m}-${d}`, daily: Number(point.valor) };
+    })
+    .filter((point) => Number.isFinite(point.daily));
+}
+
+/** Fatia a série num intervalo e compõe, com o percentual aplicado por dia. */
+export function accrueBetween(
+  points: CdiPoint[],
+  fromDay: string,
+  toDay: string,
+  percentOfCdi = 100
+): CdiAccrual {
+  const multiplier = percentOfCdi / 100;
+  let factor = 1;
+  let businessDays = 0;
+
+  for (const point of points) {
+    if (point.day < fromDay || point.day > toDay) continue;
+    businessDays += 1;
+    factor *= 1 + (point.daily / 100) * multiplier;
+  }
+
+  return { factor, businessDays };
+}
+
 export interface CdiAccrual {
   /** Fator multiplicativo do período: 1,0842 significa 8,42% acumulados. */
   factor: number;

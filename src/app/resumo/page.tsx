@@ -4,7 +4,12 @@ import { createClient } from '@/lib/supabase/server';
 import { getQuote, type BrapiQuote } from '@/lib/brapi';
 import { getAccumulatedCdi, getCurrentCdiYearly } from '@/lib/bcb';
 import { getUpcomingDividends } from '@/lib/dividends';
-import { buildPortfolioSummary, buildSectorConcentration } from '@/lib/portfolio';
+import {
+  buildAllocation,
+  buildPortfolioSummary,
+  buildSectorConcentration,
+} from '@/lib/portfolio';
+import { fetchFixedIncome } from '@/lib/fixed-income-data';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { formatBRL, formatPercent } from '@/lib/format';
 import { BottomNav } from '@/components/layout/bottom-nav';
@@ -42,7 +47,7 @@ export default async function ResumoPage() {
   const snapshots = (snapshotRows ?? []) as PortfolioSnapshot[];
 
   const tickers = [...new Set(positions.map((p) => p.ticker))];
-  const [quotes, upcomingDividends, incomeReport, { data: sectorRows }] =
+  const [quotes, upcomingDividends, incomeReport, { data: sectorRows }, fixedIncome] =
     await Promise.all([
       tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
       getUpcomingDividends(supabase, positions),
@@ -50,11 +55,16 @@ export default async function ResumoPage() {
       tickers.length > 0
         ? supabase.from('companies').select('ticker,sector').in('ticker', tickers)
         : Promise.resolve({ data: [] }),
+      fetchFixedIncome(supabase),
     ]);
   const quoteMap = new Map<string, BrapiQuote>(
     (quotes ?? []).map((quote) => [quote.symbol, quote])
   );
   const summary = buildPortfolioSummary(positions, quoteMap);
+  // A composição soma as duas fontes de patrimônio: sem isso a barra fecha em
+  // 100% ignorando a renda fixa, e quem tem CDB vê uma carteira que não é a
+  // dele.
+  const allocation = buildAllocation(summary.allocation, fixedIncome.totalNet);
   const concentration = buildSectorConcentration(
     summary.positions,
     new Map(
@@ -86,7 +96,9 @@ export default async function ResumoPage() {
           </p>
         </header>
 
-        {positions.length === 0 ? (
+        {/* Renda fixa sozinha também gera painel: cair no estado vazio
+            esconderia patrimônio que existe. */}
+        {positions.length === 0 && fixedIncome.holdings.length === 0 ? (
           <InfoNote>
             Nenhuma posição cadastrada. Registre seus ativos em{' '}
             <Link href="/carteira" className="font-bold underline">
@@ -100,9 +112,13 @@ export default async function ResumoPage() {
               <div className="card">
                 <p className="micro-label">Patrimônio</p>
                 <p className="num mt-1.5 text-2xl font-extrabold">
-                  {formatBRL(summary.totalValue)}
+                  {formatBRL(summary.totalValue + fixedIncome.totalNet)}
                 </p>
-                <p className="micro-hint mt-1">valor de mercado atual</p>
+                <p className="micro-hint mt-1">
+                  {fixedIncome.totalNet > 0
+                    ? 'bolsa na cotação atual, mais renda fixa líquida'
+                    : 'valor de mercado atual'}
+                </p>
               </div>
 
               <div className="card">
@@ -148,7 +164,7 @@ export default async function ResumoPage() {
               since={since}
             />
 
-            <AllocationBar allocation={summary.allocation} />
+            <AllocationBar allocation={allocation} />
 
             <DividendsCard dividends={upcomingDividends} />
 

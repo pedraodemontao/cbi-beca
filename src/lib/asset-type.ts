@@ -27,6 +27,32 @@ export const ASSET_TYPE_LABEL_LONG: Record<AssetType, string> = {
   etf: 'ETFs (fundos de índice)',
 };
 
+/**
+ * As classes que aparecem na composição da carteira.
+ *
+ * É `AssetType` mais renda fixa, que não é `AssetType` porque não mora em
+ * `positions` — tem tabela própria, sem ticker nem quantidade.
+ */
+export type AllocationClass = AssetType | 'fixed_income';
+
+export const ALLOCATION_LABEL: Record<AllocationClass, string> = {
+  ...ASSET_TYPE_LABEL_LONG,
+  fixed_income: 'Renda fixa',
+};
+
+/**
+ * Rampa categórica, definida no `globals.css`. Cor aqui não significa alta,
+ * queda nem marca — significa só "esta é outra categoria". Ver o bloco
+ * `--cat-*` para o porquê de ter deixado de emprestar token de mercado.
+ */
+export const ALLOCATION_COLOR: Record<AllocationClass, string> = {
+  stock: 'bg-cat-1',
+  fii: 'bg-cat-2',
+  bdr: 'bg-cat-3',
+  etf: 'bg-cat-4',
+  fixed_income: 'bg-cat-5',
+};
+
 /** A unidade em que o provento é anunciado: "R$ 1,20 por ___". */
 export const ASSET_TYPE_UNIT: Record<AssetType, string> = {
   stock: 'ação',
