@@ -4,10 +4,12 @@ import { getQuote, type BrapiQuote } from '@/lib/brapi';
 import { buildPortfolioSummary, groupByTicker } from '@/lib/portfolio';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
+import { fetchFixedIncome } from '@/lib/fixed-income-data';
 import { buildCeilingProjection, fiiCeiling, DEFAULT_PAYOUT } from '@/lib/ceiling-price';
 import { AppHeader } from '@/components/layout/app-header';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { AddPositionForm } from '@/components/carteira/add-position-form';
+import { FixedIncomeSection } from '@/components/carteira/fixed-income-section';
 import { PositionsGrid } from '@/components/carteira/positions-grid';
 import { WealthCard } from '@/components/carteira/wealth-card';
 import { InfoNote } from '@/components/shared/info-note';
@@ -30,11 +32,12 @@ export default async function CarteiraPage() {
   const positions = (rows ?? []) as PositionRow[];
 
   const tickers = [...new Set(positions.map((p) => p.ticker))];
-  const [quotes, incomeReport, ceilingAssets, overrides] = await Promise.all([
+  const [quotes, incomeReport, ceilingAssets, overrides, fixedIncome] = await Promise.all([
     tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
     buildDividendIncomeReport(supabase, positions),
     fetchCeilingAssets(supabase, { tickers }),
     fetchAppliedOverrides(supabase),
+    fetchFixedIncome(supabase),
   ]);
 
   // Teto por ticker — é o que cada card compara com o preço de hoje. Ação sai do
@@ -75,7 +78,10 @@ export default async function CarteiraPage() {
           subtitle="Posições cadastradas, preço médio e cotação atual."
         />
 
-        {positions.length === 0 ? (
+        {/* O card aparece com renda fixa sozinha também: quem só tem CDB
+            cadastrado tem patrimônio, e cair no estado vazio esconderia o
+            número que ela acabou de cadastrar. */}
+        {positions.length === 0 && fixedIncome.holdings.length === 0 ? (
           <InfoNote>
             Cadastre os ativos que você já possui para acompanhar posição, preço
             médio e proventos.
@@ -85,10 +91,13 @@ export default async function CarteiraPage() {
             summary={summary}
             dayChangePercent={dayChangePercent}
             totalReceived={incomeReport.netReceived}
+            fixedIncomeNet={fixedIncome.totalNet}
           />
         )}
 
         <AddPositionForm />
+
+        <FixedIncomeSection summary={fixedIncome} />
 
         <PositionsGrid
           holdings={groupByTicker(summary.positions)}

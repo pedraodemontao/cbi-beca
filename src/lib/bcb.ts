@@ -61,6 +61,58 @@ export async function getAccumulatedCdi(
   return (factor - 1) * 100;
 }
 
+export interface CdiAccrual {
+  /** Fator multiplicativo do período: 1,0842 significa 8,42% acumulados. */
+  factor: number;
+  /**
+   * Pregões no intervalo. Vem de graça: a série 12 do SGS publica um ponto por
+   * DIA ÚTIL, então contar os pontos já exclui fim de semana e feriado
+   * bancário sem precisar de calendário da B3. É o que o prefixado usa no
+   * expoente `dias/252`.
+   */
+  businessDays: number;
+}
+
+/**
+ * Rendimento de um papel atrelado ao CDI, como fator.
+ *
+ * O `percentOfCdi` é aplicado a CADA TAXA DIÁRIA antes de compor, e não ao
+ * acumulado depois:
+ *
+ *   certo:  Π(1 + d × 1,10)
+ *   errado: 1 + (Π(1 + d) − 1) × 1,10
+ *
+ * Medido com a diária de 0,052531% e 252 pregões: 15,6703% contra 15,5650%,
+ * ou 0,105 ponto percentual em um ano — e a diferença cresce com o prazo,
+ * porque é juro sobre juro que deixa de existir.
+ *
+ * Papel prefixado também chama esta função, com `percentOfCdi = 0`: aí o
+ * fator sai 1 e o que interessa é o `businessDays`.
+ */
+export async function getCdiAccrual(
+  from: Date,
+  to: Date = new Date(),
+  percentOfCdi = 100
+): Promise<CdiAccrual | null> {
+  if (from >= to) return { factor: 1, businessDays: 0 };
+
+  const points = await fetchSeries(SERIES.cdi, from, to);
+  if (!points) return null;
+
+  const multiplier = percentOfCdi / 100;
+  let factor = 1;
+  let businessDays = 0;
+
+  for (const point of points) {
+    const daily = Number(point.valor);
+    if (!Number.isFinite(daily)) continue;
+    businessDays += 1;
+    factor *= 1 + (daily / 100) * multiplier;
+  }
+
+  return { factor, businessDays };
+}
+
 /** CDI anualizado a partir da última taxa diária publicada (252 dias úteis). */
 export async function getCurrentCdiYearly(): Promise<number | null> {
   const to = new Date();

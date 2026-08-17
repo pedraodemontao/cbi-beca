@@ -57,6 +57,78 @@ export const positionFormSchema = z.object({
 export type PositionFormData = z.infer<typeof positionFormSchema>;
 
 /**
+ * Renda fixa. Não tem ticker nem quantidade — tem emissor, taxa, indexador e
+ * vencimento, e o rendimento é CALCULADO, nunca digitado.
+ *
+ * O `superRefine` no fim é o espelho da constraint
+ * `fixed_income_rate_matches_index` do banco: o indexador decide qual taxa é
+ * obrigatória. Existir nos dois lados é de propósito — o banco é quem
+ * protege, e o Zod é quem devolve português em vez de erro do Postgres.
+ */
+export const fixedIncomeFormSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Dê um nome para reconhecer depois')
+      .max(80, 'Nome muito longo'),
+    kind: z.enum(['cdb', 'lci', 'lca', 'cri', 'cra', 'debenture', 'poupanca'], {
+      error: 'Selecione o tipo',
+    }),
+    principal: z.coerce
+      .number()
+      .positive('O valor aplicado deve ser maior que zero'),
+    appliedOn: z.iso.date('Data de aplicação inválida'),
+    maturesOn: z
+      .string()
+      .trim()
+      .transform((value) => (value === '' ? undefined : value))
+      .pipe(z.iso.date('Data de vencimento inválida').optional()),
+    indexKind: z.enum(['cdi', 'prefixado'], { error: 'Selecione o indexador' }),
+    indexPercent: z
+      .string()
+      .trim()
+      .transform((value) => (value === '' ? undefined : Number(value)))
+      .refine(
+        (value) => value === undefined || (Number.isFinite(value) && value > 0 && value <= 500),
+        'O percentual do CDI precisa ficar entre 0 e 500'
+      ),
+    ratePercent: z
+      .string()
+      .trim()
+      .transform((value) => (value === '' ? undefined : Number(value)))
+      .refine(
+        (value) => value === undefined || (Number.isFinite(value) && value > 0 && value <= 100),
+        'A taxa precisa ficar entre 0 e 100% ao ano'
+      ),
+  })
+  .superRefine((data, ctx) => {
+    if (data.indexKind === 'cdi' && data.indexPercent === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['indexPercent'],
+        message: 'Informe o percentual do CDI (ex.: 110)',
+      });
+    }
+    if (data.indexKind === 'prefixado' && data.ratePercent === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ratePercent'],
+        message: 'Informe a taxa anual (ex.: 12,5)',
+      });
+    }
+    if (data.maturesOn && data.maturesOn <= data.appliedOn) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['maturesOn'],
+        message: 'O vencimento precisa ser depois da aplicação',
+      });
+    }
+  });
+
+export type FixedIncomeFormData = z.infer<typeof fixedIncomeFormSchema>;
+
+/**
  * Ajuste de preço teto por empresa.
  *
  * O lucro entra como lucro POR AÇÃO: ninguém digita "107583000000" pra dizer

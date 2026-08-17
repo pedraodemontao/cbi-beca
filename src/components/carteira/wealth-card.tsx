@@ -7,31 +7,62 @@ interface WealthCardProps {
   dayChangePercent: number | null;
   /** Líquido de IR retido — o mesmo número que a tela de proventos exibe. */
   totalReceived: number;
+  /**
+   * Renda fixa resgatável hoje, líquida de IR. Entra no total porque
+   * "patrimônio" é quanto a pessoa tem, e um CDB de R$ 50 mil fora da conta
+   * transformaria o número em mentira.
+   */
+  fixedIncomeNet: number;
 }
 
 export function WealthCard({
   summary,
   dayChangePercent,
   totalReceived,
+  fixedIncomeNet,
 }: WealthCardProps) {
   const { totalValue, investedValue, profit, profitPercent } = summary;
   const isUp = profit >= 0;
+  const hasFixedIncome = fixedIncomeNet > 0;
+  const grandTotal = totalValue + fixedIncomeNet;
 
   return (
     <section className="card-lg">
       <p className="micro-label">Patrimônio</p>
-      <p className="micro-hint">valor de mercado das posições na cotação atual</p>
+      <p className="micro-hint">
+        {hasFixedIncome
+          ? 'renda variável na cotação atual, mais a renda fixa resgatável hoje'
+          : 'valor de mercado das posições na cotação atual'}
+      </p>
 
       <div className="mt-3.5 flex flex-wrap items-baseline gap-x-3.5 gap-y-2.5">
         <strong className="num text-[clamp(2.3rem,9vw,3.2rem)] font-extrabold leading-none tracking-tight">
-          {formatBRL(totalValue)}
+          {formatBRL(grandTotal)}
         </strong>
         {dayChangePercent !== null && (
+          // A variação do dia é só da renda variável, e o rótulo diz isso
+          // quando há renda fixa junto: CDB não oscila no dia, e diluir a
+          // variação no total faria o número parecer menor do que o mercado
+          // realmente andou.
           <span className={`chip ${dayChangePercent >= 0 ? 'chip-up' : 'chip-down'}`}>
-            {dayChangePercent >= 0 ? '↑' : '↓'} {formatPercent(dayChangePercent)} hoje
+            {dayChangePercent >= 0 ? '↑' : '↓'} {formatPercent(dayChangePercent)}{' '}
+            {hasFixedIncome ? 'hoje em bolsa' : 'hoje'}
           </span>
         )}
       </div>
+
+      {hasFixedIncome && (
+        <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+          <div>
+            <dt className="micro-hint">em bolsa</dt>
+            <dd className="num font-bold">{formatBRL(totalValue)}</dd>
+          </div>
+          <div>
+            <dt className="micro-hint">em renda fixa</dt>
+            <dd className="num font-bold">{formatBRL(fixedIncomeNet)}</dd>
+          </div>
+        </dl>
+      )}
 
       {summary.hasMissingQuotes && (
         <p className="mt-3 rounded-panel bg-accent px-3.5 py-2.5 text-sm font-medium text-accent-text">

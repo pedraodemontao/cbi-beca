@@ -19,6 +19,7 @@ import { buildPortfolioSummary } from '@/lib/portfolio';
 import { createClient } from '@/lib/supabase/server';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
+import { fetchFixedIncome } from '@/lib/fixed-income-data';
 import {
   bazinCeiling,
   buildCeilingProjection,
@@ -26,6 +27,8 @@ import {
   DEFAULT_PAYOUT,
 } from '@/lib/ceiling-price';
 import { ASSET_TYPE_LABEL } from '@/lib/asset-type';
+import { KIND_LABEL } from '@/lib/fixed-income';
+import type { FixedIncomeSummary } from '@/types/fixed-income';
 import type { AppliedOverride, CeilingAsset } from '@/types/ceiling';
 import type {
   DividendIncomeReport,
@@ -81,15 +84,67 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeZone: 'America/Sao_Paulo',
 });
 
+/**
+ * Renda fixa no contexto do chat.
+ *
+ * Sem isto, perguntar "quanto eu tenho?" devolvia só a bolsa, e quem tem um
+ * CDB grande ouviria um patrimônio muito menor que o real — o modelo não tem
+ * como saber o que não foi mandado.
+ *
+ * Vai em bloco separado das POSIÇÕES porque a natureza é outra: não tem
+ * cotação, não tem provento, e o valor é de curva.
+ */
+function buildFixedIncomeLines(fixedIncome: FixedIncomeSummary): string[] {
+  if (fixedIncome.holdings.length === 0) return [];
+
+  const lines = [
+    '',
+    'RENDA FIXA (valores de CURVA já calculados — não é preço de resgate antecipado):',
+    `- Total aplicado: ${formatBRL(fixedIncome.totalPrincipal)}`,
+    `- Valor bruto hoje: ${formatBRL(fixedIncome.totalGross)}`,
+    `- Resgatando hoje, líquido de IR: ${formatBRL(fixedIncome.totalNet)}`,
+    '- Esta parte NÃO paga provento: o rendimento é embutido no valor. Não some com os proventos acima.',
+  ];
+
+  for (const holding of fixedIncome.holdings) {
+    const taxa =
+      holding.indexKind === 'cdi'
+        ? `${holding.indexPercent}% do CDI`
+        : `${holding.ratePercent}% ao ano prefixado`;
+    if (holding.valuation === null) {
+      lines.push(
+        `  · ${holding.name} (${KIND_LABEL[holding.kind]}, ${taxa}): aplicado ${formatBRL(holding.principal)} — valor de hoje indisponível, não cite número.`
+      );
+      continue;
+    }
+    lines.push(
+      `  · ${holding.name} (${KIND_LABEL[holding.kind]}, ${taxa}): aplicado ${formatBRL(
+        holding.principal
+      )}, líquido hoje ${formatBRL(holding.valuation.netValue)}, IR de ${formatPercent(
+        holding.valuation.taxRate * 100
+      )}${holding.valuation.isMatured ? ' — JÁ VENCIDO, parou de render' : ''}`
+    );
+  }
+
+  if (fixedIncome.hasIncomplete) {
+    lines.push(
+      '- ATENÇÃO: alguma aplicação ficou sem cálculo porque a série do Banco Central não respondeu; ela entra no total pelo valor aplicado e o rendimento dela não está somado.'
+    );
+  }
+
+  return lines;
+}
+
 function buildPortfolioContext(
   summary: PortfolioSummary,
   upcomingDividends: UpcomingDividend[],
   areQuotesUnavailable: boolean,
-  income: DividendIncomeReport
+  income: DividendIncomeReport,
+  fixedIncome: FixedIncomeSummary
 ): string {
   const lines: string[] = ['<CONTEXTO_CARTEIRA>'];
 
-  if (summary.totalPositionsCount === 0) {
+  if (summary.totalPositionsCount === 0 && fixedIncome.holdings.length === 0) {
     lines.push(
       'O usuário ainda não cadastrou nenhuma posição na carteira.',
       'Não há números para citar. Convide com leveza a cadastrar o primeiro ativo na página Minha Carteira.'
@@ -206,6 +261,7 @@ function buildPortfolioContext(
   lines.push(
     '',
     'Todos os valores acima já vieram calculados pelo sistema. Use-os exatamente como estão — nunca recalcule, some ou estime números.',
+    ...buildFixedIncomeLines(fixedIncome),
     '</CONTEXTO_CARTEIRA>'
   );
   return lines.join('\n');
@@ -365,13 +421,21 @@ export async function POST(request: Request) {
   const positions = (rows ?? []) as PositionRow[];
 
   const tickers = [...new Set(positions.map((position) => position.ticker))];
-  const [quotes, upcomingDividends, income, ceilingAssets, ceilingOverrides] =
+  const [
+    quotes,
+    upcomingDividends,
+    income,
+    ceilingAssets,
+    ceilingOverrides,
+    fixedIncome,
+  ] =
     await Promise.all([
       tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
       getUpcomingDividends(supabase, positions),
       buildDividendIncomeReport(supabase, positions),
       fetchCeilingAssets(supabase, { tickers }),
       fetchAppliedOverrides(supabase),
+      fetchFixedIncome(supabase),
     ]);
   const quoteMap = new Map<string, BrapiQuote>((quotes ?? []).map((quote) => [quote.symbol, quote]));
   const areQuotesUnavailable = tickers.length > 0 && quotes === null;
@@ -381,7 +445,8 @@ export async function POST(request: Request) {
     summary,
     upcomingDividends,
     areQuotesUnavailable,
-    income
+    income,
+    fixedIncome
   );
 
   const ceilingBlock = buildCeilingContext(ceilingAssets, ceilingOverrides, quoteMap);
