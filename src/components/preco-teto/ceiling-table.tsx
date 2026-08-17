@@ -16,7 +16,12 @@ import {
   type CeilingProjection,
   type ProfitDeviation,
 } from '@/lib/ceiling-price';
-import { formatBRL, formatRatio, formatRatioSigned } from '@/lib/format';
+import {
+  formatBRL,
+  formatMultiple,
+  formatRatio,
+  formatRatioSigned,
+} from '@/lib/format';
 import { InfoNote } from '@/components/shared/info-note';
 import { OverrideForm } from '@/components/preco-teto/override-form';
 import { Sparkline } from '@/components/preco-teto/sparkline';
@@ -49,8 +54,39 @@ const OUTLIER_PRICE_EARNINGS = 6;
  * Piso de volume financeiro no dia. Abaixo disso o papel mal negocia e a
  * cotação fica parada há dias — EQPA7 e BNBR3 trocaram 200 ações num pregão em
  * que PETR4 trocou 25 milhões, e o preço velho deles inventa margem de +1.400%.
+ *
+ * O piso é POR TIPO porque a régua de ação não serve pra fundo. Medido em
+ * 2026-08-17: com R$ 1 milhão, 284 dos 373 fundos entram como "pouco
+ * negociada" — 76%, contra 48% das ações. Nessa proporção o toggle deixa de
+ * filtrar e passa a esconder a aba inteira, que é o oposto do que ele existe
+ * pra fazer. Em R$ 100 mil o fundo empata com a ação, em 44%.
  */
-const MIN_DAILY_TRADED = 1_000_000;
+const MIN_DAILY_TRADED_STOCK = 1_000_000;
+const MIN_DAILY_TRADED_FUND = 100_000;
+
+function minDailyTraded(assetType: CeilingAsset['assetType']): number {
+  return assetType === 'fii' ? MIN_DAILY_TRADED_FUND : MIN_DAILY_TRADED_STOCK;
+}
+
+/**
+ * O rótulo de categoria muda com o tipo do ativo, e é por isso que é função.
+ *
+ * `sector` é a taxonomia da B3 e só descreve empresa: nos 373 fundos ele vem
+ * vazio em 221 e como "Miscellaneous" em 145 (medido em 2026-08-17), então o
+ * filtro da aba Fundos oferecia "Miscellaneous" e "Finance" — em inglês, e
+ * sem separar fundo nenhum. Quem descreve fundo é `segment`, preenchido em
+ * 334 dos 373.
+ */
+function categoryOf(asset: CeilingAsset): string | null {
+  return asset.assetType === 'fii' ? asset.segment : asset.sector;
+}
+
+/** P/VP de fundo: cotação sobre patrimônio por cota. Recalculado aqui, nunca
+ *  copiado da API — a escala da bolsai já chegou corrompida uma vez. */
+function priceToBook(price: number | null, vpa: number | null): number | null {
+  if (price === null || vpa === null || vpa <= 0) return null;
+  return price / vpa;
+}
 
 /**
  * Quem pagou mais de 15% do próprio preço em 12 meses quase nunca estava
@@ -112,6 +148,19 @@ interface MethodColumn {
   value: number | null;
   /** Coluna de teto — no mobile a primeira delas vira o número grande do card. */
   strong?: boolean;
+  /**
+   * Toda coluna era dinheiro até o P/VP entrar. Múltiplo não leva "R$", e
+   * `toFixed(2)` imprimiria "1.20" — que em português se lê como mil e
+   * duzentos.
+   */
+  format?: 'brl' | 'multiple';
+}
+
+function formatColumn(column: MethodColumn): string {
+  if (column.value === null) return '—';
+  return column.format === 'multiple'
+    ? formatMultiple(column.value)
+    : formatBRL(column.value);
 }
 
 interface CeilingRow {
@@ -173,10 +222,23 @@ export function CeilingTable({
     [assets]
   );
 
+  /**
+   * As opções saem só do tipo que está na aba. Antes vinham do universo
+   * inteiro, então a aba Fundos listava setor de empresa junto — e o setor de
+   * empresa não casa com fundo nenhum, o que deixava a tabela vazia ao
+   * escolher.
+   */
   const sectors = useMemo(
     () =>
-      [...new Set(assets.map((asset) => asset.sector).filter(Boolean))].sort() as string[],
-    [assets]
+      [
+        ...new Set(
+          assets
+            .filter((asset) => asset.assetType === kind)
+            .map(categoryOf)
+            .filter(Boolean)
+        ),
+      ].sort() as string[],
+    [assets, kind]
   );
 
   const rows = useMemo<CeilingRow[]>(() => {
@@ -238,7 +300,7 @@ export function CeilingTable({
         projection,
         isOutlier,
         profitDeviation: deviation,
-        isLiquid: tradedValue >= MIN_DAILY_TRADED,
+        isLiquid: tradedValue >= minDailyTraded(asset.assetType),
         override,
         columns,
         ceiling,
@@ -263,7 +325,7 @@ export function CeilingTable({
     const term = search.trim().toUpperCase();
     let universe = onlyLiquid ? rows.filter((row) => row.isLiquid) : rows;
     if (sector !== 'all') {
-      universe = universe.filter((row) => row.asset.sector === sector);
+      universe = universe.filter((row) => categoryOf(row.asset) === sector);
     }
     if (onlyOwned) {
       universe = universe.filter((row) => owned.has(row.asset.ticker));
@@ -515,7 +577,9 @@ export function CeilingTable({
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
               <label className="flex flex-col gap-1.5">
-                <span className="sr-only">Filtrar por setor</span>
+                <span className="sr-only">
+                  {kind === 'fii' ? 'Filtrar por segmento' : 'Filtrar por setor'}
+                </span>
                 <select
                   value={sector}
                   onChange={(event) => {
@@ -524,7 +588,9 @@ export function CeilingTable({
                   }}
                   className="field"
                 >
-                  <option value="all">Todos os setores</option>
+                  <option value="all">
+                    {kind === 'fii' ? 'Todos os segmentos' : 'Todos os setores'}
+                  </option>
                   {sectors.map((name) => (
                     <option key={name} value={name}>
                       {name}
@@ -605,7 +671,12 @@ export function CeilingTable({
                   <strong className="font-bold text-foreground">teto</strong>{' '}
                   resulta da divisão pelo rendimento anual definido acima. O
                   valor não é arredondado: em cotas de preço baixo, o
-                  arredondamento distorceria o resultado.
+                  arredondamento distorceria o resultado.{' '}
+                  <strong className="font-bold text-foreground">P/VP</strong> é a
+                  cotação dividida pelo patrimônio por cota, e não entra na
+                  conta do teto: é a segunda régua do mercado de fundo. Acima
+                  de 1,00 a cota custa mais que o patrimônio que ela
+                  representa.
                 </>
               ) : (
                 <>
@@ -627,7 +698,10 @@ export function CeilingTable({
             {withoutCeiling > 0 && (
               <>
                 {' '}
-                Outr{withoutCeiling === 1 ? 'a' : 'as'} {withoutCeiling} fic
+                {/* A concordância segue o tipo da aba: "Outras" vinha de
+                    "empresas" e saía errado em cima de "fundos". */}
+                Outr{kind === 'fii' ? 'o' : 'a'}
+                {withoutCeiling === 1 ? '' : 's'} {withoutCeiling} fic
                 {withoutCeiling === 1 ? 'ou' : 'aram'} de fora por falta do dado
                 que este método exige.
               </>
@@ -639,7 +713,7 @@ export function CeilingTable({
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="px-4 py-3 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
-                    Empresa
+                    {kind === 'fii' ? 'Fundo' : 'Empresa'}
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
                     Cotação
@@ -716,7 +790,7 @@ export function CeilingTable({
                                 : 'text-muted-foreground'
                             }`}
                           >
-                            {column.value === null ? '—' : formatBRL(column.value)}
+                            {formatColumn(column)}
                           </td>
                         ))}
                         <td className="px-4 py-3 text-right">
@@ -787,7 +861,7 @@ export function CeilingTable({
                     <div>
                       <p className="micro-label">{headline?.label ?? 'Preço teto'}</p>
                       <p className="num text-2xl font-extrabold leading-tight text-primary-deep">
-                        {headline?.value == null ? '—' : formatBRL(headline.value)}
+                        {headline ? formatColumn(headline) : '—'}
                       </p>
                     </div>
                     <div className="text-right">
@@ -803,13 +877,19 @@ export function CeilingTable({
                     </div>
                   </div>
 
+                  {/* Três colunas ficaram possíveis quando o P/VP entrou em
+                      Fundos: numa grade de duas, a terceira sobrava sozinha. */}
                   <dl
                     className={`mt-3 grid gap-2 text-center ${
-                      cells.length >= 4 ? 'grid-cols-4' : 'grid-cols-2'
+                      cells.length >= 4
+                        ? 'grid-cols-4'
+                        : cells.length === 3
+                          ? 'grid-cols-3'
+                          : 'grid-cols-2'
                     }`}
                   >
                     {cells.map((cell) => (
-                      <Cell key={cell.label} label={cell.label} value={cell.value} />
+                      <Cell key={cell.label} column={cell} />
                     ))}
                   </dl>
 
@@ -912,6 +992,15 @@ function buildFiiColumns(asset: CeilingAsset, targetYield: number): MethodColumn
   return [
     { label: 'Distribuído em 12m', value: asset.dividends12m },
     { label: 'Por mês', value: monthly },
+    // P/VP fica ANTES do teto pra que teto e margem continuem lado a lado. Ele
+    // não entra na conta do teto — é a segunda régua que o mercado de fundo
+    // usa, e sem ela o conselho de "não comprar fundo de papel acima de 1"
+    // ficava teórico numa tela que não mostrava o número.
+    {
+      label: 'P/VP',
+      value: priceToBook(asset.price, asset.vpa),
+      format: 'multiple',
+    },
     {
       label: `Teto ${formatRatio(targetYield)}`,
       value: fiiCeiling(asset.dividends12m, targetYield),
@@ -1308,15 +1397,15 @@ function OutlierBadge({
   );
 }
 
-function Cell({ label, value }: { label: string; value: number | null }) {
+/** Recebe a coluna inteira, e não só o número, porque nem toda célula é
+ *  dinheiro desde que o P/VP entrou na aba de fundos. */
+function Cell({ column }: { column: MethodColumn }) {
   return (
     <div className="rounded-panel bg-background px-1 py-2">
       <dt className="text-[0.65rem] font-extrabold uppercase tracking-wide text-muted-foreground">
-        {label}
+        {column.label}
       </dt>
-      <dd className="num text-sm font-bold">
-        {value === null ? '—' : formatBRL(value)}
-      </dd>
+      <dd className="num text-sm font-bold">{formatColumn(column)}</dd>
     </div>
   );
 }
