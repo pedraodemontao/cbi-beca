@@ -14,7 +14,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 
 ## Decisões registradas
 
-- **Next 16 usa `src/proxy.ts`** (rename de middleware): export `proxy()` + `proxyConfig`. Helper em `src/lib/supabase/proxy.ts`.
+- **Next 16 usa `src/proxy.ts`** (rename de middleware): export `proxy()` + **`config`**. Helper em `src/lib/supabase/proxy.ts`. Esta linha dizia `proxyConfig` até 2026-08-14, e estava errada — ver "O matcher do proxy nunca valeu".
 - **Código em inglês, UI em português.** Colunas do banco em `snake_case` inglês (`avg_price`, `asset_type`), tipos TS em `camelCase`.
 - **`asset_type` enum `('stock','fii')`** — 'fii' é nome próprio, mantido.
 - **`profiles.id` = `auth.users.id`** (PK e FK juntas, convenção Supabase). Profile criado por trigger no signup.
@@ -41,7 +41,7 @@ Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postg
 - **Navegação:** `BottomNav` fixa no mobile (Carteira · Resumo · Chat), vira pill bar centralizada no desktop. Páginas com bottom-nav precisam de `pb-28 sm:pb-8` no main.
 - **Semântica de mercado é DESACOPLADA da marca.** Alta = `text-positive` (verde), queda = `text-negative` (coral). Enquanto o verde era a cor primária, `.chip-up` herdava `primary` — quando o ouro virou a marca, isso teria pintado "alta" de dourado. Hoje `.chip-up` sai de `positive-*` e nunca de `primary-*`.
 - **Cor de marca nunca vira rótulo de categoria.** O badge de tipo de ativo era `chip-up` (verde) pra ação: ao lado de um número verde, "Ação" lia como "em alta". Ação virou `chip-neutral`, FII ficou no ouro.
-- **Texto em cima de ouro usa `text-primary-foreground`, nunca `text-white`** — branco sobre ouro reprova em contraste, preto dá 9,15:1.
+- **Ouro tem DOIS tokens: `--primary` é tinta, `--primary-surface` é preenchimento.** Texto, borda e traço usam `text-primary`/`border-primary`; fundo de botão, chip ativo e barra de gráfico usam `bg-primary-surface` com `text-primary-surface-foreground` (preto, nos dois temas). Nunca `bg-primary` — ver "O ouro do tema claro era marrom".
 - **Confirmação de e-mail:** rota `/auth/confirm` aceita os dois fluxos (`token_hash` do guia server-side E `?code=` do template padrão PKCE).
 
 ## Roadmap (ordem de prioridade)
@@ -607,13 +607,12 @@ fica salva (`localStorage`, chave `cbi-theme`).
   preferência do aparelho em `data-theme` e escuta `matchMedia`. Sem isso, quem
   troca o tema do celular com o app aberto ficaria na cor antiga (navegar pelo
   app não bastaria: o App Router não repinta o CSS).
-- **O ouro do escuro NÃO sobrevive no claro:** `#D6A93C` sobre branco dá 1,9:1 —
-  rótulo some, barra de gráfico some. No claro ele vira `#83600F` (5,4:1 sobre o
-  papel). Isso vale pro `--primary` inteiro porque o token é fundo de botão E
-  cor de texto: `text-primary` aparece em 79 lugares e `bg-primary` em 23 —
-  separar os papéis seria mexer em 29 arquivos pra ganhar nada.
-- **`--primary-fg` inverte junto:** preto sobre ouro claro (9,15:1) no escuro,
-  branco sobre ouro escuro (5,76:1) no claro.
+- **O ouro do escuro NÃO sobrevive no claro COMO TEXTO:** `#D6A93C` sobre branco
+  dá 1,9:1 — rótulo some. Como tinta ele vira `#83600F` (5,4:1 sobre o papel).
+  Isso vale pro `--primary`, que é o token de TINTA.
+
+  **Esta linha dizia "vale pro `--primary` inteiro" e estava errada** — ver
+  "O ouro do tema claro era marrom", logo abaixo.
 - **"deep" quer dizer MAIS FORTE, não mais escuro.** No preto o ouro forte
   clareia; no papel, escurece. Quem consome o token quer destaque.
 - **Contraste do claro medido, não estimado** (mesma régua do escuro): 22 pares
@@ -1097,6 +1096,117 @@ compra virando conta.
   perfil preenche `display_name` a partir do `user_metadata` e nasce com
   `is_curator` false.
 
+## Cor quebrada no radar e no login (2026-08-14)
+
+Origem: vídeo da Beca de 13/08 às 18:37, filmando a tela do notebook com o
+radar da referência ao lado do nosso. O que ela apontava era a divergência de
+número; o que o vídeo REVELOU foi um defeito de cor, visível justamente porque
+os dois gauges apareciam lado a lado.
+
+### O gauge tinha cinco faixas e três cores
+
+- **A rampa gastava três famílias pra cinco degraus** — `positive-deep`,
+  `positive`, `muted-fg`, `negative`, `negative-deep`. No arco os pares quase
+  se fundiam: dois verdes vizinhos, dois vermelhos vizinhos. A legenda
+  prometia cinco faixas e o desenho entregava três blocos.
+- **O meio era `--muted-fg`, a cor de texto secundário.** Num gauge, cinza lê
+  como "sem dado / desabilitado" — e é a faixa mais comum da escala, então o
+  estado normal da tela vinha pintado de desligado. O `CurrentReading` já
+  tinha tirado o cinza do número em destaque pelo mesmo motivo; o arco ficou.
+- **Entraram `--scale-caution` (âmbar) e `--scale-warn` (laranja)**, com
+  primitivos próprios nas duas paletas. Ficam fora de `--primary-*` (não são
+  marca) e fora de `positive`/`negative` (não são alta nem queda): são posição
+  numa régua. Hoje só `RADAR_BANDS` consome, e por `var()` direto — não há
+  utility no `@theme` porque não há classe pra criar.
+- **O matiz do âmbar foi escolhido LONGE do ouro de propósito:** 97° contra os
+  ~60° da marca, ΔE 18,9 no escuro. Reusar `--primary` era a alternativa
+  barata, e produziria um arco institucional no tema claro — onde o ouro é
+  `#83600F`, o mesmo marrom do botão que este mesmo commit consertou.
+- **Medido, não estimado.** Rampa final e contraste sobre o painel (a cor da
+  faixa também é texto no balão do gráfico, daí a régua de 4,5:1):
+
+  | faixa | escuro | painel | claro | painel |
+  | --- | --- | --- | --- | --- |
+  | 0–20 | `#5BD3A0` | 8,89 | `#0F5F47` | 6,48 |
+  | 20–40 | `#3FBF87` | 7,11 | `#15795A` | 4,55 |
+  | 40–60 | `#E6D24F` | 10,80 | `#6B6413` | 4,92 |
+  | 60–80 | `#F2985A` | 7,43 | `#A25211` | 4,75 |
+  | 80–100 | `#FF8A78` | 7,22 | `#8F2820` | 7,15 |
+
+  Matiz progride 160° → 97° → 59° → 35° nos dois temas, e o ΔE entre degraus
+  vizinhos nunca fica abaixo de 8,3.
+- **Sobre papel todo matiz saturado escurece** — o âmbar vira oliva e o
+  laranja vira terracota. Isso é limite da superfície, não escolha: amarelo
+  claro sobre branco não tem contraste pra ser texto. O que se preserva é a
+  PROGRESSÃO, e é ela que faz a régua parecer régua.
+
+### O ouro do tema claro era marrom
+
+- **`--primary` fazia dois trabalhos incompatíveis.** Como tinta precisa de
+  4,5:1 e por isso escurece até `#83600F` no claro; como preenchimento de
+  botão isso vira um marrom de lama com texto branco, que lê como
+  desabilitado. Foi a segunda coisa que o vídeo deixou óbvia.
+- **A régua do preenchimento é OUTRA: 3:1** (contorno de controle, WCAG
+  1.4.11), e quem precisa de 4,5:1 é o texto EM CIMA dele. Com isso o claro
+  sobe pro `--cbi-gold-deep` (`#A87F22`): 3,46:1 sobre o papel, 5,45:1 pro
+  preto que fica em cima. Continua sendo ouro.
+- **`--primary-surface` / `--primary-surface-deep` / `--primary-surface-fg`.**
+  O terceiro é `--cbi-black` nos DOIS temas — some a inversão que o
+  `--primary-fg` fazia (branco no claro, preto no escuro), porque agora o
+  fundo é ouro dos dois lados.
+- **`--primary-fg` foi REMOVIDO, não deixado de lado.** Todos os 17 sítios de
+  `bg-primary` eram preenchimento e viraram `bg-primary-surface`; o token
+  ficou sem consumidor. O `AGENTS.md` dizia que separar os papéis "seria mexer
+  em 29 arquivos pra ganhar nada" — foram 14 arquivos, quase todos por
+  substituição mecânica, e o ganho é o botão principal do app.
+- **`::selection` foi junto:** realce dourado com texto preto, no lugar do
+  marrom com branco.
+
+### O login abria com chrome de aplicativo
+
+- **A faixa do topo virava 56px de nada.** `AppTopBar` esconde a marca em
+  `/login` e `/cadastro`, mas continuava pintando fundo, `backdrop-blur` e
+  `border-b` — e a borda cortava o degradê do fundo com um risco duro logo
+  abaixo. Sem marca não há faixa: sobra o botão de tema, e o `header` fica
+  transparente e `pointer-events-none` (com `pointer-events-auto` no botão,
+  senão ele para de receber clique).
+- **`--glow-green` não existe mais no tema claro.** 5% de verde espalhado por
+  680px sobre papel quase branco não tem passos de 8 bits pra virar degradê:
+  virava anel concêntrico visível no terço esquerdo da tela. Sobre preto o
+  mesmo valor tem escala de sobra e continua valendo. O brilho de ouro caiu de
+  0,10 pra 0,07 pelo mesmo motivo.
+- **O `⚠️` do rodapé não abria espaço** mesmo com espaço no JSX. Virou `span`
+  com `mr-1.5` e `aria-hidden` — mesma separação que `RADAR_BANDS` já fazia
+  entre `emoji` e `label`, e pelo mesmo motivo: leitor de tela não deve
+  anunciar "sinal de aviso" antes da frase. Vale no rodapé global e no `/chat`.
+- **Campo de senha ganhou "Exibir".** A senha do primeiro acesso é provisória,
+  tem 12 caracteres e sai de um CSV — é lida numa tela e digitada em outra.
+  Sem conferir o que digitou, a aluna recebe "e-mail ou senha inválidos" sem
+  saber se errou a senha ou se não tem acesso. Alvo de 56×36 e `pr-20` no
+  campo (medido: a caixa do botão ocupa 68px com o rótulo maior, "Ocultar").
+- Placeholders nos dois campos e `autoFocus` no e-mail.
+
+### O matcher do proxy nunca valeu
+
+Achado ao tentar rodar o QA local: o dev server devolvia **307 pra `/login` em
+todo CSS, JS e imagem**, e a tela abria sem estilo nenhum.
+
+- **O export tem que se chamar `config`.** Conferido na doc do Next instalado
+  (16.2.12, `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`):
+  o codemod de `middleware` pra `proxy` renomeia o arquivo e a função, e só —
+  `proxyConfig` não existe na API. Sem achar o objeto, o Next assume que não
+  há matcher e, nas palavras da doc, roda o proxy em toda requisição
+  *"including static files (`_next/static`), image optimizations
+  (`_next/image`), and assets in the `public/` folder"*.
+- **Em produção o defeito estava MASCARADO, não ausente.** A Vercel serve
+  estático pela CDN, antes da função — então o CSS nunca passava pelo portão.
+  O que passava era todo o resto, pagando um `getUser()` no Supabase por
+  requisição que o matcher deveria ter dispensado.
+- **`/_next/data` roda mesmo excluído**, e é intencional: a doc diz que é pra
+  evitar proteger a página e esquecer a rota de dados.
+- Conferido depois da correção: `_next/static` e `public/` passam direto,
+  `/radar` continua redirecionando pra `/login` sem sessão.
+
 ## Pendências conhecidas
 
 - **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
@@ -1106,6 +1216,29 @@ compra virando conta.
   verdade no gráfico: o scrub por `pointermove` funciona no mouse, e o
   `touch-pan-y` deixa o scroll vertical passar, mas isso não foi testado em
   tela sensível.
+- **A rampa nova do gauge foi conferida na rota `/radar` em 2026-08-17**, com
+  sessão, nos dois temas: gauge, os cinco cards da legenda, a linha do gráfico
+  e o balão de hover (que usa a cor da faixa como TEXTO sobre o painel — o caso
+  mais frágil, e o âmbar do claro a 4,92:1 lê bem). Continua valendo o que NÃO
+  foi visto: aparelho real e toque de verdade.
+- **Índice em alta deixa a linha do gráfico quase monocromática, e está
+  certo.** Cada pregão é medido contra a PRÓPRIA janela de 252 sessões, então um
+  mercado que faz máxima nova todo dia fica em ~100% da própria faixa todo dia —
+  linha vermelha do começo ao fim do trecho de alta. Em 17/08/2026 só o trecho
+  recente de queda aparecia em âmbar. Não confundir com faixa quebrada.
+- **A primeira visita depois de um período parado mostra o fechamento VELHO.**
+  `getIbovHistory` usa `revalidate: 3600`, e `revalidate` no Next é
+  stale-while-revalidate: a requisição que encontra a entrada vencida recebe o
+  valor antigo e dispara a atualização atrás dela. Medido em 17/08/2026: a
+  primeira carga trouxe o fechamento de 13/08 (167.101, 50,9%) e a segunda o de
+  17/08 (166.823, 50,4%). Não é defeito de fonte — o Yahoo tinha 17/08 em todos
+  os ranges. O que impede a tela de mentir é ela exibir "Fechamento de
+  DD/MM/AAAA"; se esse rótulo sair, o número passa a poder ser de dias atrás sem
+  aviso.
+- **`/login` e `/cadastro` são as únicas rotas sem faixa de topo.** Se alguma
+  tela pública nova aparecer, ela herda o `header` transparente — e com ele o
+  `pointer-events-none`, que cobre os 56px do topo. Qualquer coisa clicável
+  ali precisa de `pointer-events-auto`, como o botão de tema já tem.
 - **O comparador não foi visto em aparelho real** — QA em Chrome desktop a
   1568px e iframe a 375px, nos dois temas. Com três ou quatro ativos a tabela
   rola de lado no celular, e a única pista disso é a barra de rolagem: não há
