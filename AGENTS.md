@@ -1207,6 +1207,108 @@ todo CSS, JS e imagem**, e a tela abria sem estilo nenhum.
 - Conferido depois da correção: `_next/static` e `public/` passam direto,
   `/radar` continua redirecionando pra `/login` sem sessão.
 
+## A aba Fundos usava régua de ação (2026-08-17)
+
+A Beca reclamou que "o cálculo de FII está puxando dado como se fosse ação".
+**O cálculo estava certo** — `fiiCeiling` é `distribuído12m ÷ yield` e nunca
+tocou em LPA nem payout. Mas o sintoma que ela viu era real, em dois
+parâmetros herdados da aba de ações.
+
+- **O filtro de categoria lia `sector`, que só descreve empresa.** Nos 373
+  fundos ele vem vazio em 221 e como "Miscellaneous" em 145 — o dropdown da
+  aba Fundos oferecia literalmente *Miscellaneous* e *Finance*, em inglês.
+  Quem descreve fundo é `segment`, preenchido em 334. Hoje existe
+  `categoryOf(asset)`, e as opções saem só do tipo que está na aba: antes
+  vinham do universo inteiro, então escolher um setor de empresa esvaziava a
+  tabela de fundos.
+- **Os nomes de segmento são os que a bolsai dá, não os do mercado.**
+  Multicategoria (130), Outros (85), Logística (33), Escritórios (26),
+  Shoppings (24), Residencial (16), Hospital (7), Títulos e Val. Mob. (7),
+  Varejo (4), Hotel (2), 39 sem segmento. A Beca pediu Tijolo/Papel/Híbrido/
+  FoF; traduzir exigiria decidir em que balde caem os 215 de
+  "Multicategoria"+"Outros", o que seria classificação inventada por nós.
+  Decisão do Pedro em 2026-08-17: usar o dado real.
+- **O piso de liquidez virou função do tipo** (`minDailyTraded`): ação
+  R$ 1 milhão, fundo R$ 100 mil. Com a régua de ação, 284 dos 373 fundos
+  entravam como "pouco negociada" — 76%, contra 48% das ações. Nessa proporção
+  o toggle deixa de filtrar e passa a esconder a aba. Em R$ 100 mil os dois
+  empatam em ~44%, e o número na tela caiu de 274 para 149.
+- **`P/VP` virou coluna da aba Fundos**, recalculado (`preço ÷ VPA`) e nunca
+  copiado — cobertura de 338 dos 373, com 2 outliers. Fica ANTES do teto pra
+  que teto e margem sigam lado a lado. Sem ele, o conselho da Beca de "não
+  comprar fundo de papel acima de 1" ficava teórico numa tela que não mostrava
+  o número.
+- **`MethodColumn` ganhou `format`.** Toda coluna era dinheiro até o P/VP
+  entrar, e `formatBRL(0.79)` imprimiria "R$ 0,79" num múltiplo. O `Cell` do
+  card mobile passou a receber a coluna inteira pelo mesmo motivo, e a grade
+  ganhou o caso de 3 células — antes a terceira sobrava sozinha numa grade de
+  duas.
+- **Sobrou vocabulário de ação em dois lugares menores**, corrigidos junto: o
+  cabeçalho dizia "Empresa" na aba de fundos e a contagem dizia "Outras 25"
+  (concordância vinda de "empresas").
+
+### O que veio do HTML da Beca e o que não veio
+
+Ela mandou uma página inteira redesenhada. Entraram a ideia do P/VP e os
+blocos didáticos. **Não entraram**, e o motivo importa:
+
+- **A margem dela é `÷ cotação`.** É exatamente a variante que este arquivo
+  proíbe reintroduzir — foi ela que fez o chat afirmar "a ação está 96% abaixo
+  do teto". A nossa continua `÷ teto`.
+- **O fallback de dados de demonstração** (`DEMO_FUNDS`, HGLG11 a R$ 168,50
+  inventado). Mesmo defeito do radar de referência, que já gerou um "nosso
+  radar está errado".
+- **A planilha Google + Apps Script + brapi paga.** O dado já está no nosso
+  banco pela bolsai Pro, e o `.gs` dela chama `/api/v2/fii/dividends` da
+  brapi, que no nosso plano só responde no sandbox.
+
+## BDR: investir no exterior sem fonte nova (2026-08-17)
+
+Um aluno reclamou que só conseguia cadastrar ação e FII. A Beca pediu ETF,
+exterior, renda fixa, Tesouro e cripto. BDR foi o primeiro porque é o único
+que **não custa fonte de dado nenhuma**.
+
+- **A capacidade já existia.** `AAPL34` responde na brapi contratada a
+  R$ 79,17, em reais (medido em 2026-08-17), e o catálogo tem 794 BDRs com
+  cotação gravada. Quem digitasse `AAPL34` no formulário já salvava — só que
+  classificado como 'stock', porque o enum não tinha outra opção. O trabalho
+  foi de RÓTULO, não de capacidade: sem `bdr`, o exterior entrava na
+  composição do resumo como "Ações".
+- **Migration 0014 aplicada em produção em 2026-08-17**, pela Management API
+  (`POST /v1/projects/{ref}/database/query`), porque o MCP está em
+  `read_only` e a CLI do Supabase não está instalada nesta máquina. Antes:
+  `stock, fii`. Depois: `stock, fii, bdr`. Operação aditiva — as 227 posições
+  existentes não foram tocadas.
+- **`lib/asset-type.ts` nasceu porque o rótulo estava em três lugares**
+  (selo do card, composição do resumo, contexto do chat). Com dois tipos isso
+  era barato; com o terceiro, um deles ia ficar pra trás e a mesma posição
+  apareceria como "BDR" na carteira e "Ação" na resposta da assistente. É
+  `Record<AssetType, …>` de propósito: valor novo no enum sem rótulo passa a
+  ser erro de compilação.
+- **`lib/brapi.ts` tinha uma segunda cópia de `AssetType`**, e foi ela que
+  quebrou o build ao acrescentar 'bdr'. Apagada — o tipo agora vem de
+  `types/portfolio`.
+- **A brapi MARCA o BDR no `/tickers`** (`assetType: "bdr"`), ao contrário do
+  que a primeira versão deste código supôs. A detecção usa o sinal dela; o
+  regex `^[A-Z]{4}3\d$` ficou de rede pro caso de a busca vir sem tipo, e não
+  colide com o resto da B3 — papel comum tem um dígito (PETR4), unit e FII têm
+  dois começando em 1 (KLBN11, MXRF11).
+- **BDR ficou no verde na composição** por eliminação: ouro e cinza já estavam
+  ocupados, e uma terceira tonalidade de ouro viraria a mesma barra repetida.
+  Aqui verde é categoria, não alta — a barra não fala de direção de preço.
+- **Nenhum dos 794 BDRs tem provento gravado**, e isso precisou de campo
+  próprio (`DividendIncomeReport.tickersWithoutDividendData`). A bolsai não
+  cobre empresa estrangeira e o dividendo da brapi só responde no sandbox —
+  mas o recibo REPASSA o que a empresa distribui lá fora. Sem o aviso, quem
+  cadastra AAPL34 lê "R$ 0,00 recebido" e conclui que a Apple não paga. A
+  lista é restrita a BDR de propósito: ação brasileira sem provento gravado
+  provavelmente não pagou mesmo, e avisar ali viraria ruído em cima de um fato
+  correto. O mesmo aviso vai pro `CONTEXTO_CARTEIRA` do chat, proibindo o
+  modelo de afirmar que esses ativos renderam zero.
+- **O que BDR NÃO resolve:** quem tem conta em corretora lá fora e compra AAPL
+  direto na Nasdaq. Aquilo é ativo em dólar e puxaria câmbio pra carteira
+  inteira.
+
 ## Pendências conhecidas
 
 - **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
@@ -1246,6 +1348,26 @@ todo CSS, JS e imagem**, e a tela abria sem estilo nenhum.
 - **O `<datalist>` do seletor carrega o catálogo inteiro** (~690 ativos, só
   ticker e nome). É leve perto dos 469 kB de `/preco-teto`, mas ainda é a maior
   parte do payload da tela. Se incomodar, o corte é uma rota de busca.
+- **O card mobile da aba Fundos com 3 células não foi visto rodando.** A
+  grade ganhou o caso de `grid-cols-3` por raciocínio; três tentativas de
+  dirigir o iframe de 375px falharam (o clique na aba não registra). A
+  formatação do P/VP em si está conferida — é o mesmo `formatColumn` do
+  desktop.
+- **BDR não aparece em `/preco-teto`, e está certo:** os 794 não têm balanço
+  (a bolsai não cobre empresa estrangeira), então não há LPA, VPA nem teto. A
+  aba filtra por `stock`/`fii` e nunca os inclui. Mas a **página de ativo** de
+  um BDR vai cair no card de "ainda não tenho o lucro dessa empresa", que é a
+  mensagem de dado faltando de ação — não de "esse tipo de ativo não tem
+  teto".
+- **Os setores da aba Ações estão em inglês** (Commercial Services, Consumer
+  Durables, Miscellaneous…). É a taxonomia crua da brapi, e contradiz a regra
+  "código em inglês, UI em português" do próprio projeto. Fica de fora do
+  escopo de 2026-08-17, que mexeu só na aba de fundos.
+- **As outras classes que a Beca pediu continuam de fora:** ETF (falta testar
+  se a brapi lista no plano contratado), renda fixa (não precisa de fonte
+  nova — CDI/SELIC/IPCA já vêm do BCB —, mas é outro modelo de dado: taxa,
+  indexador e vencimento em vez de ticker), Tesouro Direto (exige o CSV do
+  Tesouro Transparente) e cripto (fonte a definir).
 - **O radar tem uma fonte só, sem rede de segurança.** Se o Yahoo parar de
   responder o `^BVSP`, a tela inteira cai pro estado "dado indisponível" — não
   há segunda fonte, porque nem a brapi nem a bolsai servem 252 pregões de
