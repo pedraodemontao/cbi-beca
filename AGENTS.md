@@ -1387,6 +1387,63 @@ ANTES do transform. **Compilava perfeitamente** — só apareceu ao cadastrar de
 verdade em produção, e atingia também o ajuste de preço teto nos dois tipos de
 ativo.
 
+## Cripto, e a colisão de sigla que quase virou preço errado (2026-08-17)
+
+Decisão de produto: cripto entra na **mesma carteira**, não em aba separada.
+Soma no patrimônio e ocupa uma fatia da composição.
+
+- **Cripto CABE em `positions`** (migration 0018), diferente da renda fixa: tem
+  símbolo, quantidade e preço médio, que são as três colunas obrigatórias.
+- **A fonte é a CoinGecko, de graça.** A brapi devolve 403 e cobra R$ 119,99/mês
+  pelo Startup. A API pública serve BRL sem chave e aceita LOTE — 15 moedas
+  numa requisição, então a carteira inteira cabe numa chamada.
+- **O limite é apertado e não morde:** medido, quatro requisições e a quinta
+  leva 429 com `retry-after: 60`. Sobrevive porque o preço vive em `fetch` com
+  `revalidate` de 2 min — uma chamada serve TODAS as usuárias, não uma por
+  pessoa. Chave demo gratuita sobe pra 30/min e entra em `COINGECKO_API_KEY`;
+  o código já manda o header quando a variável existe.
+- **O mapa símbolo → id é CURADO (30 moedas), e isso é correção.** O
+  `/coins/list` traz ~17 mil moedas e as siglas colidem: dezenas de tokens sem
+  liquidez reaproveitam siglas conhecidas, e casar por símbolo pegaria o
+  primeiro que aparecesse. Moeda fora da lista é recusada no cadastro.
+
+### `BTC` na brapi é um ETF americano
+
+**A armadilha desta leva, e vale ler antes de acrescentar qualquer classe
+nova.** A brapi responde a sigla `BTC` com **"Grayscale Bitcoin Mini Trust ETF"
+a R$ 28,43** (medido em 2026-08-17). Não é "não encontrado" — é outro ativo,
+com a mesma sigla, sem nenhum sinal de erro.
+
+`/carteira` separava as fontes porque foi onde cripto nasceu. `/resumo`,
+`/api/chat` e o cron de snapshot **não separavam**: a composição exibiu
+"Ações 99,27%" numa carteira que era 99% cripto, e o snapshot teria gravado
+esse número no histórico — errado e permanente, porque snapshot não se
+recalcula.
+
+**`lib/quotes.ts` é hoje o único lugar que monta o mapa de cotação.** Nenhuma
+tela deve chamar `getQuote` direto com tickers de posição. Foi a duplicação
+que criou o buraco; copiar o remendo em mais três lugares repetiria o erro na
+próxima tela.
+
+De quebra, `marketUnavailable` só olha a bolsa: falha da CoinGecko não deve
+fazer o chat alegar que "as cotações de mercado estão indisponíveis".
+
+### `--cat-6` cobrou o aviso deixado no dia anterior
+
+O próprio comentário da rampa mandava medir contra TODAS as anteriores, e a
+sexta cor provou por quê: um verde-acinzentado batia **ΔE 19** contra o verde
+de FII no tema claro — distinguível de perto, indistinguível numa faixa de
+4px. O rosa escolhido fica em ΔE 38 no pior par. Rampa completa: 85° · 159° ·
+261° · 314° · 35° · 349°.
+
+### Cripto não é como BDR na tela de proventos
+
+BDR precisou de aviso porque zero ali é lacuna nossa. **Cripto mostra R$ 0,00 e
+está certo** — não distribui. Nada a avisar.
+
+Cripto também não linka para `/ativo/[ticker]`: aquela página vive do catálogo
+da B3 e dos fundamentos da bolsai, e nenhum dos dois conhece BTC.
+
 ## Pendências conhecidas
 
 - **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
@@ -1446,23 +1503,21 @@ ativo.
     `lib/bcb.ts`. Falta a composição mensal com a defasagem de divulgação.
   - **Tesouro Direto** — o CSV do Tesouro Transparente responde 200 `text/csv`
     (testado em 2026-08-17), aberto e sem chave. Falta parsear e ingerir.
-  - **Cripto** — a brapi devolve **403** e exige o plano Startup a
-    R$ 119,99/mês. A **CoinGecko** resolve de graça: medido em 2026-08-17,
-    preço em BRL sem chave, e **15 moedas numa requisição só** — a carteira
-    inteira cabe numa chamada. O limite é apertado (4 requisições por minuto
-    sem chave, `retry-after: 60`), mas o padrão de `fetch` com `revalidate`
-    que o projeto já usa serve todas as usuárias com uma chamada. Uma chave
-    demo gratuita sobe pra 30/min. **Falta decidir se cripto entra na mesma
-    carteira ou em aba separada** — misturar Bitcoin com PETR4 na composição
-    muda a leitura de "quanto eu tenho".
+  - ~~**Cripto**~~ — feito em 2026-08-17, na mesma carteira. Ver a seção
+    própria.
 - **Renda fixa: o que ficou de fora da primeira versão.** Não há marcação a
   mercado (só curva), não há carência nem liquidez modelada (só a data de
   vencimento, e a leitura fica com a aluna), e `/proventos` não menciona que
   renda fixa não paga provento — não quebra, porque ela não está em
   `positions`, mas uma linha ajudaria.
-- **A rampa categórica tem cinco cores e as classes são cinco.** A sexta
-  classe (cripto, Tesouro) vai precisar de `--cat-6`, e aí vale reconferir o
-  ΔE do conjunto inteiro — não só do par novo.
+- **A rampa categórica está em SEIS cores para seis classes.** A sétima
+  (Tesouro, se virar classe própria) precisa de `--cat-7` e de reconferir o ΔE
+  do conjunto inteiro — a sexta já falhou na primeira tentativa por causa
+  disso.
+- **A lista de cripto tem 30 moedas e é manual.** Quem tiver algo fora dela
+  não consegue cadastrar. Ampliar é acrescentar duas linhas em
+  `lib/coingecko.ts`; automatizar pelo `/coins/list` não vale, porque as
+  siglas colidem.
 - **O radar tem uma fonte só, sem rede de segurança.** Se o Yahoo parar de
   responder o `^BVSP`, a tela inteira cai pro estado "dado indisponível" — não
   há segunda fonte, porque nem a brapi nem a bolsai servem 252 pregões de
