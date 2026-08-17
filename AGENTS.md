@@ -1309,6 +1309,84 @@ que **não custa fonte de dado nenhuma**.
   direto na Nasdaq. Aquilo é ativo em dólar e puxaria câmbio pra carteira
   inteira.
 
+## Renda fixa, ETF e a rampa categórica (2026-08-17)
+
+- **Renda fixa ganhou TABELA PRÓPRIA** (`fixed_income_positions`, migration
+  0017), e não mais um valor no enum de `positions`. Aquela tabela exige
+  `ticker`, `quantity` e `avg_price` como NOT NULL; um CDB não tem nenhum dos
+  três. Forçar faria o banco guardar `quantity = 1` de coisa nenhuma, e toda
+  tela precisaria do caso especial de qualquer jeito.
+- **Nenhuma fonte de dado nova.** `lib/bcb.ts` já buscava a série 12 do SGS de
+  graça. Ganhou `getCdiAccrual`, que devolve o fator acumulado E a contagem de
+  pregões — a segunda de brinde, porque a série publica um ponto por DIA ÚTIL,
+  o que exclui feriado bancário sem calendário da B3. É o expoente `dias/252`
+  do prefixado.
+- **O percentual do CDI é aplicado a CADA TAXA DIÁRIA antes de compor**, nunca
+  ao acumulado depois. Medido com a diária de 0,052531% e 252 pregões: 15,6703%
+  contra 15,5650%, ou 0,105 ponto percentual em um ano. Num CDB de R$ 10.000 a
+  110% isso é R$ 11,21 — e cresce com o prazo, porque é juro sobre juro que
+  deixa de existir.
+- **`lib/fixed-income.ts` é 100% puro** e foi testado ANTES de existir tela: 15
+  asserções cobrindo as quatro faixas do IR, a isenção de LCI/LCA, as duas
+  fórmulas de curva e o congelamento no vencimento.
+- **Papel vencido para de render.** Sem isso o patrimônio inflaria sozinho para
+  sempre: um CDB de 2024 continuaria acumulando CDI até hoje. Quem busca o CDI
+  corta o intervalo no vencimento; `valuate` sinaliza.
+- **O valor é de CURVA, não preço de resgate antecipado.** Prefixado oscila com
+  marcação a mercado se vendido antes; a curva ignora de propósito, porque é o
+  saldo que a corretora mostra e que a pessoa reconhece. A tela diz isso.
+- **O card mostra quantos dias faltam para o IR cair de faixa.** Resgatar três
+  dias antes de completar 721 custa 2,5 pontos sobre todo o rendimento, e
+  nenhuma corretora avisa.
+- **Conferido em produção contra o BCB, no centavo:** R$ 10.000 a 110% do CDI
+  desde 18/08/2025 → R$ 11.618,44 bruto, IR de 17,5% (364 dias) de R$ 283,23,
+  líquido R$ 11.335,22, com 251 pregões na janela. E LCI prefixada de 12%
+  vencida em 10/01/2024 → R$ 5.594,97, imposto isento, prazo congelado.
+
+### A rampa categórica, e por que ela precisou existir
+
+`--cat-1` a `--cat-5` no `globals.css`. Emprestar token de mercado parou de
+escalar: com três classes dava pra usar ouro, cinza e verde; na quarta entrou
+coral e a barra passou a ter verde e vermelho lado a lado parecendo alta e
+queda; na quinta não havia mais o que emprestar.
+
+- **Azul e roxo são hues NOVOS na identidade**, e entram só na composição —
+  não viram cor de texto, de botão nem de estado.
+- **Medido:** todas ≥3:1 sobre o card (régua de forma cheia, WCAG 1.4.11) e
+  ΔE ≥ 47 entre quaisquer duas, nos dois temas.
+- `AllocationClass` é `AssetType` mais `fixed_income`, porque renda fixa não é
+  `AssetType` — não mora em `positions`.
+
+### Três lugares que mentiriam sem integração
+
+- **O card de patrimônio ignorava a renda fixa**, então quem tem R$ 50 mil em
+  CDB veria só a bolsa. A variação do dia virou "hoje em bolsa": CDB não
+  oscila, e diluir a variação no total faria o mercado parecer mais parado do
+  que foi.
+- **Os três cards do topo do `/resumo` falavam de dinheiros diferentes.** Somar
+  a renda fixa só no patrimônio deixava Investido e Resultado com a bolsa — com
+  R$ 15.000 em CDB e R$ 196 em ações, a tela mostrava um ganho de 8.600% que
+  não existe. Defeito meu, introduzido e corrigido no mesmo dia.
+- **O snapshot contava só a bolsa**, e o gráfico de evolução subestimaria em
+  silêncio, crescendo com o tempo. Entra com cuidado de escala: uma chamada ao
+  BCB por posição seriam ~100 requisições numa rodada, então `getCdiSeries`
+  traz a série inteira uma vez e `accrueBetween` fatia em memória.
+- **Os estados vazios de carteira e resumo** mandavam para "cadastre seus
+  ativos" quem só tinha aplicação cadastrada.
+
+### O defeito de Zod que só aparece em formulário que troca de campo
+
+`z.string()` recebendo `undefined` estoura com **"Invalid input: expected
+string, received undefined"** — em inglês, na cara da usuária. E `undefined` é
+o que chega quando o campo NÃO É RENDERIZADO: fundo não tem payout, ação não
+tem distribuição mensal, CDI não tem taxa prefixada, então metade das chaves
+não existe no `FormData`.
+
+`optionalNumber` em `lib/schemas.ts` centraliza o padrão com `.optional()`
+ANTES do transform. **Compilava perfeitamente** — só apareceu ao cadastrar de
+verdade em produção, e atingia também o ajuste de preço teto nos dois tipos de
+ativo.
+
 ## Pendências conhecidas
 
 - **A aba de notícias não foi vista em aparelho real** — o QA foi Chrome
@@ -1363,11 +1441,28 @@ que **não custa fonte de dado nenhuma**.
   Durables, Miscellaneous…). É a taxonomia crua da brapi, e contradiz a regra
   "código em inglês, UI em português" do próprio projeto. Fica de fora do
   escopo de 2026-08-17, que mexeu só na aba de fundos.
-- **As outras classes que a Beca pediu continuam de fora:** ETF (falta testar
-  se a brapi lista no plano contratado), renda fixa (não precisa de fonte
-  nova — CDI/SELIC/IPCA já vêm do BCB —, mas é outro modelo de dado: taxa,
-  indexador e vencimento em vez de ticker), Tesouro Direto (exige o CSV do
-  Tesouro Transparente) e cripto (fonte a definir).
+- **O que falta das classes que a Beca pediu:**
+  - **IPCA+** — mesmo modelo da renda fixa, e a série 433 já está em
+    `lib/bcb.ts`. Falta a composição mensal com a defasagem de divulgação.
+  - **Tesouro Direto** — o CSV do Tesouro Transparente responde 200 `text/csv`
+    (testado em 2026-08-17), aberto e sem chave. Falta parsear e ingerir.
+  - **Cripto** — a brapi devolve **403** e exige o plano Startup a
+    R$ 119,99/mês. A **CoinGecko** resolve de graça: medido em 2026-08-17,
+    preço em BRL sem chave, e **15 moedas numa requisição só** — a carteira
+    inteira cabe numa chamada. O limite é apertado (4 requisições por minuto
+    sem chave, `retry-after: 60`), mas o padrão de `fetch` com `revalidate`
+    que o projeto já usa serve todas as usuárias com uma chamada. Uma chave
+    demo gratuita sobe pra 30/min. **Falta decidir se cripto entra na mesma
+    carteira ou em aba separada** — misturar Bitcoin com PETR4 na composição
+    muda a leitura de "quanto eu tenho".
+- **Renda fixa: o que ficou de fora da primeira versão.** Não há marcação a
+  mercado (só curva), não há carência nem liquidez modelada (só a data de
+  vencimento, e a leitura fica com a aluna), e `/proventos` não menciona que
+  renda fixa não paga provento — não quebra, porque ela não está em
+  `positions`, mas uma linha ajudaria.
+- **A rampa categórica tem cinco cores e as classes são cinco.** A sexta
+  classe (cripto, Tesouro) vai precisar de `--cat-6`, e aí vale reconferir o
+  ΔE do conjunto inteiro — não só do par novo.
 - **O radar tem uma fonte só, sem rede de segurança.** Se o Yahoo parar de
   responder o `^BVSP`, a tela inteira cai pro estado "dado indisponível" — não
   há segunda fonte, porque nem a brapi nem a bolsai servem 252 pregões de
