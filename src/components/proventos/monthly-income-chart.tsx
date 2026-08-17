@@ -55,7 +55,7 @@ export function MonthlyIncomeChart({ monthly }: MonthlyIncomeChartProps) {
               {formatBRL(entry.amount)}
             </span>
             <span
-              className="w-full rounded-t-lg bg-primary transition-colors group-hover:bg-primary-deep"
+              className="w-full rounded-t-lg bg-primary-surface transition-colors group-hover:bg-primary-surface-deep"
               style={{
                 height: `${max > 0 ? Math.max(4, (entry.amount / max) * 100) : 4}%`,
               }}

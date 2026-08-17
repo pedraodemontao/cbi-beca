@@ -146,7 +146,7 @@ function TabButton({ isActive, onClick, label, count }: TabButtonProps) {
       onClick={onClick}
       className={`rounded-full px-4 py-2 text-sm font-bold transition-colors ${
         isActive
-          ? 'bg-primary text-primary-foreground'
+          ? 'bg-primary-surface text-primary-surface-foreground'
           : 'border border-border bg-panel text-muted-foreground hover:border-primary hover:text-primary'
       }`}
     >

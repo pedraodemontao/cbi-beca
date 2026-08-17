@@ -53,7 +53,7 @@ export function CdiComparison({
           <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-background">
             <div
               className={`h-full rounded-full ${
-                portfolioPercent >= 0 ? 'bg-primary' : 'bg-negative'
+                portfolioPercent >= 0 ? 'bg-primary-surface' : 'bg-negative'
               }`}
               style={{ width: barWidth(portfolioPercent) }}
             />

@@ -92,7 +92,7 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
                 // ponto em que já estava.
                 className={`max-w-[85%] whitespace-pre-wrap rounded-card px-4 py-3 text-[0.97rem] shadow-soft sm:max-w-[38rem] ${
                   isUser
-                    ? 'bg-primary font-medium text-primary-foreground'
+                    ? 'bg-primary-surface font-medium text-primary-surface-foreground'
                     : 'bg-surface font-medium text-foreground'
                 }`}
               >
@@ -134,7 +134,7 @@ export function ChatPanel({ initialMessages }: ChatPanelProps) {
         <button
           type="submit"
           disabled={isBusy || input.trim().length === 0}
-          className="rounded-full bg-primary px-5 py-2.5 font-bold text-primary-foreground transition-colors hover:bg-primary-deep disabled:opacity-50"
+          className="rounded-full bg-primary-surface px-5 py-2.5 font-bold text-primary-surface-foreground transition-colors hover:bg-primary-surface-deep disabled:opacity-50"
         >
           Enviar
         </button>

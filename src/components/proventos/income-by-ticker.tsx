@@ -36,7 +36,7 @@ export function IncomeByTicker({ byTicker }: IncomeByTickerProps) {
             </div>
             <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-background">
               <div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-primary-surface"
                 style={{ width: `${max > 0 ? (entry.total / max) * 100 : 0}%` }}
               />
             </div>

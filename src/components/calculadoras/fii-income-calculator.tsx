@@ -168,7 +168,7 @@ export function FiiIncomeCalculator({ funds }: FiiIncomeCalculatorProps) {
                 </span>
                 <span
                   className={`w-full rounded-t-lg ${
-                    amount === preset ? 'bg-primary' : 'bg-positive'
+                    amount === preset ? 'bg-primary-surface' : 'bg-positive'
                   }`}
                   style={{ height: `${Math.max(4, (income / maxIncome) * 100)}%` }}
                 />

@@ -61,6 +61,15 @@ export interface RadarBand {
  *
  * O que a inversão NÃO muda: o `hint` de cada faixa continua sendo o fato
  * medido, e não o juízo. É ele que ancora o rótulo no dado.
+ *
+ * As cinco faixas usam CINCO matizes, e isso é requisito e não estética. A
+ * primeira versão gastava só três famílias — dois verdes, um cinza, dois
+ * vermelhos —, e no arco do gauge os pares quase se fundiam: a legenda
+ * prometia cinco degraus e o desenho entregava três blocos. Pior, o cinza do
+ * meio era `--muted-fg`, a mesma cor de texto secundário, então a faixa mais
+ * comum da tela vinha pintada de "desabilitado". Hoje a rampa progride em
+ * matiz — 160° → 97° → 59° → 35° — com os dois passos do meio vindo dos
+ * tokens de escala, que não são marca nem semântica de mercado.
  */
 export const RADAR_BANDS: RadarBand[] = [
   {
@@ -87,7 +96,7 @@ export const RADAR_BANDS: RadarBand[] = [
     label: 'Condição Neutra',
     emoji: '⚖️',
     range: '40–60%',
-    color: 'var(--muted-fg)',
+    color: 'var(--scale-caution)',
     hint: 'Fechamento próximo ao meio da faixa de 12 meses.',
   },
   {
@@ -96,7 +105,7 @@ export const RADAR_BANDS: RadarBand[] = [
     label: 'Momento de Cautela',
     emoji: '⚠️',
     range: '60–80%',
-    color: 'var(--negative)',
+    color: 'var(--scale-warn)',
     hint: 'Fechamento na metade superior da faixa de 12 meses.',
   },
   {

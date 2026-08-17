@@ -7,7 +7,7 @@ const LABELS = {
 } as const;
 
 const COLORS = {
-  stock: 'bg-primary',
+  stock: 'bg-primary-surface',
   fii: 'bg-muted-foreground',
 } as const;
 

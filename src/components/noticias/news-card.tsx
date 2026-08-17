@@ -76,7 +76,7 @@ export function NewsCard({ item, owned, showDate }: NewsCardProps) {
                 href={`/ativo/${ticker}`}
                 className={`num rounded-full px-2.5 py-1 text-[0.7rem] font-extrabold transition-colors ${
                   owned?.has(ticker)
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-primary-surface text-primary-surface-foreground'
                     : 'bg-panel text-muted-foreground hover:text-primary'
                 }`}
               >

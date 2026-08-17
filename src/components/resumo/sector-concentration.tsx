@@ -39,7 +39,7 @@ export function SectorConcentration({ concentration }: SectorConcentrationProps)
             </div>
             <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-panel">
               <div
-                className="h-full rounded-full bg-primary"
+                className="h-full rounded-full bg-primary-surface"
                 style={{ width: `${Math.max(2, slice.share * 100)}%` }}
               />
             </div>

@@ -65,7 +65,7 @@ export function AddPositionForm() {
       >
         <span
           aria-hidden
-          className="grid size-8 place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground"
+          className="grid size-8 place-items-center rounded-full bg-primary-surface text-lg font-bold text-primary-surface-foreground"
         >
           +
         </span>

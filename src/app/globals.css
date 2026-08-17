@@ -33,16 +33,28 @@
   --cbi-coral-soft: #ff8a78;
   --cbi-coral-tint: #372324;
 
+  /* Degraus do meio de uma ESCALA (hoje só o radar). Não são cor de marca nem
+   * semântica de mercado: são os dois passos que faltavam entre o verde e o
+   * vermelho pra uma régua de cinco faixas parecer cinco, e não três blocos.
+   * O matiz foi escolhido longe do ouro de propósito — 97° contra os 60° da
+   * marca, ΔE 18,9 — pra ninguém ler o arco do gauge como cor institucional. */
+  --cbi-amber: #e6d24f;
+  --cbi-ember: #f2985a;
+
   --cbi-ink: #f4f1e8;
   --cbi-ink-soft: #a8a69e;
 
   /* ─── Paleta clara ───
    *
-   * O ouro do tema escuro NÃO sobrevive aqui: #d6a93c sobre branco dá 1,9:1 —
-   * um rótulo nessa cor some, e uma barra de gráfico idem. O ouro do claro é
-   * escurecido até 5,4:1 sobre o papel. Isso vale pra `--primary` inteiro
-   * porque o token é fundo de botão E cor de texto em 100 lugares; separar os
-   * dois papéis agora seria mexer em 29 arquivos pra ganhar nada.
+   * O ouro do tema escuro NÃO sobrevive aqui como TEXTO: #d6a93c sobre branco
+   * dá 1,9:1 e o rótulo some. Daí o `--cbi-gold-ink`, escurecido até 5,4:1.
+   *
+   * Mas o mesmo tom NÃO serve de PREENCHIMENTO. Enquanto os dois papéis
+   * dividiam um token só, o botão "Entrar" no claro era #83600f — marrom de
+   * lama com texto branco, que lê como desabilitado em vez de dourado. Como
+   * preenchimento não precisa de 4,5:1 e sim de 3:1 (contorno de controle,
+   * WCAG 1.4.11), dá pra subir até o `--cbi-gold-deep`: 3,46:1 sobre o papel,
+   * 5,45:1 pro preto que fica em cima, e continua sendo ouro de verdade.
    */
   --cbi-paper: #faf8f3;
   --cbi-paper-surface: #ffffff;
@@ -52,6 +64,9 @@
   --cbi-gold-ink: #83600f;
   --cbi-gold-ink-strong: #6e5210;
   --cbi-gold-glow: #f7ecd2;
+  /* Ouro pressionado do tema claro: um degrau abaixo do preenchimento, ainda
+   * com 4,70:1 pro preto que continua em cima dele. */
+  --cbi-gold-press: #9c7420;
 
   --cbi-green-ink: #15795a;
   --cbi-green-ink-strong: #0f5f47;
@@ -63,6 +78,14 @@
 
   --cbi-graphite: #17171b;
   --cbi-graphite-soft: #56534b;
+
+  /* Os degraus de escala do tema claro. Sobre papel todo matiz saturado
+   * escurece — o âmbar vira oliva e o laranja vira terracota —, mas a
+   * PROGRESSÃO se mantém: 165° → 99° → 59° → 35°, que é o que faz a régua
+   * parecer uma régua. Os dois passam de 4,5:1 sobre o painel porque a cor da
+   * faixa também é texto no balão do gráfico. */
+  --cbi-amber-ink: #6b6413;
+  --cbi-ember-ink: #a25211;
 
   /* ═══ Camada 2 — Semânticos ═══
    *
@@ -86,9 +109,20 @@
   --primary-deep: light-dark(var(--cbi-gold-ink-strong), var(--cbi-gold-soft));
   --primary-tint: light-dark(var(--cbi-gold-glow), var(--cbi-gold-tint));
   --primary-wash: light-dark(var(--cbi-gold-glow), var(--cbi-gold-tint));
-  /* Texto que vai EM CIMA do ouro. No escuro o ouro é claro e pede preto
-   * (9,15:1); no claro ele é escuro e pede branco (5,76:1). */
-  --primary-fg: light-dark(var(--cbi-paper-surface), var(--cbi-black));
+
+  /* ─── Ouro como PREENCHIMENTO, separado do ouro como TINTA ───
+   *
+   * `--primary` acima é tinta: texto, borda, traço. Precisa de 4,5:1 e por
+   * isso escurece até virar marrom no tema claro. Preenchimento tem outra
+   * régua (3:1) e outro papel — quem lê contraste ali é o TEXTO EM CIMA dele,
+   * não ele contra o fundo. Enquanto os dois compartilhavam um token, o botão
+   * principal do claro saía marrom com texto branco.
+   *
+   * Aqui o ouro fica ouro nos dois temas, e o que vai em cima é sempre preto:
+   * 9,15:1 no escuro, 5,45:1 no claro. Um token só para as duas situações. */
+  --primary-surface: light-dark(var(--cbi-gold-deep), var(--cbi-gold));
+  --primary-surface-deep: light-dark(var(--cbi-gold-press), var(--cbi-gold-soft));
+  --primary-surface-fg: var(--cbi-black);
 
   --accent: light-dark(var(--cbi-gold-glow), var(--cbi-gold-tint));
   --accent-fg: light-dark(var(--cbi-gold-ink-strong), var(--cbi-gold-soft));
@@ -103,6 +137,12 @@
   --negative-tint: light-dark(var(--cbi-coral-glow), var(--cbi-coral-tint));
   --negative-deep: light-dark(var(--cbi-coral-ink-strong), var(--cbi-coral-soft));
 
+  /* Degraus intermediários de escala. Ficam fora de `--primary-*` (não são
+   * marca) e fora de `--positive`/`--negative` (não são alta nem queda): são
+   * posição numa régua. Hoje só o radar consome, via `RADAR_BANDS`. */
+  --scale-caution: light-dark(var(--cbi-amber-ink), var(--cbi-amber));
+  --scale-warn: light-dark(var(--cbi-ember-ink), var(--cbi-ember));
+
   /* Sombra é cor, e cor muda com o tema: preto puro sobre papel suja. */
   --shadow-tone: light-dark(rgb(84 70 38 / 0.13), rgb(0 0 0 / 0.5));
   --shadow-tone-near: light-dark(rgb(84 70 38 / 0.09), rgb(0 0 0 / 0.4));
@@ -110,8 +150,12 @@
   --shadow-tone-lift-near: light-dark(rgb(84 70 38 / 0.11), rgb(0 0 0 / 0.45));
 
   --focus-ring: light-dark(rgb(131 96 15 / 0.75), rgb(214 169 60 / 0.65));
-  --glow-gold: light-dark(rgb(214 169 60 / 0.1), rgb(214 169 60 / 0.14));
-  --glow-green: light-dark(rgb(21 121 90 / 0.05), rgb(63 191 135 / 0.07));
+  --glow-gold: light-dark(rgb(214 169 60 / 0.07), rgb(214 169 60 / 0.14));
+  /* O brilho verde não existe no claro, e não é questão de gosto: 5% de verde
+   * espalhado por 680px sobre papel quase branco não tem passos de 8 bits
+   * suficientes pra virar degradê — vira anel concêntrico visível, uma mancha
+   * suja no canto da tela. Sobre preto o mesmo valor tem escala de sobra. */
+  --glow-green: light-dark(transparent, rgb(63 191 135 / 0.07));
 }
 
 /* A escolha no botão de tema vira `data-theme` e trava o `color-scheme`; sem
@@ -137,7 +181,9 @@
   --color-primary-deep: var(--primary-deep);
   --color-primary-tint: var(--primary-tint);
   --color-primary-wash: var(--primary-wash);
-  --color-primary-foreground: var(--primary-fg);
+  --color-primary-surface: var(--primary-surface);
+  --color-primary-surface-deep: var(--primary-surface-deep);
+  --color-primary-surface-foreground: var(--primary-surface-fg);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-fg);
   --color-accent-text: var(--accent-text);
@@ -192,8 +238,8 @@ body::before {
 }
 
 ::selection {
-  background: var(--primary);
-  color: var(--primary-fg);
+  background: var(--primary-surface);
+  color: var(--primary-surface-fg);
 }
 
 @layer components {
@@ -213,8 +259,10 @@ body::before {
     @apply w-full rounded-panel border border-border bg-panel px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary;
   }
 
+  /* Preenchimento vem de `primary-surface`, nunca de `primary`: o segundo é
+   * tinta e no tema claro é marrom escuro. Ver o bloco do token. */
   .btn-primary {
-    @apply rounded-full bg-primary px-6 py-3 font-bold text-primary-foreground shadow-soft transition-colors hover:bg-primary-deep disabled:opacity-60;
+    @apply rounded-full bg-primary-surface px-6 py-3 font-bold text-primary-surface-foreground shadow-soft transition-colors hover:bg-primary-surface-deep disabled:opacity-60;
   }
 
   .btn-ghost {

@@ -101,7 +101,7 @@ export function IncomeGoalCard({
           aria-label={`${Math.round(progress * 100)}% da meta`}
         >
           <div
-            className="h-full rounded-full bg-primary transition-[width]"
+            className="h-full rounded-full bg-primary-surface transition-[width]"
             style={{ width: `${Math.max(2, progress * 100)}%` }}
           />
         </div>

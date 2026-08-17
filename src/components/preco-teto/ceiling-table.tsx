@@ -354,7 +354,7 @@ export function CeilingTable({
             aria-current={method === item.key ? 'true' : undefined}
             className={`rounded-full px-5 py-2.5 text-sm font-bold transition-colors ${
               method === item.key
-                ? 'bg-primary text-primary-foreground shadow-soft'
+                ? 'bg-primary-surface text-primary-surface-foreground shadow-soft'
                 : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
             }`}
           >
@@ -543,7 +543,7 @@ export function CeilingTable({
                   aria-pressed={onlyBelowCeiling}
                   className={`rounded-panel px-5 py-3 text-sm font-bold transition-colors ${
                     onlyBelowCeiling
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-primary-surface text-primary-surface-foreground'
                       : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
                   }`}
                 >
@@ -560,7 +560,7 @@ export function CeilingTable({
                     aria-pressed={onlyOwned}
                     className={`rounded-panel px-5 py-3 text-sm font-bold transition-colors ${
                       onlyOwned
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-primary-surface text-primary-surface-foreground'
                         : 'border border-border bg-surface text-muted-foreground hover:border-primary hover:text-primary'
                     }`}
                   >
@@ -1219,7 +1219,7 @@ function FundTypeBadge({ type }: { type: string }) {
 function OwnedBadge() {
   return (
     <span
-      className="inline-block rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-primary-foreground"
+      className="inline-block rounded-full bg-primary-surface px-2 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-primary-surface-foreground"
       title="Ativo presente na sua carteira."
     >
       você tem
