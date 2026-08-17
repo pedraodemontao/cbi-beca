@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getQuote, type BrapiQuote } from '@/lib/brapi';
+import { getPositionQuotes } from '@/lib/quotes';
 import { getAccumulatedCdi, getCurrentCdiYearly } from '@/lib/bcb';
 import { getUpcomingDividends } from '@/lib/dividends';
 import {
@@ -47,9 +47,9 @@ export default async function ResumoPage() {
   const snapshots = (snapshotRows ?? []) as PortfolioSnapshot[];
 
   const tickers = [...new Set(positions.map((p) => p.ticker))];
-  const [quotes, upcomingDividends, incomeReport, { data: sectorRows }, fixedIncome] =
+  const [{ quoteMap }, upcomingDividends, incomeReport, { data: sectorRows }, fixedIncome] =
     await Promise.all([
-      tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
+      getPositionQuotes(positions),
       getUpcomingDividends(supabase, positions),
       buildDividendIncomeReport(supabase, positions),
       tickers.length > 0
@@ -57,9 +57,6 @@ export default async function ResumoPage() {
         : Promise.resolve({ data: [] }),
       fetchFixedIncome(supabase),
     ]);
-  const quoteMap = new Map<string, BrapiQuote>(
-    (quotes ?? []).map((quote) => [quote.symbol, quote])
-  );
   const summary = buildPortfolioSummary(positions, quoteMap);
   // A composição soma as duas fontes de patrimônio: sem isso a barra fecha em
   // 100% ignorando a renda fixa, e quem tem CDB vê uma carteira que não é a

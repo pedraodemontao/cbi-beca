@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAuthorizedCron } from '@/lib/cron-auth';
-import { getQuote, type BrapiQuote } from '@/lib/brapi';
+import { getPositionQuotes } from '@/lib/quotes';
 import { accrueBetween, getCdiSeries } from '@/lib/bcb';
 import { buildPortfolioSummary } from '@/lib/portfolio';
 import { valuate } from '@/lib/fixed-income';
@@ -46,11 +46,10 @@ export async function GET(request: Request) {
 
   const fixedByUser = await valuateFixedByUser(fixedIncome);
 
-  const tickers = [...new Set(positions.map((position) => position.ticker))];
-  const quotes = await getQuote(tickers);
-  const quoteMap = new Map<string, BrapiQuote>(
-    (quotes ?? []).map((quote) => [quote.symbol, quote])
-  );
+  // Pelo helper, e não por `getQuote` direto: a brapi devolve outro ativo para
+  // a sigla `BTC` (um ETF a R$ 28,43), e o snapshot gravaria esse número no
+  // histórico de patrimônio — errado, e permanente.
+  const { quoteMap } = await getPositionQuotes(positions);
 
   const byUser = new Map<string, PositionRow[]>();
   for (const position of positions) {

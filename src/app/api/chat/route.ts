@@ -12,7 +12,8 @@ import {
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { getQuote, type BrapiQuote } from '@/lib/brapi';
+import type { BrapiQuote } from '@/lib/brapi';
+import { getPositionQuotes } from '@/lib/quotes';
 import { getUpcomingDividends } from '@/lib/dividends';
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
 import { buildPortfolioSummary } from '@/lib/portfolio';
@@ -422,7 +423,7 @@ export async function POST(request: Request) {
 
   const tickers = [...new Set(positions.map((position) => position.ticker))];
   const [
-    quotes,
+    { quoteMap, marketUnavailable },
     upcomingDividends,
     income,
     ceilingAssets,
@@ -430,21 +431,19 @@ export async function POST(request: Request) {
     fixedIncome,
   ] =
     await Promise.all([
-      tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
+      getPositionQuotes(positions),
       getUpcomingDividends(supabase, positions),
       buildDividendIncomeReport(supabase, positions),
       fetchCeilingAssets(supabase, { tickers }),
       fetchAppliedOverrides(supabase),
       fetchFixedIncome(supabase),
     ]);
-  const quoteMap = new Map<string, BrapiQuote>((quotes ?? []).map((quote) => [quote.symbol, quote]));
-  const areQuotesUnavailable = tickers.length > 0 && quotes === null;
 
   const summary = buildPortfolioSummary(positions, quoteMap);
   const contextBlock = buildPortfolioContext(
     summary,
     upcomingDividends,
-    areQuotesUnavailable,
+    marketUnavailable,
     income,
     fixedIncome
   );

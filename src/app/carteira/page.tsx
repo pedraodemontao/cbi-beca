@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getQuote, type BrapiQuote } from '@/lib/brapi';
-import { getCryptoQuotes } from '@/lib/coingecko';
+import type { BrapiQuote } from '@/lib/brapi';
+import { getPositionQuotes } from '@/lib/quotes';
 import { buildPortfolioSummary, groupByTicker } from '@/lib/portfolio';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
@@ -32,27 +32,16 @@ export default async function CarteiraPage() {
     .order('created_at', { ascending: true });
   const positions = (rows ?? []) as PositionRow[];
 
-  // Cripto e bolsa vêm de fontes diferentes: a brapi não serve criptomoeda no
-  // plano contratado (403, exige Startup a R$ 119,99/mês) e a CoinGecko não
-  // serve ação. O `tickers` de mercado exclui cripto pra não pedir BTC à brapi
-  // e receber "não encontrado" a cada pageview.
-  const marketTickers = [
+  // Cripto não entra no catálogo nem no preço teto: `tickers` é só o que a
+  // B3 conhece.
+  const tickers = [
     ...new Set(
       positions.filter((p) => p.asset_type !== 'crypto').map((p) => p.ticker)
     ),
   ];
-  const cryptoTickers = [
-    ...new Set(
-      positions.filter((p) => p.asset_type === 'crypto').map((p) => p.ticker)
-    ),
-  ];
-  const tickers = marketTickers;
 
-  const [quotes, cryptoQuotes, incomeReport, ceilingAssets, overrides, fixedIncome] = await Promise.all([
-    tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
-    cryptoTickers.length > 0
-      ? getCryptoQuotes(cryptoTickers)
-      : Promise.resolve<BrapiQuote[]>([]),
+  const [{ quoteMap }, incomeReport, ceilingAssets, overrides, fixedIncome] = await Promise.all([
+    getPositionQuotes(positions),
     buildDividendIncomeReport(supabase, positions),
     fetchCeilingAssets(supabase, { tickers }),
     fetchAppliedOverrides(supabase),
@@ -82,16 +71,6 @@ export default async function CarteiraPage() {
 
     if (ceiling !== null) ceilings.set(asset.ticker, ceiling);
   }
-  // As duas fontes entram no mesmo mapa: `getCryptoQuotes` devolve `BrapiQuote`
-  // de propósito, pra que todo o cálculo de patrimônio continue sem saber de
-  // onde veio o preço.
-  const quoteMap = new Map<string, BrapiQuote>(
-    [...(quotes ?? []), ...(cryptoQuotes ?? [])].map((quote) => [
-      quote.symbol,
-      quote,
-    ])
-  );
-
   const summary = buildPortfolioSummary(positions, quoteMap);
   const dayChangePercent = weightedDayChange(summary.positions, quoteMap);
 
