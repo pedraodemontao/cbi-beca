@@ -5,15 +5,23 @@ import type { AssetType, AssetTypeAllocation } from '@/types/portfolio';
 const LABELS = ASSET_TYPE_LABEL_LONG;
 
 /**
- * Três classes, três cores que se separam. O BDR entra no verde de mercado
- * (`positive`) e não numa terceira tonalidade de ouro: com ouro e cinza já
- * ocupados, mais um ouro viraria a mesma barra repetida. Aqui verde é
- * categoria, não alta — a barra não fala de direção de preço.
+ * Uma cor por classe, todas tiradas de tokens que já existem.
+ *
+ * Verde e coral aqui são CATEGORIA, não direção: esta barra mostra quanto de
+ * cada tipo a pessoa tem, e não se subiu ou caiu. Foram escolhidos por
+ * eliminação — com ouro e cinza ocupados, um terceiro ouro viraria a mesma
+ * barra repetida.
+ *
+ * Isto não escala. Renda fixa, Tesouro e cripto estão na fila, e aí não há
+ * mais token de mercado pra emprestar sem a barra virar sopa. Quando a quarta
+ * classe entrar, a saída é uma rampa categórica de verdade — não mais um
+ * empréstimo.
  */
 const COLORS: Record<AssetType, string> = {
   stock: 'bg-primary-surface',
   fii: 'bg-muted-foreground',
   bdr: 'bg-positive',
+  etf: 'bg-negative',
 };
 
 interface AllocationBarProps {

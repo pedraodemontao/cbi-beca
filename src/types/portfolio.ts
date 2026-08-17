@@ -3,12 +3,15 @@
  *
  * `bdr` entrou em 2026-08-17 e é o caminho de "investir no exterior" que não
  * custa fonte de dado nenhuma: recibo de ação estrangeira negociado na B3, em
- * reais, com cotação vinda da mesma brapi de sempre.
+ * reais, com cotação vinda da mesma brapi de sempre. `etf` entrou no mesmo
+ * dia, e por necessidade: seis posições de alunas já existiam com ETF gravado
+ * como 'fii'.
  *
- * Espelha o enum `public.asset_type` do banco (migration 0014). Acrescentar
- * valor aqui sem aplicar a migration faz o insert falhar no Postgres.
+ * Espelha o enum `public.asset_type` do banco (migrations 0014 e 0015).
+ * Acrescentar valor aqui sem aplicar a migration faz o insert falhar no
+ * Postgres.
  */
-export type AssetType = 'stock' | 'fii' | 'bdr';
+export type AssetType = 'stock' | 'fii' | 'bdr' | 'etf';
 
 export interface PositionRow {
   id: string;

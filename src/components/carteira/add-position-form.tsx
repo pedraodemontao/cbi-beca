@@ -19,9 +19,24 @@ const initialState: PositionActionState = { error: null };
  */
 const BDR_TICKER = /^[A-Z]{4}3\d$/;
 
+/**
+ * A ORDEM é o que importa aqui, e ela já causou estrago.
+ *
+ * A brapi devolve `assetType: "fund"` tanto para ETF quanto para fundo
+ * imobiliário, e o que separa os dois é o `subType` — "etf" contra "fii".
+ * Enquanto o código casava 'fund' primeiro, todo ETF virava FII: em
+ * 2026-08-17 havia seis posições assim no banco (CHIP11, HASH11, ETHY11,
+ * SPYI11, IFRI11, BINC11), caindo no balde de fundo imobiliário na composição
+ * do resumo.
+ *
+ * Por isso os subtipos específicos vêm antes do genérico, e 'fund' sozinho é
+ * o último recurso.
+ */
 function guessAssetType(symbol: string, brapiKind: string): AssetType {
   if (brapiKind.includes('bdr')) return 'bdr';
-  if (brapiKind.includes('fii') || brapiKind.includes('fund')) return 'fii';
+  if (brapiKind.includes('etf')) return 'etf';
+  if (brapiKind.includes('fii')) return 'fii';
+  if (brapiKind.includes('fund')) return 'fii';
   if (BDR_TICKER.test(symbol)) return 'bdr';
   return 'stock';
 }
@@ -179,6 +194,7 @@ export function AddPositionForm() {
               <option value="stock">Ação</option>
               <option value="fii">FII (fundo imobiliário)</option>
               <option value="bdr">BDR (empresa de fora, negociada aqui)</option>
+              <option value="etf">ETF (fundo de índice)</option>
             </select>
           </div>
 

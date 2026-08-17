@@ -16,6 +16,7 @@ export const ASSET_TYPE_LABEL: Record<AssetType, string> = {
   stock: 'Ação',
   fii: 'FII',
   bdr: 'BDR',
+  etf: 'ETF',
 };
 
 /** Nome por extenso, pra legenda e gráfico onde cabe a palavra inteira. */
@@ -23,6 +24,7 @@ export const ASSET_TYPE_LABEL_LONG: Record<AssetType, string> = {
   stock: 'Ações',
   fii: 'Fundos imobiliários',
   bdr: 'BDRs (empresas de fora)',
+  etf: 'ETFs (fundos de índice)',
 };
 
 /** A unidade em que o provento é anunciado: "R$ 1,20 por ___". */
@@ -30,4 +32,5 @@ export const ASSET_TYPE_UNIT: Record<AssetType, string> = {
   stock: 'ação',
   fii: 'cota',
   bdr: 'BDR',
+  etf: 'cota',
 };

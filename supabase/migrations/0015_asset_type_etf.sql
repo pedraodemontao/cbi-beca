@@ -1,0 +1,23 @@
+-- ETF entra no enum de tipo de posição.
+--
+-- Não é preventivo: em 2026-08-17 já havia SEIS posições de alunas com ETF
+-- gravado como 'fii' — CHIP11 (semicondutores), HASH11 (cripto), ETHY11
+-- (Ethereum), SPYI11 (S&P 500), IFRI11 (infraestrutura) e BINC11. Elas caíam
+-- no balde de fundo imobiliário na composição do resumo, e `/proventos` as
+-- tratava como cota.
+--
+-- A causa é a detecção do formulário: a brapi devolve `assetType: "fund"` +
+-- `subType: "etf"` para ETF e `subType: "fii"` para fundo imobiliário, e o
+-- código casava 'fund' antes de olhar o subtipo. Defeito anterior ao BDR.
+--
+-- Cotação não é problema: BOVA11, IVVB11 e SMAL11 respondem na brapi
+-- contratada (R$ 163,92 / R$ 455,30 / R$ 99,90, medidos em 2026-08-17). O que
+-- ETF NÃO tem é entrada no nosso catálogo — `/quote/list?type=etf` devolve
+-- 400 —, então eles não ganham logo nem preço de fallback, e nunca aparecem
+-- em `/preco-teto` (onde não fariam sentido de qualquer forma).
+--
+-- ATENÇÃO AO APLICAR: `alter type ... add value` não roda dentro de bloco de
+-- transação, e o valor novo não pode ser usado na MESMA transação que o
+-- criou. Rode sozinha no SQL Editor.
+
+alter type public.asset_type add value if not exists 'etf';
