@@ -25,9 +25,8 @@ const BDR_TICKER = /^[A-Z]{4}3\d$/;
  * A brapi devolve `assetType: "fund"` tanto para ETF quanto para fundo
  * imobiliário, e o que separa os dois é o `subType` — "etf" contra "fii".
  * Enquanto o código casava 'fund' primeiro, todo ETF virava FII: em
- * 2026-08-17 havia seis posições assim no banco (CHIP11, HASH11, ETHY11,
- * SPYI11, IFRI11, BINC11), caindo no balde de fundo imobiliário na composição
- * do resumo.
+ * 2026-08-17 havia quatro posições assim no banco (CHIP11, HASH11, ETHY11,
+ * SPYI11), caindo no balde de fundo imobiliário na composição do resumo.
  *
  * Por isso os subtipos específicos vêm antes do genérico, e 'fund' sozinho é
  * o último recurso.

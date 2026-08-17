@@ -1,10 +1,17 @@
 -- ETF entra no enum de tipo de posição.
 --
--- Não é preventivo: em 2026-08-17 já havia SEIS posições de alunas com ETF
--- gravado como 'fii' — CHIP11 (semicondutores), HASH11 (cripto), ETHY11
--- (Ethereum), SPYI11 (S&P 500), IFRI11 (infraestrutura) e BINC11. Elas caíam
--- no balde de fundo imobiliário na composição do resumo, e `/proventos` as
--- tratava como cota.
+-- Não é preventivo: em 2026-08-17 já havia QUATRO posições de alunas com ETF
+-- gravado como 'fii' — CHIP11 (semicondutores), HASH11 (cripto Nasdaq),
+-- ETHY11 (Ethereum) e SPYI11 (renda alta EUA). Elas caíam no balde de fundo
+-- imobiliário na composição do resumo, e `/proventos` as tratava como cota.
+-- Corrigidas no mesmo dia, depois de conferir o nome de cada uma na brapi.
+--
+-- Duas outras foram investigadas e NÃO eram ETF: IFRI11 (Itaú, cotas de
+-- fundos incentivados de infraestrutura) e BINC11 (Bradesco, infra CDI). Para
+-- fundo de infraestrutura o rótulo certo já era 'fii' — neste projeto
+-- `asset_type = 'fii'` é o BALDE de fundo listado, e quem diz o que a coisa é
+-- fica em `companies.fund_type` (FII, Fiagro, FI-Infra), decidido na
+-- migration 0009.
 --
 -- A causa é a detecção do formulário: a brapi devolve `assetType: "fund"` +
 -- `subType: "etf"` para ETF e `subType: "fii"` para fundo imobiliário, e o
