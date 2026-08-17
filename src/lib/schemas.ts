@@ -65,8 +65,10 @@ export const positionFormSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .regex(/^[A-Z0-9]{4,10}$/, 'Ticker inválido'),
-  assetType: z.enum(['stock', 'fii', 'bdr', 'etf'], {
+    // 3 caracteres por causa de cripto: BTC, ETH, SOL. Ticker da B3 tem no
+    // mínimo 4, então o piso menor não abre porta para nada inválido lá.
+    .regex(/^[A-Z0-9]{3,10}$/, 'Ticker inválido'),
+  assetType: z.enum(['stock', 'fii', 'bdr', 'etf', 'crypto'], {
     error: 'Selecione o tipo de ativo',
   }),
   quantity: z.coerce.number().positive('A quantidade deve ser maior que zero'),

@@ -1,0 +1,25 @@
+-- Cripto entra no enum de tipo de posição.
+--
+-- Diferente da renda fixa, cripto CABE em `positions`: tem símbolo,
+-- quantidade e preço médio, que são exatamente as três colunas obrigatórias
+-- da tabela. O que faltava era a fonte de preço e o rótulo.
+--
+-- A fonte é a CoinGecko, e é de graça: a brapi devolve 403 e cobra R$ 119,99
+-- por mês pelo plano Startup. Medido em 2026-08-17, a API pública serve preço
+-- em BRL sem chave e aceita quinze moedas numa requisição só — a carteira
+-- inteira cabe numa chamada.
+--
+-- Decisão de produto do Pedro na mesma data: cripto entra na MESMA carteira,
+-- não em aba separada. Isso significa que ela soma no patrimônio e ocupa uma
+-- fatia da composição (`--cat-6`), ao lado de ação, FII, BDR, ETF e renda
+-- fixa.
+--
+-- Cripto NÃO aparece em `/preco-teto` nem em `/proventos`: não tem balanço,
+-- não tem lucro por cota e não distribui. As duas telas filtram por tipo e
+-- nunca a incluem.
+--
+-- ATENÇÃO AO APLICAR: `alter type ... add value` não roda dentro de bloco de
+-- transação, e o valor novo não pode ser usado na MESMA transação que o
+-- criou. Rode sozinha no SQL Editor.
+
+alter type public.asset_type add value if not exists 'crypto';

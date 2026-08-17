@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getQuote, type BrapiQuote } from '@/lib/brapi';
+import { getCryptoQuotes } from '@/lib/coingecko';
 import { buildPortfolioSummary, groupByTicker } from '@/lib/portfolio';
 import { buildDividendIncomeReport } from '@/lib/dividend-income';
 import { fetchCeilingAssets, fetchAppliedOverrides } from '@/lib/ceiling-data';
@@ -31,9 +32,27 @@ export default async function CarteiraPage() {
     .order('created_at', { ascending: true });
   const positions = (rows ?? []) as PositionRow[];
 
-  const tickers = [...new Set(positions.map((p) => p.ticker))];
-  const [quotes, incomeReport, ceilingAssets, overrides, fixedIncome] = await Promise.all([
+  // Cripto e bolsa vêm de fontes diferentes: a brapi não serve criptomoeda no
+  // plano contratado (403, exige Startup a R$ 119,99/mês) e a CoinGecko não
+  // serve ação. O `tickers` de mercado exclui cripto pra não pedir BTC à brapi
+  // e receber "não encontrado" a cada pageview.
+  const marketTickers = [
+    ...new Set(
+      positions.filter((p) => p.asset_type !== 'crypto').map((p) => p.ticker)
+    ),
+  ];
+  const cryptoTickers = [
+    ...new Set(
+      positions.filter((p) => p.asset_type === 'crypto').map((p) => p.ticker)
+    ),
+  ];
+  const tickers = marketTickers;
+
+  const [quotes, cryptoQuotes, incomeReport, ceilingAssets, overrides, fixedIncome] = await Promise.all([
     tickers.length > 0 ? getQuote(tickers) : Promise.resolve<BrapiQuote[]>([]),
+    cryptoTickers.length > 0
+      ? getCryptoQuotes(cryptoTickers)
+      : Promise.resolve<BrapiQuote[]>([]),
     buildDividendIncomeReport(supabase, positions),
     fetchCeilingAssets(supabase, { tickers }),
     fetchAppliedOverrides(supabase),
@@ -63,8 +82,14 @@ export default async function CarteiraPage() {
 
     if (ceiling !== null) ceilings.set(asset.ticker, ceiling);
   }
+  // As duas fontes entram no mesmo mapa: `getCryptoQuotes` devolve `BrapiQuote`
+  // de propósito, pra que todo o cálculo de patrimônio continue sem saber de
+  // onde veio o preço.
   const quoteMap = new Map<string, BrapiQuote>(
-    (quotes ?? []).map((quote) => [quote.symbol, quote])
+    [...(quotes ?? []), ...(cryptoQuotes ?? [])].map((quote) => [
+      quote.symbol,
+      quote,
+    ])
   );
 
   const summary = buildPortfolioSummary(positions, quoteMap);

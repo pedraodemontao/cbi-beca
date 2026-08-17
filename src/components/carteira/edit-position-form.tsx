@@ -52,6 +52,7 @@ export function EditPositionForm({
             <option value="fii">FII (fundo imobiliário)</option>
             <option value="bdr">BDR (empresa de fora, negociada aqui)</option>
             <option value="etf">ETF (fundo de índice)</option>
+            <option value="crypto">Criptomoeda</option>
           </select>
         </label>
 

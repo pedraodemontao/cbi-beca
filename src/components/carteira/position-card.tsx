@@ -31,6 +31,12 @@ export function PositionCard({
   const isFii = holding.assetType === 'fii';
   const isDown = holding.profit !== null && holding.profit < 0;
   const typeLabel = ASSET_TYPE_LABEL[holding.assetType];
+  /**
+   * Cripto não tem página de ativo: `/ativo/[ticker]` vive do catálogo da B3
+   * e dos fundamentos da bolsai, e nenhum dos dois conhece BTC. Linkar levaria
+   * a uma tela que não existe.
+   */
+  const hasAssetPage = holding.assetType !== 'crypto';
   const hasMultipleLots = holding.lots.length > 1;
 
   const editingLot = holding.lots.find((lot) => lot.positionId === editingLotId);
@@ -52,12 +58,18 @@ export function PositionCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <AssetLogo ticker={holding.ticker} url={logoUrl} size={30} />
-            <Link
-              href={`/ativo/${holding.ticker}`}
-              className="text-lg font-extrabold tracking-tight hover:text-primary hover:underline"
-            >
-              {holding.ticker}
-            </Link>
+            {hasAssetPage ? (
+              <Link
+                href={`/ativo/${holding.ticker}`}
+                className="text-lg font-extrabold tracking-tight hover:text-primary hover:underline"
+              >
+                {holding.ticker}
+              </Link>
+            ) : (
+              <span className="text-lg font-extrabold tracking-tight">
+                {holding.ticker}
+              </span>
+            )}
             <span
               className={`chip px-2.5 py-1 text-xs ${
                 // Tipo de ativo é rótulo, não direção de mercado: verde aqui faria
@@ -197,12 +209,16 @@ export function PositionCard({
       )}
 
       <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-        <Link
-          href={`/ativo/${holding.ticker}`}
-          className="text-xs font-bold text-primary hover:underline"
-        >
-          Ver detalhes →
-        </Link>
+        {hasAssetPage ? (
+          <Link
+            href={`/ativo/${holding.ticker}`}
+            className="text-xs font-bold text-primary hover:underline"
+          >
+            Ver detalhes →
+          </Link>
+        ) : (
+          <span />
+        )}
 
         {hasMultipleLots ? (
           <button

@@ -5,13 +5,14 @@
  * custa fonte de dado nenhuma: recibo de ação estrangeira negociado na B3, em
  * reais, com cotação vinda da mesma brapi de sempre. `etf` entrou no mesmo
  * dia, e por necessidade: seis posições de alunas já existiam com ETF gravado
- * como 'fii'.
+ * como 'fii'. `crypto` entrou em seguida, e cabe aqui — diferente da renda
+ * fixa — porque tem símbolo, quantidade e preço médio.
  *
- * Espelha o enum `public.asset_type` do banco (migrations 0014 e 0015).
+ * Espelha o enum `public.asset_type` do banco (migrations 0014, 0015 e 0018).
  * Acrescentar valor aqui sem aplicar a migration faz o insert falhar no
  * Postgres.
  */
-export type AssetType = 'stock' | 'fii' | 'bdr' | 'etf';
+export type AssetType = 'stock' | 'fii' | 'bdr' | 'etf' | 'crypto';
 
 export interface PositionRow {
   id: string;

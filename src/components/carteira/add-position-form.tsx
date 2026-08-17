@@ -32,6 +32,7 @@ const BDR_TICKER = /^[A-Z]{4}3\d$/;
  * o último recurso.
  */
 function guessAssetType(symbol: string, brapiKind: string): AssetType {
+  if (brapiKind.includes('crypto')) return 'crypto';
   if (brapiKind.includes('bdr')) return 'bdr';
   if (brapiKind.includes('etf')) return 'etf';
   if (brapiKind.includes('fii')) return 'fii';
@@ -139,7 +140,7 @@ export function AddPositionForm() {
               id="ticker"
               name="ticker"
               type="text"
-              placeholder="PETR4, MXRF11…"
+              placeholder="PETR4, MXRF11, BTC…"
               autoComplete="off"
               required
               value={ticker}
@@ -194,6 +195,7 @@ export function AddPositionForm() {
               <option value="fii">FII (fundo imobiliário)</option>
               <option value="bdr">BDR (empresa de fora, negociada aqui)</option>
               <option value="etf">ETF (fundo de índice)</option>
+              <option value="crypto">Criptomoeda</option>
             </select>
           </div>
 
