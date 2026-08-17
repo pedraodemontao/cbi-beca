@@ -51,6 +51,16 @@ export default async function AtivoPage({
   const positions = (rows ?? []) as PositionRow[];
   const assetType: AssetType = positions[0]?.asset_type ?? 'stock';
 
+  /**
+   * Cripto não tem página de ativo, e o regex acima não basta pra barrar.
+   * `BTC` e `ETH` caem no 404 por terem três letras, mas DOGE, AVAX, USDT,
+   * LINK, PEPE, NEAR e AAVE têm quatro e passariam — a tela tentaria carregar
+   * balanço da CVM e preço teto de uma moeda.
+   */
+  if (assetType === 'crypto') {
+    notFound();
+  }
+
   const [
     quotes,
     statistics,
