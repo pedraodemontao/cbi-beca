@@ -65,6 +65,16 @@ export default async function ResumoPage() {
   // 100% ignorando a renda fixa, e quem tem CDB vê uma carteira que não é a
   // dele.
   const allocation = buildAllocation(summary.allocation, fixedIncome.totalNet);
+
+  // Os três cards do topo têm que falar do MESMO dinheiro. Somar a renda fixa
+  // só no patrimônio, deixando investido e resultado com a bolsa, implicava um
+  // ganho gigantesco que não existe: R$ 17.123 de patrimônio contra R$ 196 de
+  // custo.
+  const totalWealth = summary.totalValue + fixedIncome.totalNet;
+  const totalInvested = summary.investedValue + fixedIncome.totalPrincipal;
+  const totalProfit = totalWealth - totalInvested;
+  const totalProfitPercent =
+    totalInvested > 0 ? (totalProfit / totalInvested) * 100 : null;
   const concentration = buildSectorConcentration(
     summary.positions,
     new Map(
@@ -74,7 +84,6 @@ export default async function ResumoPage() {
       ])
     )
   );
-  const isUp = summary.profit >= 0;
 
   // CDI acumulado desde a compra mais antiga — a régua da renda fixa
   const since = earliestPurchase(positions);
@@ -112,7 +121,7 @@ export default async function ResumoPage() {
               <div className="card">
                 <p className="micro-label">Patrimônio</p>
                 <p className="num mt-1.5 text-2xl font-extrabold">
-                  {formatBRL(summary.totalValue + fixedIncome.totalNet)}
+                  {formatBRL(totalWealth)}
                 </p>
                 <p className="micro-hint mt-1">
                   {fixedIncome.totalNet > 0
@@ -125,15 +134,15 @@ export default async function ResumoPage() {
                 <p className="micro-label">Resultado</p>
                 <p
                   className={`num mt-1.5 text-2xl font-extrabold ${
-                    isUp ? 'text-positive' : 'text-negative'
+                    totalProfit >= 0 ? 'text-positive' : 'text-negative'
                   }`}
                 >
-                  {isUp ? '+' : ''}
-                  {formatBRL(summary.profit)}
+                  {totalProfit >= 0 ? '+' : ''}
+                  {formatBRL(totalProfit)}
                 </p>
                 <p className="micro-hint mt-1">
-                  {summary.profitPercent !== null
-                    ? `${formatPercent(summary.profitPercent)} sobre o custo`
+                  {totalProfitPercent !== null
+                    ? `${formatPercent(totalProfitPercent)} sobre o custo`
                     : 'sobre o custo de aquisição'}
                 </p>
               </div>
@@ -141,7 +150,7 @@ export default async function ResumoPage() {
               <div className="card">
                 <p className="micro-label">Investido</p>
                 <p className="num mt-1.5 text-2xl font-extrabold">
-                  {formatBRL(summary.investedValue)}
+                  {formatBRL(totalInvested)}
                 </p>
                 <p className="micro-hint mt-1">custo de aquisição</p>
               </div>
