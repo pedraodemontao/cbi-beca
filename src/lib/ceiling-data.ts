@@ -468,9 +468,12 @@ export async function fetchAppliedOverrides(
 ): Promise<Map<string, AppliedOverride>> {
   const { data } = await supabase
     .from('ceiling_overrides')
-    .select('ticker,payout,manual_profit,user_id');
+    .select('ticker,payout,manual_profit,manual_dividends_12m,user_id');
 
-  type Row = Pick<CeilingOverrideRow, 'ticker' | 'payout' | 'manual_profit' | 'user_id'>;
+  type Row = Pick<
+    CeilingOverrideRow,
+    'ticker' | 'payout' | 'manual_profit' | 'manual_dividends_12m' | 'user_id'
+  >;
 
   const global = new Map<string, Row>();
   const personal = new Map<string, Row>();
@@ -485,6 +488,7 @@ export async function fetchAppliedOverrides(
       ticker,
       payout: row.payout,
       manualProfit: row.manual_profit,
+      manualDividends12m: row.manual_dividends_12m,
       isGlobal: row.user_id === null,
       hasGlobal: global.has(ticker),
     });

@@ -69,10 +69,19 @@ export const ceilingOverrideSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z0-9]{4,10}$/, 'Ticker inválido'),
-  payoutPercent: z.coerce
-    .number()
-    .min(1, 'O payout precisa ser de pelo menos 1%')
-    .max(200, 'O payout não pode exceder 200%'),
+  /**
+   * Opcional porque fundo não tem payout: o teto dele sai da distribuição
+   * paga, não de uma parcela do lucro. O formulário de fundo não manda este
+   * campo, e a action recusa se ele vier junto com o de distribuição.
+   */
+  payoutPercent: z
+    .string()
+    .trim()
+    .transform((value) => (value === '' ? undefined : Number(value)))
+    .refine(
+      (value) => value === undefined || (Number.isFinite(value) && value >= 1 && value <= 200),
+      'O payout precisa ficar entre 1% e 200%'
+    ),
   expectedEps: z
     .string()
     .trim()
@@ -80,6 +89,19 @@ export const ceilingOverrideSchema = z.object({
     .refine(
       (value) => value === undefined || (Number.isFinite(value) && value > 0),
       'O lucro por ação precisa ser maior que zero'
+    ),
+  /**
+   * Distribuição MENSAL por cota, em reais — é como o mercado de fundo fala e
+   * é o que a Beca pediu. A action multiplica por doze antes de gravar,
+   * porque o banco e o cálculo do teto trabalham no anual.
+   */
+  monthlyDistribution: z
+    .string()
+    .trim()
+    .transform((value) => (value === '' ? undefined : Number(value)))
+    .refine(
+      (value) => value === undefined || (Number.isFinite(value) && value > 0),
+      'A distribuição mensal precisa ser maior que zero'
     ),
   /**
    * 'global' é o ajuste da Beca, que vale pra todas as usuárias. O padrão é

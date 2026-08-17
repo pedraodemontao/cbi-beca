@@ -81,6 +81,45 @@ function categoryOf(asset: CeilingAsset): string | null {
   return asset.assetType === 'fii' ? asset.segment : asset.sector;
 }
 
+/**
+ * O que o preço teto de fundo NÃO diz.
+ *
+ * Conteúdo trazido pela Beca em 2026-08-17, reescrito na voz de ferramenta que
+ * o resto do produto usa. Fica abaixo do método e não em cima da tabela: é
+ * leitura de aprofundamento, e um bloco longo antes dos números empurraria a
+ * tabela pra fora da primeira dobra.
+ */
+function FiiCaveats() {
+  return (
+    <InfoNote title="Antes de usar este número">
+      <p>
+        A conta parte de uma premissa: que o fundo siga distribuindo perto do
+        que distribuiu. Rendimento de fundo não é contratado — se ele cair ou
+        subir, o teto muda junto. Vale revisar de tempos em tempos.
+      </p>
+      <p className="mt-2">
+        O modelo descreve melhor fundo de tijolo com contrato longo, onde a
+        receita é mais previsível. Fundo de papel depende de juros e de
+        recebíveis, e a distribuição oscila mais — ali o teto merece mais
+        margem.
+      </p>
+      <p className="mt-2">
+        Uma forma de embutir essa margem é exigir mais do que a meta: para
+        buscar 10% ao ano, calcular com 11% ou 12% derruba o teto e cria folga.
+      </p>
+      <p className="mt-2">
+        O <strong className="font-bold text-foreground">P/VP</strong> é a
+        segunda régua, e a coluna está na tabela. Acima de 1,00 a cota custa
+        mais que o patrimônio que representa — em fundo de papel, cujo
+        patrimônio são títulos, isso equivale a pagar acima do valor de face.
+        Fundo de fundos segue a mesma lógica. Não é regra automática: fundo de
+        papel é renda variável e tem gestão ativa, então um P/VP pouco acima de
+        1 pode se justificar.
+      </p>
+    </InfoNote>
+  );
+}
+
 /** P/VP de fundo: cotação sobre patrimônio por cota. Recalculado aqui, nunca
  *  copiado da API — a escala da bolsai já chegou corrompida uma vez. */
 function priceToBook(price: number | null, vpa: number | null): number | null {
@@ -134,11 +173,13 @@ const METHODS: MethodInfo[] = [
 /** O payout só entra na conta de quem projeta dividendo a partir do lucro. */
 const METHODS_WITH_PAYOUT: MethodKey[] = ['projected', 'gordon'];
 
-type SortKey = 'margin' | 'size' | 'ticker';
+type SortKey = 'margin' | 'size' | 'ticker' | 'ceiling' | 'cheapest';
 
 const SORT_LABELS: Record<SortKey, string> = {
   // "recorrente" avisa que quem tem selo de atípico sai da frente da fila.
   margin: 'Maior margem de segurança',
+  ceiling: 'Maior preço teto',
+  cheapest: 'Menor cotação',
   size: 'Maiores empresas',
   ticker: 'Ordem alfabética',
 };
@@ -262,7 +303,7 @@ export function CeilingTable({
 
       const columns =
         asset.assetType === 'fii'
-          ? buildFiiColumns(asset, fiiYieldPercent / 100)
+          ? buildFiiColumns(asset, fiiYieldPercent / 100, override?.manualDividends12m ?? null)
           : buildColumns(method, projection, asset, requiredReturn, growth, bazinBase);
       const ceiling = columns.find((column) => column.strong)?.value ?? null;
 
@@ -347,6 +388,23 @@ export function CeilingTable({
 
     return [...matching].sort((a, b) => {
       if (sortKey === 'ticker') return a.asset.ticker.localeCompare(b.asset.ticker);
+
+      // Teto e cotação ordenam pelo número cru, sem a regra de atípico abaixo:
+      // ali a distorção do outlier é justamente o que o número mostra, e
+      // escondê-la no fim da lista seria esconder o dado que a ordenação pede.
+      if (sortKey === 'ceiling') {
+        if (a.ceiling === null) return b.ceiling === null ? 0 : 1;
+        if (b.ceiling === null) return -1;
+        return b.ceiling - a.ceiling;
+      }
+      if (sortKey === 'cheapest') {
+        const pa = a.asset.price;
+        const pb = b.asset.price;
+        if (pa === null) return pb === null ? 0 : 1;
+        if (pb === null) return -1;
+        return pa - pb;
+      }
+
       // Empresa sem teto (prejuízo ou dado faltando) desce pro fim da lista.
       if (a.margin === null) return b.margin === null ? 0 : 1;
       if (b.margin === null) return -1;
@@ -944,15 +1002,18 @@ export function CeilingTable({
           )}
 
           {kind === 'fii' ? (
-            <InfoNote title="Método de cálculo">
-              Soma das distribuições por cota dos últimos 12 meses dividida pelo
-              rendimento anual desejado. Com o parâmetro em{' '}
-              {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que
-              distribuiu R$ 12,00 por cota no período tem preço teto de{' '}
-              {formatBRL(12 / (fiiYieldPercent / 100))}. Acima desse valor, a
-              mesma distribuição resulta em rendimento menor sobre o capital
-              aplicado.
-            </InfoNote>
+            <>
+              <InfoNote title="Método de cálculo">
+                Soma das distribuições por cota dos últimos 12 meses dividida
+                pelo rendimento anual desejado. Com o parâmetro em{' '}
+                {fiiYieldPercent.toFixed(1).replace('.', ',')}%, um fundo que
+                distribuiu R$ 12,00 por cota no período tem preço teto de{' '}
+                {formatBRL(12 / (fiiYieldPercent / 100))}. Acima desse valor, a
+                mesma distribuição resulta em rendimento menor sobre o capital
+                aplicado.
+              </InfoNote>
+              <FiiCaveats />
+            </>
           ) : (
             <MethodExplainer
               method={method}
@@ -987,10 +1048,16 @@ export function CeilingTable({
  * comparado com uma régua de 6% aparecia com margem de +120% em tudo, o que não
  * separa fundo nenhum de fundo nenhum.
  */
-function buildFiiColumns(asset: CeilingAsset, targetYield: number): MethodColumn[] {
-  const monthly = asset.dividends12m === null ? null : asset.dividends12m / 12;
+function buildFiiColumns(
+  asset: CeilingAsset,
+  targetYield: number,
+  /** Distribuição anual digitada à mão; vence a do banco quando existe. */
+  manualDividends12m: number | null
+): MethodColumn[] {
+  const annual = manualDividends12m ?? asset.dividends12m;
+  const monthly = annual === null ? null : annual / 12;
   return [
-    { label: 'Distribuído em 12m', value: asset.dividends12m },
+    { label: 'Distribuído em 12m', value: annual },
     { label: 'Por mês', value: monthly },
     // P/VP fica ANTES do teto pra que teto e margem continuem lado a lado. Ele
     // não entra na conta do teto — é a segunda régua que o mercado de fundo
@@ -1003,7 +1070,7 @@ function buildFiiColumns(asset: CeilingAsset, targetYield: number): MethodColumn
     },
     {
       label: `Teto ${formatRatio(targetYield)}`,
-      value: fiiCeiling(asset.dividends12m, targetYield),
+      value: fiiCeiling(annual, targetYield),
       strong: true,
     },
   ];

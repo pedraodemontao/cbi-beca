@@ -47,8 +47,14 @@ export function OverrideForm({
   );
   const isPublishing = isCurator && scope === 'global';
 
+  const isFund = asset.assetType === 'fii';
+
   const savedPayoutPercent =
     override?.payout != null ? Math.round(override.payout * 100) : defaultPayoutPercent;
+
+  /** O que o banco diz que o fundo distribuiu por mês — a base do palpite. */
+  const reportedMonthly =
+    asset.dividends12m === null ? null : asset.dividends12m / 12;
 
   const canClear = isPublishing
     ? Boolean(override?.hasGlobal)
@@ -89,45 +95,73 @@ export function OverrideForm({
           </fieldset>
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-bold">Payout desta empresa</span>
-            <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
-              <input
-                name="payoutPercent"
-                type="number"
-                min="1"
-                max="200"
-                step="1"
-                inputMode="numeric"
-                required
-                defaultValue={savedPayoutPercent}
-                className="num w-full bg-transparent py-3 text-base outline-none"
-              />
-              <span className="text-sm font-bold text-muted-foreground">%</span>
-            </span>
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-bold">
-              Lucro por ação esperado{' '}
-              <span className="font-medium text-muted-foreground">(opcional)</span>
-            </span>
+        {isFund ? (
+          // Fundo não apura lucro por cota, então payout e LPA não existem
+          // aqui. Enquanto o formulário era um só, o botão "Ajustar" na aba
+          // Fundos abria um campo pedindo "Lucro por ação esperado" — pergunta
+          // sem resposta, e o `reportedEps` vinha nulo porque fundo não tem
+          // `sharesOutstanding`. O ajuste nunca funcionou ali.
+          <label className="flex max-w-xs flex-col gap-1.5">
+            <span className="text-sm font-bold">Distribuição mensal por cota</span>
             <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
               <span className="text-sm font-bold text-muted-foreground">R$</span>
               <input
-                name="expectedEps"
+                name="monthlyDistribution"
                 type="number"
                 min="0"
-                step="0.01"
+                // `step="any"`: rendimento de cota barata tem mais casas que
+                // dois, e `step` restritivo barra o submit em silêncio — o
+                // defeito que a meta de renda já teve.
+                step="any"
                 inputMode="decimal"
-                defaultValue={savedEps(override, asset) ?? ''}
-                placeholder={reportedEps === null ? '' : reportedEps.toFixed(2)}
+                required
+                defaultValue={savedMonthly(override) ?? ''}
+                placeholder={reportedMonthly === null ? '' : reportedMonthly.toFixed(4)}
                 className="num w-full bg-transparent py-3 text-base outline-none"
               />
             </span>
           </label>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-bold">Payout desta empresa</span>
+              <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
+                <input
+                  name="payoutPercent"
+                  type="number"
+                  min="1"
+                  max="200"
+                  step="1"
+                  inputMode="numeric"
+                  required
+                  defaultValue={savedPayoutPercent}
+                  className="num w-full bg-transparent py-3 text-base outline-none"
+                />
+                <span className="text-sm font-bold text-muted-foreground">%</span>
+              </span>
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-bold">
+                Lucro por ação esperado{' '}
+                <span className="font-medium text-muted-foreground">(opcional)</span>
+              </span>
+              <span className="flex items-center gap-2 rounded-panel border border-border bg-surface px-4 focus-within:border-primary">
+                <span className="text-sm font-bold text-muted-foreground">R$</span>
+                <input
+                  name="expectedEps"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  defaultValue={savedEps(override, asset) ?? ''}
+                  placeholder={reportedEps === null ? '' : reportedEps.toFixed(2)}
+                  className="num w-full bg-transparent py-3 text-base outline-none"
+                />
+              </span>
+            </label>
+          </div>
+        )}
 
         {isPublishing && (
           <p className="micro-hint">
@@ -139,7 +173,21 @@ export function OverrideForm({
         )}
 
         <p className="micro-hint">
-          {reportedEps === null ? (
+          {isFund ? (
+            reportedMonthly === null ? (
+              <>
+                Não temos o histórico de distribuição deste fundo. O valor
+                informado aqui passa a ser a base do teto.
+              </>
+            ) : (
+              <>
+                As distribuições pagas nos últimos 12 meses dão{' '}
+                {formatBRL(reportedMonthly)} por mês. Se esse valor não reflete
+                a realidade atual do fundo, corrija aqui — o teto recalcula
+                sobre o que você informar.
+              </>
+            )
+          ) : reportedEps === null ? (
             <>Sem o lucro do balanço não há projeção automática: o valor informado aqui passa a ser a base do cálculo.</>
           ) : (
             <>
@@ -203,6 +251,12 @@ function ScopeOption({ label, hint, checked, onSelect }: ScopeOptionProps) {
       <span className="pl-6 text-xs font-medium text-muted-foreground">{hint}</span>
     </label>
   );
+}
+
+/** O banco guarda a distribuição ANUAL; o formulário fala em mensal. */
+function savedMonthly(override: AppliedOverride | undefined): number | undefined {
+  if (!override?.manualDividends12m) return undefined;
+  return Number((override.manualDividends12m / 12).toFixed(6));
 }
 
 /** O banco guarda lucro total; o formulário fala em lucro por ação. */

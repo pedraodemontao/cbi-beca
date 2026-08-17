@@ -69,8 +69,15 @@ export function bazinCeiling(
  */
 export const DEFAULT_FII_YIELD = 0.09;
 
-/** Faixa que o slider abre. Abaixo de 6% e acima de 15% ninguém opera FII. */
-export const FII_YIELD_RANGE = { min: 6, max: 15 } as const;
+/**
+ * Faixa que o slider abre.
+ *
+ * Era 6–15%. A Beca pediu 4–14% em 2026-08-17, e o motivo dela é o conselho
+ * que dá junto: "se sua meta é 10% ao ano, calcula com 11% ou 12%". Quem puxa
+ * a régua pra cima precisa de espaço embaixo também — um fundo de tijolo com
+ * contrato longo pode ser avaliado a 4% sem que isso seja erro.
+ */
+export const FII_YIELD_RANGE = { min: 4, max: 14 } as const;
 
 /**
  * Preço teto de FII: o que ele distribuiu por cota em 12 meses dividido pelo

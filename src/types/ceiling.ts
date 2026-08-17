@@ -100,6 +100,12 @@ export interface AppliedOverride {
   /** Razão 0-2, como está no banco. */
   payout: number | null;
   manualProfit: number | null;
+  /**
+   * Distribuição ANUAL por cota digitada à mão (migration 0016). Só vale para
+   * fundo, onde não existe lucro por cota para ajustar. O formulário fala em
+   * valor MENSAL e converte — ver o comentário da migration.
+   */
+  manualDividends12m: number | null;
   /** Veio da Beca (user_id nulo) — a usuária vê, mas não edita nem apaga. */
   isGlobal: boolean;
   /**
@@ -117,6 +123,8 @@ export interface CeilingOverrideRow {
   ticker: string;
   payout: number | null;
   manual_profit: number | null;
+  /** Distribuição anual por cota, para fundo (migration 0016). */
+  manual_dividends_12m: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -36,13 +36,44 @@ export async function saveCeilingOverride(
     return { error: parsed.error.issues[0].message };
   }
 
-  const { ticker, payoutPercent, expectedEps, scope } = parsed.data;
+  const { ticker, payoutPercent, expectedEps, monthlyDistribution, scope } =
+    parsed.data;
 
   // A RLS já barraria, mas o erro chegaria cru. E a checagem aqui é o que
   // garante que mexer no HTML não publica ajuste em nome da Beca.
   if (scope === 'global' && !(await isCurator(supabase, user.id))) {
     return { error: NOT_CURATOR };
   }
+
+  // Qual ajuste vale depende do TIPO DO ATIVO, e o tipo vem do banco — nunca
+  // do formulário. Sem isso, trocar um campo no HTML gravaria distribuição
+  // manual numa ação (onde ela é ignorada no cálculo, mas fica no banco
+  // parecendo verdade) ou payout num fundo, que não tem payout.
+  const { data: company } = await supabase
+    .from('companies')
+    .select('asset_type')
+    .eq('ticker', ticker)
+    .maybeSingle();
+
+  const isFund = (company as { asset_type: string } | null)?.asset_type === 'fii';
+
+  if (isFund && payoutPercent !== undefined) {
+    return { error: 'Fundo não tem payout: o teto sai da distribuição paga.' };
+  }
+  if (!isFund && monthlyDistribution !== undefined) {
+    return {
+      error: 'Distribuição mensal só se ajusta em fundo. Em ação, ajuste o lucro por ação.',
+    };
+  }
+  if (!isFund && payoutPercent === undefined) {
+    return { error: 'Informe o payout.' };
+  }
+
+  // O anual é o que a conta do teto consome e o que `dividends_12m` guarda —
+  // manter as duas grandezas na mesma unidade evita a classe de erro de
+  // escala que este projeto já teve com a bolsai.
+  const manualDividends12m =
+    monthlyDistribution === undefined ? null : monthlyDistribution * 12;
 
   // O lucro total sai do LPA digitado vezes as ações do banco — a quantidade
   // nunca vem do formulário, senão dava pra forjar o teto de qualquer empresa.
@@ -72,8 +103,9 @@ export async function saveCeilingOverride(
     {
       user_id: scope === 'global' ? null : user.id,
       ticker,
-      payout: payoutPercent / 100,
+      payout: payoutPercent === undefined ? null : payoutPercent / 100,
       manual_profit: manualProfit,
+      manual_dividends_12m: manualDividends12m,
     },
     { onConflict: 'user_id,ticker' }
   );
