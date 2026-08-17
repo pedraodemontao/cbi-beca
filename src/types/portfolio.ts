@@ -1,4 +1,14 @@
-export type AssetType = 'stock' | 'fii';
+/**
+ * O que a aluna consegue cadastrar na carteira.
+ *
+ * `bdr` entrou em 2026-08-17 e é o caminho de "investir no exterior" que não
+ * custa fonte de dado nenhuma: recibo de ação estrangeira negociado na B3, em
+ * reais, com cotação vinda da mesma brapi de sempre.
+ *
+ * Espelha o enum `public.asset_type` do banco (migration 0014). Acrescentar
+ * valor aqui sem aplicar a migration faz o insert falhar no Postgres.
+ */
+export type AssetType = 'stock' | 'fii' | 'bdr';
 
 export interface PositionRow {
   id: string;
@@ -110,6 +120,17 @@ export interface DividendIncomeReport {
   estimatedMonthlyIncome: number;
   /** Alguma posição sem data de compra — o total pode estar subestimado. */
   hasMissingPurchaseDates: boolean;
+  /**
+   * BDRs na carteira, que ficam de fora da conta por FALTA DE DADO, não por
+   * não pagarem.
+   *
+   * Nenhum dos 794 BDRs do catálogo tem provento gravado (medido em
+   * 2026-08-17): a bolsai não cobre empresa estrangeira e o dividendo da brapi
+   * só responde no sandbox. Na vida real o recibo repassa o que a empresa
+   * distribuiu lá fora. Sem esta lista, quem cadastra AAPL34 lê "R$ 0,00
+   * recebido" e conclui que a Apple não paga dividendo.
+   */
+  tickersWithoutDividendData: string[];
   /**
    * Quanto do total recebido veio como JCP. Importa porque JCP tem 15% de IR
    * retido na fonte e dividendo comum não tem — o que caiu na conta é menor

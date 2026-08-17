@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { formatBRL, formatRatio } from '@/lib/format';
+import { ASSET_TYPE_UNIT } from '@/lib/asset-type';
 import type { TopPayer } from '@/lib/ceiling-data';
 
 /**
@@ -75,7 +76,7 @@ function RankingList({ title, rows }: { title: string; rows: TopPayer[] }) {
                 {row.ticker}
               </Link>
               <p className="num text-xs font-medium text-muted-foreground">
-                {formatBRL(row.dividends12m)} por {row.assetType === 'fii' ? 'cota' : 'ação'} ·
+                {formatBRL(row.dividends12m)} por {ASSET_TYPE_UNIT[row.assetType]} ·
                 custa {formatBRL(row.price)}
               </p>
             </div>

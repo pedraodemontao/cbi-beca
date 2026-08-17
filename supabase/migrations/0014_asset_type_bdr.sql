@@ -1,0 +1,24 @@
+-- BDR entra no enum de tipo de posição.
+--
+-- Por que BDR e não "ação estrangeira": BDR é recibo de ação de fora
+-- negociado na B3, em reais, com liquidação aqui. Isso significa que a
+-- cotação já vem da mesma fonte de todo o resto — medido em 2026-08-17,
+-- `AAPL34` e `MSFT34` respondem no plano contratado da brapi, com preço em
+-- BRL. Nenhuma fonte nova, nenhum câmbio.
+--
+-- Na prática a capacidade JÁ EXISTIA: o catálogo tem 794 BDRs com cotação
+-- gravada, e quem digitasse `AAPL34` no formulário conseguia salvar — só que
+-- classificado como 'stock', porque o enum não tinha outra opção. O que esta
+-- migration conserta é o RÓTULO: sem ela, BDR entra na composição do resumo
+-- como "Ações" e a aluna não consegue separar o que é Brasil do que é fora.
+--
+-- O que BDR NÃO resolve, e é bom estar escrito: quem tem conta em corretora
+-- lá fora e compra AAPL direto na Nasdaq continua sem lugar aqui. Aquilo é
+-- ativo em dólar e exigiria câmbio na carteira inteira.
+--
+-- ATENÇÃO AO APLICAR: `alter type ... add value` não roda dentro de bloco de
+-- transação em Postgres, e o valor novo não pode ser usado na MESMA transação
+-- que o criou. No SQL Editor do Supabase, rode esta migration sozinha, e só
+-- depois faça qualquer insert que use 'bdr'.
+
+alter type public.asset_type add value if not exists 'bdr';

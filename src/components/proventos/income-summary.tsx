@@ -74,6 +74,21 @@ export function IncomeSummary({ report }: IncomeSummaryProps) {
           considera a data de cadastro, o que pode subestimar o total.
         </p>
       )}
+
+      {/* Zero aqui não é "não pagou" — é dado que a plataforma não tem. Sem
+          esta frase, quem cadastra AAPL34 conclui que a Apple não distribui. */}
+      {report.tickersWithoutDividendData.length > 0 && (
+        <p className="mt-3 rounded-panel bg-background px-4 py-3 text-xs font-medium text-muted-foreground">
+          {report.tickersWithoutDividendData.join(', ')}{' '}
+          {report.tickersWithoutDividendData.length === 1
+            ? 'é um BDR e ficou'
+            : 'são BDRs e ficaram'}{' '}
+          de fora desta conta: não temos o histórico de proventos de empresa
+          estrangeira. Isso não significa que{' '}
+          {report.tickersWithoutDividendData.length === 1 ? 'ele' : 'eles'} não
+          {' '}paguem — o recibo repassa o que a empresa distribui lá fora.
+        </p>
+      )}
     </section>
   );
 }

@@ -25,9 +25,9 @@ import {
   safetyMargin,
   DEFAULT_PAYOUT,
 } from '@/lib/ceiling-price';
+import { ASSET_TYPE_LABEL } from '@/lib/asset-type';
 import type { AppliedOverride, CeilingAsset } from '@/types/ceiling';
 import type {
-  AssetType,
   DividendIncomeReport,
   PortfolioSummary,
   PositionRow,
@@ -68,8 +68,6 @@ const MAX_QUESTION_CHARS = 4000;
 
 /** Sem teto, uma resposta longa consome tokens sem limite e pode ser cortada. */
 const MAX_OUTPUT_TOKENS = 1500;
-
-const ASSET_TYPE_LABEL: Record<AssetType, string> = { stock: 'Ação', fii: 'FII' };
 
 const rateFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -178,6 +176,15 @@ function buildPortfolioContext(
   if (income.hasMissingPurchaseDates) {
     lines.push(
       '- ATENÇÃO: há posições sem data de compra informada; o total recebido pode estar subestimado. Se for relevante, sugira preencher a data de compra na página Minha Carteira.'
+    );
+  }
+  if (income.tickersWithoutDividendData.length > 0) {
+    // Sem esta linha o modelo lê zero como fato e responde que a empresa não
+    // paga dividendo — inventando uma característica a partir de uma lacuna.
+    lines.push(
+      `- ATENÇÃO: ${income.tickersWithoutDividendData.join(', ')} ${
+        income.tickersWithoutDividendData.length === 1 ? 'é BDR e ficou' : 'são BDRs e ficaram'
+      } de fora de TODOS os números de provento acima, porque a plataforma não tem histórico de proventos de empresa estrangeira. NÃO afirme que esses ativos não pagam nem que renderam zero: o dado não existe aqui, e o BDR repassa o que a empresa distribui no exterior.`
     );
   }
 

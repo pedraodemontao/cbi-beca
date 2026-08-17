@@ -7,6 +7,25 @@ import type { AssetType } from '@/types/portfolio';
 
 const initialState: PositionActionState = { error: null };
 
+/**
+ * Formato de BDR: quatro letras, um 3, mais um dígito — AAPL34, MSFT34.
+ *
+ * É a REDE, não a fonte: medido em 2026-08-17, o `/tickers` da brapi devolve
+ * `assetType: "bdr"` para AAPL34, então quem decide é o sinal dela. O formato
+ * cobre o caso de a busca vir sem tipo, e não colide com o resto da B3 —
+ * papel comum tem UM dígito (PETR4), unit e FII têm dois começando em 1
+ * (KLBN11, MXRF11). O alerta do `AGENTS.md` sobre `[A-Z]{4}\d` perder a B3SA3
+ * não se aplica: "B3SA" tem dígito no meio e nem casa com quatro letras.
+ */
+const BDR_TICKER = /^[A-Z]{4}3\d$/;
+
+function guessAssetType(symbol: string, brapiKind: string): AssetType {
+  if (brapiKind.includes('bdr')) return 'bdr';
+  if (brapiKind.includes('fii') || brapiKind.includes('fund')) return 'fii';
+  if (BDR_TICKER.test(symbol)) return 'bdr';
+  return 'stock';
+}
+
 export function AddPositionForm() {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -47,11 +66,11 @@ export function AddPositionForm() {
   }, [ticker, isListOpen]);
 
   function handlePick(match: BrapiTickerMatch) {
-    const symbol = match.ticker ?? match.symbol ?? '';
-    setTicker(symbol.toUpperCase());
+    const symbol = (match.ticker ?? match.symbol ?? '').toUpperCase();
+    setTicker(symbol);
     // brapi devolve assetType 'fund' + subType 'fii' pra fundos imobiliários
     const kind = `${match.assetType ?? ''} ${match.subType ?? ''} ${match.type ?? ''}`.toLowerCase();
-    setAssetType(kind.includes('fii') || kind.includes('fund') ? 'fii' : 'stock');
+    setAssetType(guessAssetType(symbol, kind));
     setIsListOpen(false);
     setSuggestions([]);
   }
@@ -148,7 +167,7 @@ export function AddPositionForm() {
 
           <div className="flex flex-col gap-1.5">
             <label htmlFor="assetType" className="text-sm font-bold">
-              É ação ou FII?
+              Que tipo de ativo é?
             </label>
             <select
               id="assetType"
@@ -159,6 +178,7 @@ export function AddPositionForm() {
             >
               <option value="stock">Ação</option>
               <option value="fii">FII (fundo imobiliário)</option>
+              <option value="bdr">BDR (empresa de fora, negociada aqui)</option>
             </select>
           </div>
 

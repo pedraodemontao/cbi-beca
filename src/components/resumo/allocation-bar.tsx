@@ -1,15 +1,20 @@
 import { formatBRL, formatPercent } from '@/lib/format';
-import type { AssetTypeAllocation } from '@/types/portfolio';
+import { ASSET_TYPE_LABEL_LONG } from '@/lib/asset-type';
+import type { AssetType, AssetTypeAllocation } from '@/types/portfolio';
 
-const LABELS = {
-  stock: 'Ações',
-  fii: 'Fundos imobiliários',
-} as const;
+const LABELS = ASSET_TYPE_LABEL_LONG;
 
-const COLORS = {
+/**
+ * Três classes, três cores que se separam. O BDR entra no verde de mercado
+ * (`positive`) e não numa terceira tonalidade de ouro: com ouro e cinza já
+ * ocupados, mais um ouro viraria a mesma barra repetida. Aqui verde é
+ * categoria, não alta — a barra não fala de direção de preço.
+ */
+const COLORS: Record<AssetType, string> = {
   stock: 'bg-primary-surface',
   fii: 'bg-muted-foreground',
-} as const;
+  bdr: 'bg-positive',
+};
 
 interface AllocationBarProps {
   allocation: AssetTypeAllocation[];

@@ -18,7 +18,13 @@ const REVALIDATE_SECONDS = {
   list: 900,
 } as const;
 
-export type AssetType = 'stock' | 'fii';
+/**
+ * O tipo é o mesmo da carteira — havia uma segunda cópia aqui, e ela ficou
+ * pra trás quando `bdr` entrou no enum. Uma definição só evita o próximo
+ * descompasso.
+ */
+import type { AssetType } from '@/types/portfolio';
+export type { AssetType };
 
 /**
  * Ranges liberados no plano free: 1d, 5d, 1mo, 3mo. Pedir 6mo+ devolve
@@ -197,6 +203,8 @@ export async function getDividends(
   ticker: string,
   assetType: AssetType
 ): Promise<BrapiDividend[] | null> {
+  // BDR cai no endpoint de ação: o recibo distribui o que a empresa lá fora
+  // pagou, e a brapi não tem rota própria pra ele.
   const path = assetType === 'fii' ? '/fii/dividends' : '/stocks/dividends';
   const data = await brapiFetch<{
     results?: Array<

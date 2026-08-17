@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { deletePosition } from '@/app/carteira/actions';
 import { formatBRL, formatPercent, formatQuantity } from '@/lib/format';
+import { ASSET_TYPE_LABEL } from '@/lib/asset-type';
 import { EditPositionForm } from '@/components/carteira/edit-position-form';
 import { AssetLogo } from '@/components/shared/asset-logo';
 import type { TickerHolding } from '@/types/portfolio';
@@ -29,6 +30,7 @@ export function PositionCard({
 
   const isFii = holding.assetType === 'fii';
   const isDown = holding.profit !== null && holding.profit < 0;
+  const typeLabel = ASSET_TYPE_LABEL[holding.assetType];
   const hasMultipleLots = holding.lots.length > 1;
 
   const editingLot = holding.lots.find((lot) => lot.positionId === editingLotId);
@@ -63,7 +65,7 @@ export function PositionCard({
                 isFii ? 'bg-accent text-accent-foreground' : 'chip-neutral'
               }`}
             >
-              {isFii ? 'FII' : 'Ação'}
+              {typeLabel}
             </span>
             {hasMultipleLots && (
               <span className="chip chip-neutral px-2.5 py-1 text-xs">

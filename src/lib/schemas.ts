@@ -42,7 +42,9 @@ export const positionFormSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z0-9]{4,10}$/, 'Ticker inválido'),
-  assetType: z.enum(['stock', 'fii'], { error: 'Selecione o tipo de ativo' }),
+  assetType: z.enum(['stock', 'fii', 'bdr'], {
+    error: 'Selecione o tipo de ativo',
+  }),
   quantity: z.coerce.number().positive('A quantidade deve ser maior que zero'),
   avgPrice: z.coerce.number().positive('O preço médio deve ser maior que zero'),
   purchaseDate: z

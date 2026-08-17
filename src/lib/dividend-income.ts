@@ -117,12 +117,29 @@ export async function buildDividendIncomeReport(
     hasMissingPurchaseDates: false,
     jcpReceived: 0,
     taxWithheld: 0,
+    tickersWithoutDividendData: [],
   };
 
   if (positions.length === 0) return empty;
 
   const uniqueTickers = [...new Set(positions.map((position) => position.ticker))];
   const historyByTicker = await loadHistories(supabase, uniqueTickers);
+
+  // BDR sem histórico é lacuna nossa, não característica do ativo — ver o
+  // campo `tickersWithoutDividendData`. Restringido a BDR de propósito: ação
+  // brasileira sem provento gravado provavelmente não pagou mesmo, e avisar
+  // ali viraria ruído em cima de um fato correto.
+  const tickersWithoutDividendData = [
+    ...new Set(
+      positions
+        .filter(
+          (position) =>
+            position.asset_type === 'bdr' &&
+            (historyByTicker.get(position.ticker)?.length ?? 0) === 0
+        )
+        .map((position) => position.ticker)
+    ),
+  ].sort();
 
   const now = new Date();
   const monthTotals = new Map<string, number>();
@@ -193,6 +210,7 @@ export async function buildDividendIncomeReport(
     hasMissingPurchaseDates: positions.some((position) => !position.purchase_date),
     jcpReceived,
     taxWithheld,
+    tickersWithoutDividendData,
   };
 }
 
