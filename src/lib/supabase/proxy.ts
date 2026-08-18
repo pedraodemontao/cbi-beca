@@ -52,7 +52,10 @@ export async function updateSession(request: NextRequest) {
  * pública abriria um formulário de trocar senha para quem não provou ser dona
  * da conta.
  */
-const PUBLIC_PREFIXES = ['/login', '/cadastro', '/recuperar', '/auth', '/api/cron'];
+// `/api/webhooks` é chamado pela Kiwify, que não tem sessão: sem a exceção o
+// portão responderia 307 para `/login` e ela registraria o webhook como falho.
+// A rota se protege sozinha, pela assinatura HMAC.
+const PUBLIC_PREFIXES = ['/login', '/cadastro', '/recuperar', '/auth', '/api/cron', '/api/webhooks'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some(

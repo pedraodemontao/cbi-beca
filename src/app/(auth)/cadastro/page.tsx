@@ -22,15 +22,16 @@ export default function CadastroPage() {
       <div>
         <h2 className="text-lg font-extrabold tracking-tight">Acesso por autorização</h2>
         <p className="micro-hint mt-1">
-          A Central CBI não tem cadastro aberto. O acesso é liberado para quem
-          está autorizado, e os dados do primeiro acesso chegam por fora da
-          plataforma.
+          A Central CBI não tem cadastro aberto. O acesso é liberado com a
+          compra: chega um e-mail &quot;Acesso liberado&quot; com o link para
+          criar a senha.
         </p>
       </div>
 
       <p className="rounded-panel bg-panel px-4 py-3 text-sm font-medium text-foreground/90">
-        Já recebeu e-mail e senha? É só entrar e trocar a senha em
-        &quot;Conta&quot;.
+        Comprou e o e-mail não chegou? Confira o spam e o endereço usado na
+        compra. Recebeu e-mail e senha de outra forma? É só entrar e trocar a
+        senha em &quot;Conta&quot;.
       </p>
 
       <Link href="/login" className="btn-primary text-center">

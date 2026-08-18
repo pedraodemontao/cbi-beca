@@ -21,10 +21,16 @@ máquina.
 
 ### A · Precisa do Pedro, não é código
 
-1. **SMTP próprio.** O único gasto que muda o jogo, e provavelmente é R$ 0
-   (Resend tem faixa grátis). Sem ele: cadastro por conta própria não escala
-   (2 e-mails/hora), "esqueci minha senha" é frágil, e-mails em inglês. Com
-   ele: a aluna compra e entra sozinha. → *"O que ficou pendente das varreduras"*
+1. ~~**SMTP próprio.**~~ Fechado em 2026-08-18: Resend, R$ 0, e-mails em
+   pt-BR, limite 30/hora, convite e recuperação conferidos contra a produção.
+   → *"SMTP próprio pela Resend"*
+   - ~~**1b · Ligar o webhook da Kiwify.**~~ Feito em 2026-08-18: webhook
+     criado no painel (URL `https://www.centralcbi.site/api/webhooks/kiwify`)
+     e `KIWIFY_WEBHOOK_TOKEN` em produção na Vercel. **Fica de olho:** a
+     primeira compra real vai mostrar o payload verdadeiro em `access_events`
+     — se a linha sair `ignored` com "sem os campos de um evento de venda", o
+     formato difere do reconstituído e `parseKiwifyEvent` precisa de ajuste.
+     → *"Webhook da Kiwify"*
 2. **Rotacionar o `SUPABASE_ACCESS_TOKEN`.** Está no ambiente do shell, é
    token de CONTA, e qualquer processo local reconfigura o Supabase inteiro.
    Vale mais ainda com duas máquinas. → *mesma seção*
@@ -43,10 +49,10 @@ máquina.
 6. **Tesouro Direto.** O CSV do Tesouro Transparente responde 200 `text/csv`,
    aberto, sem chave. Falta parsear e ingerir. Obstáculo: o Hobby tem 2 crons e
    os 2 estão ocupados (`market` e `snapshot`). → *"Pendências conhecidas"*
-7. **Webhook da Kiwify.** A compra virar conta sozinha. O que ele precisa
-   fazer já existe nos scripts (`admin/users` com `email_confirm: true` na
-   compra, `ban_duration` no reembolso). Falta: validar a assinatura e ser
-   idempotente. → *"Caminho de acesso"*
+7. ~~**Webhook da Kiwify.**~~ Código fechado em 2026-08-18: assinatura
+   HMAC validada, idempotente por `(order_id, evento)`, trilha em
+   `access_events`, testado ponta a ponta contra o dev server e o banco de
+   produção. O que resta é o item 1b (painel + variável). → *"Webhook da Kiwify"*
 
 ### C · Dívida técnica que vai cobrar
 
@@ -60,8 +66,8 @@ máquina.
 11. **Setores da aba Ações em inglês** ("Commercial Services",
     "Miscellaneous"). Contradiz "UI em português". A aba Fundos já foi
     corrigida; a de Ações não. → *"Pendências conhecidas"*
-12. **A revogada não vê explicação.** Login recusa com a mesma mensagem de
-    senha errada. Com o webhook isso passa a importar. → *"O que ficou pendente das varreduras"*
+12. ~~**A revogada não vê explicação.**~~ Fechado em 2026-08-18: `user_banned`
+    no login vira "Este acesso está suspenso…". → *"Webhook da Kiwify"*
 
 ### D · Verificação — nunca visto em aparelho real
 
@@ -79,8 +85,8 @@ máquina.
 18. `syncCatalog` só upserta, nunca remove.
 19. Fiagro e FI-Infra fora do catálogo da brapi.
 
-**Sugestão de ordem para começar:** 1 é a maior alavanca e é configuração;
-5 é a feature mais barata; 8 é a dívida mais perigosa.
+**Sugestão de ordem para começar:** 5 é a feature mais barata; 8 é a dívida
+mais perigosa; 7 ficou mais barato agora que o convite por e-mail funciona.
 
 ## Decisões registradas
 
@@ -619,18 +625,19 @@ e o que foi feito:
   Foi usado em 2026-08-13 para corrigir `site_url` pela Management API — o que
   reforça o ponto, não o enfraquece: qualquer processo na máquina consegue
   reconfigurar a autenticação do projeto inteiro.
-- **SMTP próprio é o que falta para o acesso ficar autossuficiente.** Sem ele:
-  cadastro por conta própria não escala (2 e-mails/hora), recuperação de senha
-  é frágil pelo mesmo motivo, e os e-mails continuam em inglês (o plano free
-  recusa editar template sem SMTP). Enquanto isso, quem cria conta é o script.
-- **O webhook da Kiwify ainda não existe.** Enquanto isso, criar e revogar
-  acesso é `scripts/criar-alunos.mjs` e `scripts/acesso.mjs`, rodados à mão.
-- **A revogação não tem trilha de auditoria nem motivo.** `banned_until` diz
-  que a conta está bloqueada, não por quê nem quem bloqueou. Com o webhook
-  isso passa a importar (reembolso × chargeback × cancelamento).
-- **A aluna revogada não vê explicação nenhuma:** o login recusa com a mesma
-  mensagem de senha errada. Enquanto é você quem revoga à mão isso é aceitável,
-  porque você avisa; vindo de webhook, ela vai tentar entrar sem saber por quê.
+- ~~**SMTP próprio é o que falta para o acesso ficar autossuficiente.**~~
+  Fechado em 2026-08-18 — ver "SMTP próprio pela Resend". O script continua
+  sendo o caminho de criar conta em lote, mas agora o convite por e-mail é
+  alternativa que funciona.
+- ~~**O webhook da Kiwify ainda não existe.**~~ Existe desde 2026-08-18
+  (`/api/webhooks/kiwify`); falta ligar no painel. Os scripts continuam para
+  quem entra por fora da Kiwify.
+- ~~**A revogação não tem trilha de auditoria nem motivo.**~~ `access_events`
+  (migration 0019) guarda evento, decisão e payload bruto de cada mudança
+  vinda do webhook. Os scripts ainda NÃO escrevem lá — se um dia importar,
+  `source = 'script'` já está previsto na coluna.
+- ~~**A aluna revogada não vê explicação nenhuma.**~~ Fechado em 2026-08-18 —
+  ver "Webhook da Kiwify".
 - ~~**`.mcp.json` está versionado com `read_only=false` e feature `account`.**~~
   Fechado em 2026-08-12: `read_only=true` e as features reduzidas a
   `docs,database,debugging,development`. Saíram `account` (administração da
@@ -1084,11 +1091,13 @@ percebido porque só existia uma conta, criada antes de a confirmação importar
   confiável apontar pra fora.
 - **O plano gratuito recusa duas coisas que foram tentadas:** traduzir os
   templates de e-mail (HTTP 400 — exige SMTP próprio) e ligar a proteção contra
-  senha vazada (HTTP 402 — exige Pro). Os e-mails continuam em inglês.
-- **`rate_limit_email_sent` é 2 POR HORA e `smtp_host` é nulo.** O remetente
-  embutido do Supabase é declaradamente de teste. É por isso que cadastro por
-  conta própria não escala para turma: da terceira aluna da hora em diante o
-  e-mail não sai.
+  senha vazada (HTTP 402 — exige Pro). ~~Os e-mails continuam em inglês.~~
+  Com o SMTP próprio de 2026-08-18 os templates foram traduzidos; a proteção
+  contra senha vazada continua exigindo Pro.
+- **`rate_limit_email_sent` ERA 2 POR HORA e `smtp_host` era nulo.** O
+  remetente embutido do Supabase é declaradamente de teste — da terceira aluna
+  da hora em diante o e-mail não saía. Desde 2026-08-18 é a Resend, com 30 por
+  hora.
 - **`scripts/criar-alunos.mjs` é a saída disso.** Cria as contas em lote pelo
   admin API já com `email_confirm: true` — nenhum e-mail é disparado e a aluna
   entra na hora com uma senha provisória de 12 caracteres. Reexecutar é seguro:
@@ -1101,8 +1110,8 @@ percebido porque só existia uma conta, criada antes de a confirmação importar
   que NÃO depende de e-mail, e é o que fecha o ciclo do onboarding em lote. O
   link mora ao lado de "Sair" no `AppHeader` porque a aluna não pode precisar
   adivinhar a URL.
-- **`/recuperar` + `/nova-senha` fecham o fluxo por e-mail**, mas dependem do
-  limite de 2/hora enquanto não houver SMTP. O pedido responde a MESMA coisa
+- **`/recuperar` + `/nova-senha` fecham o fluxo por e-mail** (o limite de
+  2/hora que os travava caiu em 2026-08-18). O pedido responde a MESMA coisa
   para e-mail existente e inexistente — resposta diferente transformaria o
   formulário em consulta de quem tem conta.
 - **`/auth/confirm` ganhou `next`**, que é o que separa confirmação de cadastro
@@ -1153,10 +1162,9 @@ compra virando conta.
   vez de "falta a chave". O `listUsers` de lá pagina — o admin API devolve 50
   por página e não avisa que cortou, então a turma passar de 50 faria a busca
   por e-mail não achar quem está na página 2.
-- **Quando o webhook da Kiwify entrar**, o que ele precisa fazer já existe nos
-  dois scripts: `admin/users` com `email_confirm: true` na compra,
-  `ban_duration` no reembolso. O que ele precisa a MAIS: validar a assinatura
-  do webhook e ser idempotente (a Kiwify reenvia o evento).
+- **O webhook da Kiwify entrou em 2026-08-18** — ver a seção própria. Na
+  compra ele CONVIDA (`admin/invite`, não `admin/users` com senha), no
+  reembolso usa o mesmo `ban_duration` do script.
 
 - **Verificado ponta a ponta em 2026-08-13** com uma conta descartável, depois
   apagada: login com a provisória, troca em `/conta`, senha antiga recusada
@@ -1165,6 +1173,133 @@ compra virando conta.
   mínimo está valendo do lado do servidor, não só no formulário. O gatilho de
   perfil preenche `display_name` a partir do `user_metadata` e nasce com
   `is_curator` false.
+
+## SMTP próprio pela Resend (2026-08-18)
+
+Fecha o item 1 da lista. Custo R$ 0 (faixa grátis: 100 e-mails/dia, 3.000/mês).
+Tudo aplicado pela Management API (`PATCH /v1/projects/{ref}/config/auth`);
+nada disso vive no código nem no `.env`.
+
+- **Config:** `smtp_host smtp.resend.com`, `smtp_port "465"` (a API quer
+  STRING — com número devolve 400 `expected string, received number`),
+  `smtp_user resend`, `smtp_pass` = a chave da Resend, remetente
+  `Central CBI <nao-responda@centralcbi.site>`, `rate_limit_email_sent` 2 → 30.
+- **A chave da Resend é send-only e mora SÓ na config de auth do Supabase.**
+  Não lista domínios (`GET /domains` devolve 401 `restricted_api_key`) e não
+  serve pra mais nada — se vazar, o dano é alguém mandar e-mail em nome do
+  domínio, e a rotação é gerar outra no painel da Resend e repetir o PATCH.
+  Como conferir se o domínio está verificado sem essa permissão: enviar pra
+  `delivered@resend.dev` (endereço de teste da Resend, não chega a ninguém) —
+  domínio não verificado leva 403 antes de sair.
+- **Os seis templates estão em pt-BR e na forma `token_hash`**, não
+  `{{ .ConfirmationURL }}`:
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=…&next=…`.
+  Confirmação `type=email`; recuperação `type=recovery&next=/nova-senha`;
+  convite `type=invite&next=/nova-senha`; magic link `type=magiclink`; troca
+  de e-mail `type=email_change&next=/conta`; reautenticação mostra `{{ .Token }}`.
+- **Por que `token_hash` e não o link padrão:** `ConfirmationURL` passa pelo
+  `/auth/v1/verify` do Supabase e, no convite e no magic link, devolve os
+  tokens no `#hash` da URL de destino. Este app não tem client de browser
+  montado em lugar nenhum (`lib/supabase/client.ts` existe e ninguém importa),
+  então o hash morria no `/login` — **o convite nunca teria funcionado**. A
+  rota `/auth/confirm` já sabia verificar `token_hash` (`verifyOtp`) desde o
+  início; só faltava o e-mail apontar pra ela.
+- **Custo assumido:** `{{ .SiteURL }}` é fixo em `https://www.centralcbi.site`.
+  Recuperação pedida a partir do `localhost` manda link pra produção — o
+  `redirectTo` da action deixou de importar pro destino do link (continua
+  sendo enviado, é inofensivo).
+- **Conferido contra a PRODUÇÃO em 2026-08-18** com `generate_link` (devolve
+  o `hashed_token` sem enviar e-mail) numa conta descartável, depois apagada:
+  convite → 307 `/nova-senha` com cookie `sb-*`; recuperação → idem; o mesmo
+  token de novo → `/login?erro=confirmacao` (uso único). E um convite real
+  chegou na caixa do Pedro pelo SMTP novo — o GoTrue responde 500 quando o
+  SMTP recusa, então o 200 com `invited_at` já é prova de aceite.
+- **O que isso muda pro webhook da Kiwify (item 7):** o caminho vira
+  `POST /auth/v1/invite` — a compra dispara o e-mail "Acesso liberado", a aluna
+  clica, cai em `/nova-senha` com sessão e escolhe a senha. Sem CSV, sem senha
+  provisória. `admin/users` + `ban_duration` continuam sendo o reembolso.
+- **`/nova-senha` agora serve DOIS fluxos** (recuperação e convite). O texto da
+  tela fala em "nova senha", que cabe nos dois; se um dia diferenciar, o `type`
+  não chega até ela — só o `next`.
+
+## Webhook da Kiwify (2026-08-18)
+
+Fecha os itens 7 e 12 da lista, e é a segunda metade do item 1: com o SMTP a
+compra pode virar acesso sem ninguém rodar script. Rota
+`POST /api/webhooks/kiwify`, lógica pura em `lib/kiwify.ts`, ações de acesso
+em `lib/access.ts`, trilha em `access_events` (migration 0019, aplicada em
+produção pela Management API no mesmo dia).
+
+- **O payload do webhook NÃO está documentado em docs.kiwify.com.br** — o
+  site cobre a API REST (`/sales`, `/webhooks`) e o OpenAPI confirma só os
+  gatilhos (`compra_aprovada`, `compra_reembolsada`, `chargeback`,
+  `subscription_canceled/late/renewed`, `boleto_gerado`, `pix_gerado`,
+  `carrinho_abandonado`, `compra_recusada`) e que cada webhook tem um `token`.
+  O formato entregue foi cruzado entre quatro implementações públicas
+  independentes, e coincide em todas: `order_id`, `order_status`
+  (`paid`/`waiting_payment`/`refused`/`refunded`/`chargedback`),
+  `webhook_event_type` (`order_approved`, `order_refunded`,
+  `subscription_canceled`…), `Customer.{email,full_name}`,
+  `Product.product_id`, `Subscription.status`. **Por isso a rota grava o
+  payload bruto** e aceita apelidos (`customer` minúsculo, `product.id`): a
+  primeira entrega real é a fonte de verdade.
+- **Assinatura: HMAC-SHA1 com o token do webhook, mensagem
+  `JSON.stringify(body)`, hex em `?signature=`.** A rota confere contra o
+  corpo bruto E contra o re-serializado — se a Kiwify mandar JSON com espaço,
+  só o segundo bate. Comparação em `timingSafeEqual`. Sem
+  `KIWIFY_WEBHOOK_TOKEN` a rota responde 503 para tudo (falha fechada, mesma
+  regra do `CRON_SECRET`).
+- **A decisão lê o TIPO do evento antes do status**, e isso não é estilo:
+  `subscription_late` chega com o `order_status` da compra original (`paid`);
+  olhar só o status liberaria acesso para quem está com a renovação atrasada.
+  Reembolso e chargeback vencem tudo; `subscription_late` só é registrado (a
+  Kiwify manda `subscription_canceled` quando desiste de cobrar, e é aí que
+  revoga); boleto, pix, recusada e carrinho abandonado são ignorados com 200.
+- **Idempotente por `(source, order_id, event_type)`.** A Kiwify reenvia o
+  evento quando não recebe 2xx; a segunda entrega responde 200 `duplicate`
+  sem tocar em nada. Evento que terminou em `error` NÃO conta como tratado —
+  a retentativa dela é a nossa retentativa. Corrida entre duas entregas
+  simultâneas é aceita: convidar duas vezes e banir duas vezes são operações
+  idempotentes por natureza.
+- **Na compra ele CONVIDA, não cria com senha.** `grantAccess`: conta não
+  existe → `inviteUserByEmail` (e-mail "Acesso liberado" → `/nova-senha`);
+  existe e revogada → tira o banimento; existe e nunca confirmou → reenvia o
+  convite (o link vale 1 hora e some); existe e ativa → nada. **Restaurar
+  quem nunca confirmou também reenvia** — foi o passo 7 do teste que mostrou:
+  reembolsada antes de aceitar e comprando de novo ficaria sem banimento e
+  sem caminho para dentro.
+- **`KIWIFY_PRODUCT_IDS` (opcional) filtra por produto**; vazio reage a tudo
+  que o webhook mandar. `KIWIFY_DRY_RUN=1` grava a decisão sem executar — é
+  para o primeiro contato com o payload real e para o botão "Testar webhook"
+  do painel, que dispara um evento de amostra assinado com o mesmo token (e
+  convidaria o e-mail de amostra, se não fosse o dry run).
+- **Erro nosso responde 500** (banco, admin API) e fica em `access_events`
+  com `action = 'error'`; falha ao GRAVAR a trilha não derruba a resposta,
+  porque o acesso já foi alterado e um 500 aí faria a Kiwify reaplicar.
+- **`/api/webhooks` entrou na allowlist do proxy.** Sem isso o portão
+  respondia 307 para `/login` e a Kiwify registraria o webhook como falho.
+- **O login agora explica a revogação.** `signInWithPassword` devolve
+  `user_banned`, e a tela dizia "e-mail ou senha incorretos". Medido em
+  2026-08-18: o GoTrue devolve `user_banned` ANTES de conferir a senha, então
+  esconder na tela não protegia nada — quem chamar a API com a anon key já
+  descobre. A mensagem diz que o acesso está suspenso e por que costuma estar.
+- **`acesso.mjs convidar`** faz à mão o que o webhook faz na compra — para
+  cortesia, turma antiga e teste. Aceita `email "Nome"` e pula quem já tem
+  acesso; revogada é avisada, não restaurada.
+- **Testado em 2026-08-18:** `node scripts/testar-kiwify.mjs` (12 casos do
+  módulo puro: assinatura bruta e re-serializada, token errado, apelidos,
+  cada tipo de evento, filtro de produto) e ponta a ponta contra o dev server
+  + banco de produção com `delivered@resend.dev` (caixa de teste da Resend):
+  assinatura errada 401 → compra `invited` → mesma compra `duplicate` → pix
+  `ignored` → reembolso `revoked` (banida) → compra `restored` (+ convite
+  reenviado) → payload sem cara de venda `ignored` com 200. Descartável e
+  linhas da trilha apagadas depois.
+- **Ligado em produção em 2026-08-18** (webhook no painel + variável na
+  Vercel), sem dry run: por construção, payload que não se entende vira
+  `ignored` — nunca ação errada —, e o dry run só atrasaria quem comprasse no
+  dia. `KIWIFY_DRY_RUN` continua existindo para investigar sem agir. Rate: 30
+  e-mails por hora no Supabase e 100 por dia na Resend grátis — um lançamento
+  com mais de 100 compras num dia estoura a Resend; o plano pago é US$ 20/mês.
 
 ## Cor quebrada no radar e no login (2026-08-14)
 
@@ -1703,6 +1838,7 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
 ## Comandos
 
 - `npm run dev` / `npm run build` / `npm run lint`
+- `node scripts/testar-kiwify.mjs` — testes do módulo puro do webhook (sem rede).
 - Migrations: aplicar os `supabase/migrations/*.sql` em ordem no SQL Editor do projeto Supabase (ou `supabase db push` se CLI vinculada).
 - **Acesso das alunas** (a plataforma é fechada — ver "Caminho de acesso"):
 
@@ -1710,15 +1846,17 @@ Responsivo mobile · loading states nas chamadas brapi · nenhuma chave secreta 
   node scripts/criar-alunos.mjs turma.txt --simular   # confere o arquivo
   node scripts/criar-alunos.mjs turma.txt             # cria e gera o CSV de senhas
   node scripts/acesso.mjs listar                      # quem tem acesso, quem foi revogada
+  node scripts/acesso.mjs convidar maria@x.com "Maria Silva"  # e-mail "Acesso liberado" → /nova-senha
   node scripts/acesso.mjs revogar maria@exemplo.com   # derruba a sessão na hora
   node scripts/acesso.mjs restaurar maria@exemplo.com
   node scripts/acesso.mjs senha maria@exemplo.com     # gera e imprime uma nova
   node scripts/acesso.mjs senha --nova <senha> a@x b@x  # define a MESMA em várias
   ```
 
-  `senha` é o caminho de quem esqueceu a dela enquanto não houver SMTP: o
-  "Esqueci minha senha" depende de e-mail, e o remetente embutido manda 2 por
-  hora. Sem `--nova` cada conta recebe uma senha diferente, que é o certo para
+  `senha` é o atalho de quem esqueceu a dela e não quer esperar e-mail — desde
+  2026-08-18 o "Esqueci minha senha" funciona de verdade (Resend, 30 por hora),
+  então este comando virou plano B. Sem `--nova` cada conta recebe uma senha
+  diferente, que é o certo para
   esse caso. **`--nova` dá a MESMA senha para todas**, e aí o script avisa: quem
   souber a senha entra em qualquer uma dessas contas, bastando saber o e-mail —
   e numa turma os e-mails são conhecidos entre si. Só faz sentido como senha de

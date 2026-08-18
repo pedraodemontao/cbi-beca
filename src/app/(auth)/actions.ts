@@ -26,6 +26,21 @@ export async function login(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
+    // Conta revogada (reembolso, chargeback, cancelamento) responde
+    // `user_banned`. Dizer "senha incorreta" aqui faria a pessoa trocar a
+    // senha três vezes antes de descobrir que o problema é outro — e, vindo
+    // do webhook, ninguém avisou antes.
+    //
+    // Medido em 2026-08-18: o GoTrue devolve `user_banned` ANTES de conferir
+    // a senha, então quem chamar a API direto com a anon key já descobre que o
+    // e-mail é de conta revogada. Esconder a mensagem na tela não fecharia
+    // essa fresta — só tiraria a explicação de quem tem direito a ela.
+    if (error.code === 'user_banned' || /banned/i.test(error.message)) {
+      return {
+        error:
+          'Este acesso está suspenso. Se a compra foi reembolsada ou a assinatura foi cancelada, é por isso; se acha que é engano, fale com o suporte.',
+      };
+    }
     return { error: 'E-mail ou senha incorretos' };
   }
 
