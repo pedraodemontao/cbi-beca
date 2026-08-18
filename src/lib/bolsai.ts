@@ -382,9 +382,10 @@ const MAX_PLAUSIBLE_YIELD = 5;
  * Mesma ideia pro R$/cota: `numeric(18,6)` não guarda valor astronômico.
  *
  * Vale também pra CADA pagamento gravado, não só pro agregado: um único valor
- * corrompido (a bolsai já devolveu 3,4e15) faz o PostgREST recusar o INSERT do
- * bloco INTEIRO — e como `syncDividends` apaga antes de inserir, os tickers
- * daquele bloco ficariam sem histórico nenhum até a próxima execução.
+ * corrompido (a bolsai já devolveu 3,4e15) faz o banco recusar o insert. Desde
+ * a migration 0020 a recusa fica contida no ticker (`replace_dividend_payments`
+ * desfaz só ele e mantém o histórico antigo), mas o filtro continua valendo:
+ * ticker recusado é ticker que fica com dado velho até alguém olhar o log.
  */
 const MAX_PLAUSIBLE_PER_SHARE = 100_000;
 

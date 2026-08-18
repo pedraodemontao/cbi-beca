@@ -230,7 +230,27 @@ export interface DividendsSyncSummary {
   fromYahoo: number;
   /** Linhas gravadas em `dividend_payments`. */
   payments: number;
+  /**
+   * Tickers cujo histórico NÃO foi substituído porque o banco recusou algum
+   * pagamento (valor fora da escala, duplicata). O histórico antigo deles
+   * continua lá — a função SQL desfaz só aquele ticker.
+   */
+  paymentsFailed: string[];
 }
+
+/** O que `replace_dividend_payments` devolve. */
+interface ReplaceOutcome {
+  replaced: number;
+  inserted: number;
+  failed: { ticker: string; error: string }[];
+}
+
+/**
+ * Tickers por chamada à função de substituição. ~500 tickers com ~30
+ * pagamentos cada dão ~1,5 MB de JSON; 100 por lote mantém cada requisição
+ * pequena sem virar uma por ticker.
+ */
+const REPLACE_BATCH = 100;
 
 /** Linha de `dividend_payments` pronta pro banco. */
 interface PaymentRow {
@@ -401,24 +421,48 @@ export async function syncDividends(
   // Substituição por ticker, não upsert: o valor faz parte da chave primária,
   // então um pagamento revisado na fonte viraria linha nova em vez de corrigir a
   // antiga — e a renda da usuária apareceria contada duas vezes.
-  for (let index = 0; index < touchedTickers.length; index += UPSERT_CHUNK) {
-    const chunk = touchedTickers.slice(index, index + UPSERT_CHUNK);
-    const { error: deleteError } = await supabase
-      .from('dividend_payments')
-      .delete()
-      .in('ticker', chunk);
-    if (deleteError) {
-      console.error('Falha ao limpar pagamentos', deleteError);
-      return { ok: false, status: 500, error: 'Falha ao gravar os proventos.' };
-    }
+  //
+  // A substituição é ATÔMICA POR TICKER, na função SQL `replace_dividend_payments`
+  // (migration 0020). A versão anterior fazia `delete in (…)` e depois `insert`
+  // em blocos, sem transação: um valor que o banco recusasse derrubava o bloco
+  // de 500 linhas inteiro, e todos os tickers dele — e dos blocos seguintes —
+  // ficavam sem nenhum pagamento até a próxima rodada. Agora o ticker ruim
+  // volta ao estado anterior sozinho, vem nomeado em `paymentsFailed`, e os
+  // outros seguem.
+  const paymentsByTicker = new Map<string, PaymentRow[]>();
+  for (const row of paymentRows) {
+    const list = paymentsByTicker.get(row.ticker) ?? [];
+    list.push(row);
+    paymentsByTicker.set(row.ticker, list);
   }
 
-  for (let index = 0; index < paymentRows.length; index += UPSERT_CHUNK) {
-    const chunk = paymentRows.slice(index, index + UPSERT_CHUNK);
-    const { error: insertError } = await supabase.from('dividend_payments').insert(chunk);
-    if (insertError) {
-      console.error('Falha ao gravar pagamentos', insertError);
+  const paymentsFailed: string[] = [];
+  let paymentsInserted = 0;
+
+  for (let index = 0; index < touchedTickers.length; index += REPLACE_BATCH) {
+    const batch = touchedTickers.slice(index, index + REPLACE_BATCH).map((ticker) => ({
+      ticker,
+      payments: (paymentsByTicker.get(ticker) ?? []).map((row) => ({
+        ex_date: row.ex_date,
+        payment_date: row.payment_date,
+        type: row.type,
+        value_per_share: row.value_per_share,
+      })),
+    }));
+
+    const { data: outcome, error: rpcError } = await supabase.rpc('replace_dividend_payments', {
+      batch,
+    });
+    if (rpcError) {
+      console.error('Falha ao substituir pagamentos', rpcError);
       return { ok: false, status: 500, error: 'Falha ao gravar os proventos.' };
+    }
+
+    const result = outcome as ReplaceOutcome;
+    paymentsInserted += result.inserted;
+    for (const failure of result.failed) {
+      paymentsFailed.push(failure.ticker);
+      console.error(`Pagamentos de ${failure.ticker} mantidos como estavam: ${failure.error}`);
     }
   }
 
@@ -437,7 +481,8 @@ export async function syncDividends(
       saved: summaryRows.length,
       withoutDividends,
       fromYahoo,
-      payments: paymentRows.length,
+      payments: paymentsInserted,
+      paymentsFailed,
     },
   };
 }

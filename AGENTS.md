@@ -56,9 +56,10 @@ máquina.
 
 ### C · Dívida técnica que vai cobrar
 
-8. **`syncDividends` apaga antes de inserir, sem transação.** Um valor
-   corrompido da bolsai deixa os tickers do bloco sem histórico. O `sane()`
-   fecha o gatilho conhecido, não o desenho. → *"O que ficou pendente das varreduras"*
+8. ~~**`syncDividends` apaga antes de inserir, sem transação.**~~ Fechado em
+   2026-08-18: função SQL `replace_dividend_payments` (migration 0020, em
+   produção) faz delete+insert por ticker em subtransação; ticker recusado
+   volta ao que era e sai nomeado em `paymentsFailed`. → *"Substituição atômica dos proventos"*
 9. **`/preco-teto` manda ~469 kB por pageview.** O corte barato é não enviar
    `priceHistory` das linhas fora da primeira página. → *mesma seção*
 10. **Snapshot e `getQuote` fazem fan-out sem limite de concorrência.** Não
@@ -85,8 +86,8 @@ máquina.
 18. `syncCatalog` só upserta, nunca remove.
 19. Fiagro e FI-Infra fora do catálogo da brapi.
 
-**Sugestão de ordem para começar:** 5 é a feature mais barata; 8 é a dívida
-mais perigosa; 7 ficou mais barato agora que o convite por e-mail funciona.
+**Sugestão de ordem para começar:** 5 é a feature mais barata; 9 e 10 são
+a dívida que sobrou de C; 13 é o que ninguém nunca fez.
 
 ## Decisões registradas
 
@@ -651,8 +652,8 @@ e o que foi feito:
   processo na máquina consegue com o mesmo token.
 - **Proteção contra senha vazada** (HaveIBeenPwned) está desligada no Supabase.
   O mínimo do Zod subiu para 8 caracteres, mas a checagem é do painel.
-- **`syncDividends` continua apagando antes de inserir**, sem transação. O
-  `sane()` fecha o gatilho conhecido, não o desenho.
+- ~~**`syncDividends` continua apagando antes de inserir**, sem transação.~~
+  Fechado em 2026-08-18 — ver "Substituição atômica dos proventos".
 - **Snapshot e `getQuote` fazem fan-out sem limite de concorrência** — não dói
   com uma usuária, é o que aparece quando o tráfego chegar.
 - **`/preco-teto` manda ~469 kB de JSON por pageview** (o dobro do que este
@@ -1300,6 +1301,41 @@ produção pela Management API no mesmo dia).
   dia. `KIWIFY_DRY_RUN` continua existindo para investigar sem agir. Rate: 30
   e-mails por hora no Supabase e 100 por dia na Resend grátis — um lançamento
   com mais de 100 compras num dia estoura a Resend; o plano pago é US$ 20/mês.
+
+## Substituição atômica dos proventos (2026-08-18)
+
+Fecha o item 8. `syncDividends` precisa SUBSTITUIR o histórico de cada ticker
+(o valor faz parte da chave primária de `dividend_payments`, então upsert
+duplicaria pagamento revisado). Até aqui isso era `delete … in (tickers)` e
+depois `insert` em blocos de 500, em duas requisições PostgREST sem transação:
+um único valor recusado pelo banco — 3,4e15 estourando `numeric(18,8)`, zero
+no `check > 0`, duplicata na chave — derrubava o bloco inteiro do insert, e
+todos os tickers dele e dos blocos seguintes ficavam sem nenhum pagamento até
+a próxima rodada. O `sane()` fechou o gatilho conhecido; isto fecha o desenho.
+
+- **`public.replace_dividend_payments(batch jsonb)`** (migration 0020) recebe
+  `[{ticker, payments:[…]}]` e, para cada ticker, faz o delete e o insert
+  dentro de `begin … exception` — que o Postgres executa como subtransação.
+  Falhou o insert daquele ticker, só ele volta ao estado anterior; o motivo
+  vai no retorno (`failed: [{ticker, error}]`) e os outros seguem. Uma
+  chamada a cada 100 tickers (`REPLACE_BATCH`), não uma por ticker.
+- **`revoke execute … from public, anon, authenticated`.** RPC em `public`
+  nasce executável por qualquer papel do PostgREST, e esta escreve numa tabela
+  cuja RLS só dá SELECT. Conferido: anon recebe `42501 permission denied`;
+  só `postgres` e `service_role` têm EXECUTE.
+- **`DividendsSyncSummary.paymentsFailed`** lista os tickers mantidos como
+  estavam, e cada um vai pro log com o erro do banco. `payments` passou a ser
+  o que a função de fato inseriu, não o tamanho do array montado.
+- **Verificado em produção em 2026-08-18** com duas empresas descartáveis
+  (`ZZZA3`, `ZZZB3`, apagadas depois — o cascade levou os pagamentos): lote
+  com A válida e B com valor de 3,4e15 → A substituída, B `numeric field
+  overflow` e o histórico antigo de B intacto. Depois `syncDividends(5)` pelo
+  dev server: 149 pagamentos substituídos, `paymentsFailed: []`, contagem
+  total de linhas idêntica antes e depois.
+- **Não é transação do lote inteiro de propósito.** Uma transação única
+  protegeria tudo-ou-nada, mas um ticker corrompido bloquearia a atualização
+  dos outros 99 — pior que o defeito original, que ao menos gravava a maioria.
+  Subtransação por ticker isola o ruim sem punir o resto.
 
 ## Cor quebrada no radar e no login (2026-08-14)
 
