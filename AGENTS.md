@@ -12,6 +12,76 @@ Ferramenta web de acompanhamento de carteira de investimentos (ações B3 + FIIs
 
 Next.js 16 (App Router, TypeScript, `src/`), Tailwind v4, Supabase (Auth + Postgres + RLS), brapi.dev (catálogo e cotação), bolsai (fundamentos da CVM), Anthropic (chat). Deploy: Vercel (**plano Hobby**).
 
+## COMECE AQUI — o que está pendente (atualizado em 2026-08-18)
+
+Lista viva, na ordem em que vale atacar. O detalhe de cada item está mais
+abaixo neste arquivo, na seção indicada. **Ao fechar um item, risque aqui e
+atualize a data do título** — é o que mantém a lista confiável para a próxima
+máquina.
+
+### A · Precisa do Pedro, não é código
+
+1. **SMTP próprio.** O único gasto que muda o jogo, e provavelmente é R$ 0
+   (Resend tem faixa grátis). Sem ele: cadastro por conta própria não escala
+   (2 e-mails/hora), "esqueci minha senha" é frágil, e-mails em inglês. Com
+   ele: a aluna compra e entra sozinha. → *"O que ficou pendente das varreduras"*
+2. **Rotacionar o `SUPABASE_ACCESS_TOKEN`.** Está no ambiente do shell, é
+   token de CONTA, e qualquer processo local reconfigura o Supabase inteiro.
+   Vale mais ainda com duas máquinas. → *mesma seção*
+3. **Lista de cripto:** 30 moedas, manual. Se aluna pedir uma que falta,
+   ampliar são duas linhas em `lib/coingecko.ts`. Perguntar à Beca se alguém
+   já reclamou. → *"Cripto, e a colisão de sigla"*
+4. **`CPTS`** — ticker sem número cadastrado por uma aluna, não existe, sem
+   cotação. Corrigir pra `CPTS11`, deixar, ou avisar? Decisão do Pedro.
+
+### B · Feature — o que a Beca pediu e falta
+
+5. **IPCA+ na renda fixa.** A série 433 já está em `lib/bcb.ts`; falta a
+   composição mensal com a defasagem de divulgação. Mesmo modelo do CDI e
+   prefixado — o enum `fixed_income_index` já nasceu enum por isso. Meia
+   entrega, sem fonte nova. → *"Renda fixa, ETF e a rampa categórica"*
+6. **Tesouro Direto.** O CSV do Tesouro Transparente responde 200 `text/csv`,
+   aberto, sem chave. Falta parsear e ingerir. Obstáculo: o Hobby tem 2 crons e
+   os 2 estão ocupados (`market` e `snapshot`). → *"Pendências conhecidas"*
+7. **Webhook da Kiwify.** A compra virar conta sozinha. O que ele precisa
+   fazer já existe nos scripts (`admin/users` com `email_confirm: true` na
+   compra, `ban_duration` no reembolso). Falta: validar a assinatura e ser
+   idempotente. → *"Caminho de acesso"*
+
+### C · Dívida técnica que vai cobrar
+
+8. **`syncDividends` apaga antes de inserir, sem transação.** Um valor
+   corrompido da bolsai deixa os tickers do bloco sem histórico. O `sane()`
+   fecha o gatilho conhecido, não o desenho. → *"O que ficou pendente das varreduras"*
+9. **`/preco-teto` manda ~469 kB por pageview.** O corte barato é não enviar
+   `priceHistory` das linhas fora da primeira página. → *mesma seção*
+10. **Snapshot e `getQuote` fazem fan-out sem limite de concorrência.** Não
+    dói com 51 alunas; é o que aparece quando o tráfego chegar. → *mesma seção*
+11. **Setores da aba Ações em inglês** ("Commercial Services",
+    "Miscellaneous"). Contradiz "UI em português". A aba Fundos já foi
+    corrigida; a de Ações não. → *"Pendências conhecidas"*
+12. **A revogada não vê explicação.** Login recusa com a mesma mensagem de
+    senha errada. Com o webhook isso passa a importar. → *"O que ficou pendente das varreduras"*
+
+### D · Verificação — nunca visto em aparelho real
+
+13. Notícias, radar, comparador, tema claro e o card mobile de Fundos com 3
+    células: tudo QA em Chrome desktop + iframe de 375px. **Ninguém abriu num
+    celular de verdade.** → *"Pendências conhecidas"*
+14. **PWA instalado tem casca escura no tema claro.** Splash e barra de status
+    não acompanham a escolha. → *mesma seção*
+
+### E · Anotado, não urgente
+
+15. Rampa categórica em 6 cores; a 7ª precisa remedir o conjunto inteiro.
+16. Renda fixa sem marcação a mercado (só curva — a tela diz) e sem carência.
+17. Radar com fonte única (Yahoo), sem rede de segurança.
+18. `syncCatalog` só upserta, nunca remove.
+19. Fiagro e FI-Infra fora do catálogo da brapi.
+
+**Sugestão de ordem para começar:** 1 é a maior alavanca e é configuração;
+5 é a feature mais barata; 8 é a dívida mais perigosa.
+
 ## Decisões registradas
 
 - **Next 16 usa `src/proxy.ts`** (rename de middleware): export `proxy()` + **`config`**. Helper em `src/lib/supabase/proxy.ts`. Esta linha dizia `proxyConfig` até 2026-08-14, e estava errada — ver "O matcher do proxy nunca valeu".
